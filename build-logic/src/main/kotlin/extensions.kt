@@ -144,6 +144,12 @@ private fun calcExclusion(section: String, bit: Int, excludedOn: Int): String =
 fun projectVersion(project: Project): String =
     project.version.toString().replace("SNAPSHOT", "b" + buildNumber())
 
+/**
+ * MINEZ：本 Fork 的版本号，即上游版本（去掉 -SNAPSHOT）加上 gradle.properties 中的修订号 minezRevision，例如 2.12.1.1。
+ */
+fun minezVersion(project: Project): String =
+    project.version.toString().removeSuffix("-SNAPSHOT") + "." + project.property("minezRevision")
+
 fun versionName(project: Project): String =
     "Geyser-" + project.name.replaceFirstChar { it.uppercase() } + "-" + projectVersion(project)
 

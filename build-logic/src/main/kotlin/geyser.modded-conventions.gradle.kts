@@ -89,7 +89,8 @@ tasks {
     val mergeShadowAndJarJar = register<Jar>("mergeShadowAndJarJar") {
         dependsOn( tasks.shadowJar, tasks.jar )
         // from sources / final name are configured in the respective projects
-        archiveVersion.set("")
+        // MINEZ：文件名带上版本号，例如 Geyser-Fabric-2.12.1.1.jar
+        archiveVersion.set(minezVersion(project))
         archiveClassifier.set("")
     }
 

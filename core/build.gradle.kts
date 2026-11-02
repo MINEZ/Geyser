@@ -148,8 +148,9 @@ val gitVersion = gitBranch.zip(gitCommitAbbrev) { branch, commit ->
     "git-${branch}-${commit}"
 }
 
+// MINEZ：本 Fork 的构建显示自己的版本号，例如 2.12.1.1 (git-master-abc1234)
 val projectVersionProvider = gitRepositoryIsDev.map { isDev ->
-    if (isDev) project.version.toString() else projectVersion(project).toString()
+    if (isDev) minezVersion(project) else projectVersion(project).toString()
 }
 
 val finalVersion = projectVersionProvider.zip(gitVersion) { projVer, gitVer ->
