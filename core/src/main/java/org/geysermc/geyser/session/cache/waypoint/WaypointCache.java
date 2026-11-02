@@ -32,6 +32,7 @@ import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.api.waypoint.CustomWaypointStyle;
 import org.geysermc.geyser.api.waypoint.CustomWaypointStyleRegisterException;
 import org.geysermc.geyser.entity.type.Entity;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.mcprotocollib.protocol.data.game.level.waypoint.TrackedWaypoint;
@@ -85,6 +86,11 @@ public final class WaypointCache {
     }
 
     public void handlePacket(ClientboundTrackedWaypointPacket packet) {
+        // MINEZ：1.21.130 没有 26.10 起的 LocatorBarPacket，上游旧版靠玩家列表与 PlayerLocationPacket 模拟的做法已删除，
+        // 这里不跟踪路径点（定位栏也已在 GeyserSession 中关掉）
+        if (!GameProtocol.is26_40orHigher(session.protocolVersion())) {
+            return;
+        }
         switch (packet.getOperation()) {
             case TRACK -> track(packet.getWaypoint());
             case UNTRACK -> untrack(packet.getWaypoint());

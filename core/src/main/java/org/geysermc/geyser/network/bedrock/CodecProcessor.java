@@ -36,10 +36,19 @@ import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.serializer.MovePlayerSerializer_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.serializer.PlayerSkinSerializer_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2193.serializer.BossEventSerializer_v2193;
+import org.cloudburstmc.protocol.bedrock.codec.v291.serializer.MobEquipmentSerializer_v291;
+import org.cloudburstmc.protocol.bedrock.codec.v291.serializer.MoveEntityAbsoluteSerializer_v291;
 import org.cloudburstmc.protocol.bedrock.codec.v291.serializer.PlayerHotbarSerializer_v291;
 import org.cloudburstmc.protocol.bedrock.codec.v291.serializer.SetEntityLinkSerializer_v291;
+import org.cloudburstmc.protocol.bedrock.codec.v390.serializer.PlayerSkinSerializer_v390;
+import org.cloudburstmc.protocol.bedrock.codec.v419.serializer.MovePlayerSerializer_v419;
 import org.cloudburstmc.protocol.bedrock.codec.v557.serializer.SetEntityDataSerializer_v557;
 import org.cloudburstmc.protocol.bedrock.codec.v662.serializer.SetEntityMotionSerializer_v662;
+import org.cloudburstmc.protocol.bedrock.codec.v712.serializer.MobArmorEquipmentSerializer_v712;
+import org.cloudburstmc.protocol.bedrock.codec.v748.serializer.CraftingDataSerializer_v748;
+import org.cloudburstmc.protocol.bedrock.codec.v748.serializer.InventoryContentSerializer_v748;
+import org.cloudburstmc.protocol.bedrock.codec.v748.serializer.InventorySlotSerializer_v748;
+import org.cloudburstmc.protocol.bedrock.codec.v776.serializer.BossEventSerializer_v776;
 import org.cloudburstmc.protocol.bedrock.codec.v975.serializer.InventorySlotSerializer_v975;
 import org.cloudburstmc.protocol.bedrock.codec.v975.serializer.MobEquipmentSerializer_v975;
 import org.cloudburstmc.protocol.bedrock.codec.v975.serializer.MoveEntityAbsoluteSerializer_v975;
@@ -52,6 +61,7 @@ import org.cloudburstmc.protocol.bedrock.packet.ClientCheatAbilityPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ClientToServerHandshakePacket;
 import org.cloudburstmc.protocol.bedrock.packet.ClientboundMatchmakingStatePacket;
 import org.cloudburstmc.protocol.bedrock.packet.CodeBuilderSourcePacket;
+import org.cloudburstmc.protocol.bedrock.packet.CraftingDataPacket;
 import org.cloudburstmc.protocol.bedrock.packet.CraftingEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.CreatePhotoPacket;
 import org.cloudburstmc.protocol.bedrock.packet.DebugInfoPacket;
@@ -248,6 +258,92 @@ public class CodecProcessor {
         }
     };
 
+    /*
+     * MINEZ：以下是 1.21.130（协议 898）沿用的旧版序列化器，与上面同名的序列化器作用相同，只是线上格式不同。
+     * 上游在移除 26.40 以下的版本时把它们删掉了，这里按 5da8f379 时的写法接回来。
+     */
+    private static final BedrockPacketSerializer<InventoryContentPacket> INVENTORY_CONTENT_SERIALIZER_V748 = new InventoryContentSerializer_v748() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, InventoryContentPacket packet) {
+            throw new IllegalPacketException("Client cannot send InventoryContentPacket in server-auth inventory environment!");
+        }
+    };
+
+    private static final BedrockPacketSerializer<InventorySlotPacket> INVENTORY_SLOT_SERIALIZER_V748 = new InventorySlotSerializer_v748() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, InventorySlotPacket packet) {
+            throw new IllegalPacketException("Client cannot send InventorySlotPacket in server-auth inventory environment!");
+        }
+    };
+
+    private static final BedrockPacketSerializer<MovePlayerPacket> MOVE_PLAYER_SERIALIZER_V419 = new MovePlayerSerializer_v419() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, MovePlayerPacket packet) {
+            throw new IllegalPacketException("Client cannot send MovePlayerPacket in server-auth movement environment!");
+        }
+    };
+
+    private static final BedrockPacketSerializer<MoveEntityAbsolutePacket> MOVE_ENTITY_SERIALIZER_V291 = new MoveEntityAbsoluteSerializer_v291() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, MoveEntityAbsolutePacket packet) {
+            throw new IllegalPacketException("Client cannot send MoveEntityAbsolutePacket in server-auth movement environment!");
+        }
+    };
+
+    private static final BedrockPacketSerializer<BossEventPacket> BOSS_EVENT_SERIALIZER_V776 = new BossEventSerializer_v776() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, BossEventPacket packet) {
+        }
+    };
+
+    private static final BedrockPacketSerializer<MobArmorEquipmentPacket> MOB_ARMOR_EQUIPMENT_SERIALIZER_V712 = new MobArmorEquipmentSerializer_v712() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, MobArmorEquipmentPacket packet) {
+        }
+    };
+
+    private static final BedrockPacketSerializer<PlayerSkinPacket> PLAYER_SKIN_SERIALIZER_V390 = new PlayerSkinSerializer_v390() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, PlayerSkinPacket packet) {
+        }
+    };
+
+    private static final BedrockPacketSerializer<MobEquipmentPacket> MOB_EQUIPMENT_SERIALIZER_V291 = new MobEquipmentSerializer_v291() {
+        @Override
+        public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, MobEquipmentPacket packet) {
+            packet.setRuntimeEntityId(VarInts.readUnsignedLong(buffer));
+            fakeItemRead(buffer);
+            packet.setInventorySlot(buffer.readUnsignedByte());
+            packet.setHotbarSlot(buffer.readUnsignedByte());
+            packet.setContainerId(buffer.readByte());
+        }
+    };
+
+    /**
+     * MINEZ：26.40 起配方按类型分成多个列表下发，翻译器只往这些新列表里填；1.21.130 仍是一个混合列表，
+     * 不改写的话配方会被静默丢掉。这里在序列化时把新列表合并进旧格式，不改动原数据包（同一个包可能发给多个会话）。
+     */
+    private static final BedrockPacketSerializer<CraftingDataPacket> CRAFTING_DATA_SERIALIZER_V748 = new CraftingDataSerializer_v748() {
+        @Override
+        public void serialize(ByteBuf buffer, BedrockCodecHelper helper, CraftingDataPacket packet) {
+            CraftingDataPacket merged = new CraftingDataPacket();
+            merged.getCraftingData().addAll(packet.getCraftingData());
+            merged.getCraftingData().addAll(packet.getShapedData());
+            merged.getCraftingData().addAll(packet.getShapelessData());
+            merged.getCraftingData().addAll(packet.getMultiData());
+            merged.getCraftingData().addAll(packet.getShapelessUserData());
+            merged.getCraftingData().addAll(packet.getShapelessChemistryData());
+            merged.getCraftingData().addAll(packet.getShapedChemistryData());
+            merged.getCraftingData().addAll(packet.getSmithingTransformData());
+            merged.getCraftingData().addAll(packet.getSmithingTrimData());
+            merged.getPotionMixData().addAll(packet.getPotionMixData());
+            merged.getContainerMixData().addAll(packet.getContainerMixData());
+            merged.getMaterialReducers().addAll(packet.getMaterialReducers());
+            merged.setCleanRecipes(packet.isCleanRecipes());
+            super.serialize(buffer, helper, merged);
+        }
+    };
+
     public static void updateCodec(UpstreamSession upstreamSession, String version) {
         // Support all older 1.26.4x builds
         switch (version) {
@@ -314,7 +410,10 @@ public class CodecProcessor {
         if (!legacyReceiptPackets && !Boolean.getBoolean("Geyser.PartneredServerPackets")) {
             codecBuilder.updateSerializer(RefreshEntitlementsPacket.class, IGNORED_SERIALIZER);
             codecBuilder.updateSerializer(PurchaseReceiptPacket.class, IGNORED_SERIALIZER);
-            codecBuilder.updateSerializer(PartyChangedPacket.class, IGNORED_SERIALIZER);
+            // MINEZ：26.10 起才有，1.21.130 的编解码器里没有这个包
+            if (GameProtocol.is26_40orHigher(codec.getProtocolVersion())) {
+                codecBuilder.updateSerializer(PartyChangedPacket.class, IGNORED_SERIALIZER);
+            }
 
             // Added in 26.60
             if (GameProtocol.is26_60orHigher(codec.getProtocolVersion())) {
@@ -329,7 +428,42 @@ public class CodecProcessor {
             codecBuilder.updateSerializer(BossEventPacket.class, BOSS_EVENT_SERIALIZER_V1001);
         }
 
+        // MINEZ：1.21.130 换回旧版序列化器
+        if (!GameProtocol.is26_40orHigher(codec.getProtocolVersion())) {
+            codecBuilder
+                .updateSerializer(InventoryContentPacket.class, INVENTORY_CONTENT_SERIALIZER_V748)
+                .updateSerializer(InventorySlotPacket.class, INVENTORY_SLOT_SERIALIZER_V748)
+                .updateSerializer(MovePlayerPacket.class, MOVE_PLAYER_SERIALIZER_V419)
+                .updateSerializer(MoveEntityAbsolutePacket.class, MOVE_ENTITY_SERIALIZER_V291)
+                .updateSerializer(BossEventPacket.class, BOSS_EVENT_SERIALIZER_V776)
+                .updateSerializer(MobArmorEquipmentPacket.class, MOB_ARMOR_EQUIPMENT_SERIALIZER_V712)
+                .updateSerializer(PlayerSkinPacket.class, PLAYER_SKIN_SERIALIZER_V390)
+                .updateSerializer(MobEquipmentPacket.class, MOB_EQUIPMENT_SERIALIZER_V291)
+                .updateSerializer(CraftingDataPacket.class, CRAFTING_DATA_SERIALIZER_V748);
+        }
+
         return codecBuilder.build();
+    }
+
+    /**
+     * Fake reading an item from the buffer to improve performance.
+     * MINEZ：1.21.130 的 MobEquipmentPacket 仍是这种旧的物品格式。
+     */
+    private static void fakeItemRead(ByteBuf buffer) {
+        int id = VarInts.readInt(buffer); // Runtime ID
+        if (id == 0) { // nothing more to read
+            return;
+        }
+        buffer.skipBytes(2); // count
+        VarInts.readUnsignedInt(buffer); // damage
+        boolean hasNetId = buffer.readBoolean();
+        if (hasNetId) {
+            VarInts.readInt(buffer);
+        }
+
+        VarInts.readInt(buffer); // Block runtime ID
+        int streamSize = VarInts.readUnsignedInt(buffer);
+        buffer.skipBytes(streamSize);
     }
 
     /**

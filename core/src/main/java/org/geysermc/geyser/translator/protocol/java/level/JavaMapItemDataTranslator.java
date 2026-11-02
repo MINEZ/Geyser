@@ -34,6 +34,7 @@ import org.cloudburstmc.protocol.bedrock.data.MapDecoration;
 import org.cloudburstmc.protocol.bedrock.data.MapTrackedObject;
 import org.geysermc.geyser.level.BedrockMapIcon;
 import org.geysermc.geyser.level.MapColor;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -82,6 +83,10 @@ public class JavaMapItemDataTranslator extends PacketTranslator<ClientboundMapIt
             int id = 0;
             for (MapIcon icon : packet.getIcons()) {
                 BedrockMapIcon bedrockMapIcon = BedrockMapIcon.fromType(icon.getIconType());
+                // MINEZ：废弃营地、远古城市等 5 种图标（25~29 号）自 26.50 才有，1.21.130 改用宝藏的红叉
+                if (bedrockMapIcon.getIconID() >= BedrockMapIcon.ICON_ABANDONED_CAMP.getIconID() && !GameProtocol.is26_40orHigher(session.protocolVersion())) {
+                    bedrockMapIcon = BedrockMapIcon.ICON_TREASURE_MARKER;
+                }
 
                 mapItemDataPacket.getTrackedObjects().add(new MapTrackedObject(id));
                 mapItemDataPacket.getDecorations().add(new MapDecoration(bedrockMapIcon.getIconID(), icon.getIconRotation(), icon.getCenterX(), icon.getCenterZ(), "", bedrockMapIcon.toARGB()));

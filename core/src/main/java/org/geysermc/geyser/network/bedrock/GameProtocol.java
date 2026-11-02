@@ -29,10 +29,12 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
+import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168_hotfix4;
 import org.cloudburstmc.protocol.bedrock.codec.v2169.Bedrock_v2169;
 import org.cloudburstmc.protocol.bedrock.codec.v2193.Bedrock_v2193;
 import org.cloudburstmc.protocol.bedrock.codec.v2225.Bedrock_v2225;
+import org.cloudburstmc.protocol.bedrock.codec.v898.Bedrock_v898;
 import org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec;
 import org.geysermc.geyser.api.util.MinecraftVersion;
 import org.geysermc.geyser.impl.MinecraftVersionImpl;
@@ -82,6 +84,8 @@ public final class GameProtocol {
 
     static {
         // Strict ordering
+        // MINEZ：1.21.130 与网易中国版同内核，低于 26.40 的分支见 is26_40orHigher 的调用处
+        register(Bedrock_v898.CODEC, "1.21.130", "1.21.131", "1.21.132");
         register(Bedrock_v2168_hotfix4.CODEC, "26.40", "26.41", "26.42", "26.43", "26.44");
         register(Bedrock_v2169.CODEC, "26.45");
         register(Bedrock_v2193.CODEC, "26.50", "26.51", "26.52");
@@ -136,6 +140,14 @@ public final class GameProtocol {
     }
 
     /* Bedrock convenience methods to gatekeep features and easily remove the check on version removal */
+
+    /**
+     * MINEZ：区分 1.21.130（协议 898）与 26.40 及以上。上游在移除 26.40 以下的版本时删掉了这些分支，
+     * 凡是用到 898 没有的数据包、字段或方块状态的地方，都以此为条件为 1.21.130 跳过或降级。
+     */
+    public static boolean is26_40orHigher(int protocolVersion) {
+        return protocolVersion >= Bedrock_v2168.CODEC.getProtocolVersion();
+    }
 
     public static boolean is26_50orHigher(int protocolVersion) {
         return protocolVersion >= Bedrock_v2193.CODEC.getProtocolVersion();

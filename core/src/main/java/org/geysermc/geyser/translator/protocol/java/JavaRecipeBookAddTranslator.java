@@ -34,6 +34,7 @@ import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.inventory.recipe.GeyserRecipe;
 import org.geysermc.geyser.inventory.recipe.GeyserShapedRecipe;
 import org.geysermc.geyser.inventory.recipe.GeyserShapelessRecipe;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -71,7 +72,8 @@ public class JavaRecipeBookAddTranslator extends PacketTranslator<ClientboundRec
             // Hacky fix: on 26.20 and above, the client crashes when there are no furnace recipes. Furnace recipes also have to be shapeless.
             // Before this fix, Geyser did not translate furnace recipes at all.
             // TODO rewrite this, but properly
-            if (display instanceof FurnaceRecipeDisplay furnaceRecipe) {
+            // MINEZ：26.20 以前 Geyser 不翻译熔炉配方，1.21.130 照旧（按 5da8f379 接回）
+            if (display instanceof FurnaceRecipeDisplay furnaceRecipe && GameProtocol.is26_40orHigher(session.protocolVersion())) {
                 GeyserShapelessRecipe geyserRecipe = new GeyserShapelessRecipe(contents.id(), netId, furnaceRecipe, contents.category());
 
                 List<ShapelessRecipeData> recipeData = geyserRecipe.asRecipeData(session);

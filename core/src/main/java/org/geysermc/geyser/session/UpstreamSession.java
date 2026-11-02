@@ -33,6 +33,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodecHelper;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.geysermc.geyser.network.bedrock.GeyserBedrockPeer;
+import org.geysermc.geyser.network.bedrock.LegacyPacketFilter;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayDeque;
@@ -46,13 +47,13 @@ public class UpstreamSession {
     private Queue<BedrockPacket> postStartGamePackets = new ArrayDeque<>();
 
     public void sendPacket(@NonNull BedrockPacket packet) {
-        if (!isClosed()) {
+        if (!isClosed() && LegacyPacketFilter.canEncode(session.getCodec(), packet)) {
             session.sendPacket(packet);
         }
     }
 
     public void sendPacketImmediately(@NonNull BedrockPacket packet) {
-        if (!isClosed()) {
+        if (!isClosed() && LegacyPacketFilter.canEncode(session.getCodec(), packet)) {
             session.sendPacketImmediately(packet);
         }
     }
@@ -75,7 +76,7 @@ public class UpstreamSession {
 
         BedrockPacket packet;
         while ((packet = postStartGamePackets.poll()) != null) {
-            session.sendPacket(packet);
+            sendPacket(packet);
         }
         postStartGamePackets = null;
     }

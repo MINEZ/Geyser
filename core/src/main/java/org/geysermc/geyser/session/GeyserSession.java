@@ -164,6 +164,7 @@ import org.geysermc.geyser.level.BedrockDimension;
 import org.geysermc.geyser.level.JavaDimension;
 import org.geysermc.geyser.level.gamerule.GameRuleHandler;
 import org.geysermc.geyser.level.physics.CollisionManager;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.java.LocalSession;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.java.JavaRegistries;
@@ -1032,7 +1033,9 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
 
         // On bedrock 26.10 and above, the client only shows the locator bar when there are
         // waypoints on it, so we're fine doing this
-        gamerulePacket.getGameRules().add(new GameRuleData<>("locatorBar", true));
+        // MINEZ：1.21.130 没有 LocatorBarPacket，Java 的路径点无法显示（见 WaypointCache），关掉定位栏，
+        // 以免客户端自行显示渲染距离内的玩家
+        gamerulePacket.getGameRules().add(new GameRuleData<>("locatorBar", GameProtocol.is26_40orHigher(protocolVersion())));
 
         upstream.sendPacket(gamerulePacket);
     }
@@ -2022,10 +2025,13 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         )));
         upstream.sendPacket(jigsawStructureDataPacket);
 
-        VoxelShapesPacket voxelShapesPacket = new VoxelShapesPacket();
-        voxelShapesPacket.setNameMap(new HashMap<>());
-        voxelShapesPacket.setShapes(new ArrayList<>());
-        upstream.sendPacket(voxelShapesPacket);
+        // MINEZ：上游只对 26.20 及以上发送 VoxelShapesPacket，1.21.130 没有这个包，不发（按 5da8f379 接回）
+        if (GameProtocol.is26_40orHigher(protocolVersion())) {
+            VoxelShapesPacket voxelShapesPacket = new VoxelShapesPacket();
+            voxelShapesPacket.setNameMap(new HashMap<>());
+            voxelShapesPacket.setShapes(new ArrayList<>());
+            upstream.sendPacket(voxelShapesPacket);
+        }
 
         StartGamePacket startGamePacket = buildStartGamePacket();
         configureExperiments(startGamePacket);
@@ -2051,7 +2057,8 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         startGamePacket.setUniqueEntityId(playerEntity.geyserId());
         startGamePacket.setRuntimeEntityId(playerEntity.geyserId());
         GameType gameType = EntityUtils.toBedrockGamemode(gameMode);
-        if (gameType == GameType.SURVIVAL_VIEWER) {
+        // MINEZ：只有 26.40 及以上要这样处理，1.21.130 照常发 SURVIVAL_VIEWER（按 d515a97e 之前接回）
+        if (gameType == GameType.SURVIVAL_VIEWER && GameProtocol.is26_40orHigher(this.protocolVersion())) {
             gameType = GameType.SURVIVAL;
             pendingSpectator = true;
         }

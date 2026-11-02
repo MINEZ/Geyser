@@ -35,13 +35,16 @@ import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.PlaySoundPacket;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.level.block.type.Block;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.registry.Registries;
+import org.geysermc.geyser.registry.loader.SoundRegistryLoader;
 import org.geysermc.geyser.registry.type.SoundMapping;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.mcprotocollib.protocol.data.game.level.sound.Sound;
 
 import java.util.Locale;
+import java.util.Map;
 
 public final class SoundUtils {
 
@@ -106,6 +109,10 @@ public final class SoundUtils {
         String soundIdentifier = removeMinecraftNamespace(javaSound.getName());
 
         SoundMapping soundMapping = Registries.SOUNDS.get(soundIdentifier);
+        if (!GameProtocol.is26_40orHigher(session.protocolVersion())) {
+            // MINEZ：当前映射把一些放置音效改成了 1.21.130 没有的 playsound 名（例如 place.stone），沿用 Java 1.21.11 时期的映射
+            soundMapping = LegacySounds.MAPPINGS.getOrDefault(soundIdentifier, soundMapping);
+        }
         if (soundMapping == null) {
             session.getGeyser().getLogger().debug("[Builtin] Sound mapping for " + soundIdentifier + " not found; assuming custom.");
             playSound(session, soundIdentifier, position, volume, pitch);
@@ -175,6 +182,13 @@ public final class SoundUtils {
             GeyserImpl.getInstance().getLogger().debug("Sound event for " + context + " was of an unexpected type! Expected string or NBT map, got " + soundEventObject);
         }
         return soundEvent;
+    }
+
+    /**
+     * MINEZ：1.21.130 档的音效映射覆盖，取自 GeyserMC/mappings 的 366baa6（Java 1.21.11 时期），只含 68 个与当前映射不同、且当前目标在 1.21.130 不存在的事件。
+     */
+    private static final class LegacySounds {
+        private static final Map<String, SoundMapping> MAPPINGS = new SoundRegistryLoader().load("bedrock/sounds.1_21_130.json");
     }
 
     private SoundUtils() {

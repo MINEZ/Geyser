@@ -36,6 +36,7 @@ import it.unimi.dsi.fastutil.objects.ObjectIntPair;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2193.Bedrock_v2193;
 import org.cloudburstmc.protocol.bedrock.codec.v2225.Bedrock_v2225;
+import org.cloudburstmc.protocol.bedrock.codec.v898.Bedrock_v898;
 import org.geysermc.geyser.GeyserBootstrap;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.item.type.Item;
@@ -71,6 +72,8 @@ public final class TagRegistryPopulator {
         };
 
         List<ObjectIntPair<String>> paletteVersions = List.of(
+            // MINEZ：取自上游的 26.0 标签表，1.21.130 的物品与 26.0 相同
+            ObjectIntPair.of("1_21_130", Bedrock_v898.CODEC.getProtocolVersion()),
             ObjectIntPair.of("26_30", Bedrock_v2168.CODEC.getProtocolVersion()),
             ObjectIntPair.of("26_30", Bedrock_v2193.CODEC.getProtocolVersion()),
             ObjectIntPair.of("26_30", Bedrock_v2225.CODEC.getProtocolVersion())

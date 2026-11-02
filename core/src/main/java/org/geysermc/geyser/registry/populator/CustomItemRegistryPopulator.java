@@ -58,6 +58,7 @@ import org.geysermc.geyser.item.custom.GeyserCustomItemBedrockOptions;
 import org.geysermc.geyser.item.custom.GeyserCustomItemDefinition;
 import org.geysermc.geyser.item.exception.InvalidItemComponentsException;
 import org.geysermc.geyser.item.type.Item;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
 import org.geysermc.geyser.registry.mappings.BuiltInMappings;
 import org.geysermc.geyser.registry.mappings.MappingsConfigReader;
@@ -500,13 +501,26 @@ public class CustomItemRegistryPopulator {
         // This can be missing if a non-vanilla item didn't specify a max stack size, or if a component patch removed the component. In that case vanilla Minecraft defaults to 1
         int stackSize = components.getOrDefault(DataComponentTypes.MAX_STACK_SIZE, 1);
 
+        // MINEZ：26.30 以前 minecraft:wearable 会覆盖这个组件，可装备的物品无法堆叠，见 MCPE-176931（按 5da8f379 接回）
+        boolean sendStackSizeComponent = GameProtocol.is26_40orHigher(context.protocolVersion());
+
+        // Hack for v1 compat: Allow e.g. carved pumpkins to continue working as a base
+        if (!sendStackSizeComponent && stackSize > 1 && definition instanceof GeyserCustomItemDefinition customItemDefinition && customItemDefinition.isOldConvertedItem()) {
+            Equippable equippable = components.get(DataComponentTypes.EQUIPPABLE);
+            if (equippable != null) {
+                stackSize = 1;
+            }
+        }
+
         int bedrockStackSize = Math.min(stackSize, Item.BEDROCK_MAX_STACK_SIZE);
         itemProperties.putInt("max_stack_size", bedrockStackSize);
-        // Also sent as a component, as a byte: without it minecraft:wearable resets the stack size to one,
-        // and the client refuses to move any slot holding more than one of the item
-        componentBuilder.putCompound("minecraft:max_stack_size", NbtMap.builder()
-            .putByte("value", (byte) bedrockStackSize)
-            .build());
+        if (sendStackSizeComponent) {
+            // Also sent as a component, as a byte: without it minecraft:wearable resets the stack size to one,
+            // and the client refuses to move any slot holding more than one of the item
+            componentBuilder.putCompound("minecraft:max_stack_size", NbtMap.builder()
+                .putByte("value", (byte) bedrockStackSize)
+                .build());
+        }
 
         // Ignore durability if the item's predicates requires that it be unbreakable
         if (maxDamage > 0 && !isUnbreakableItem(definition)) {

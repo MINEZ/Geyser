@@ -1,0 +1,310 @@
+{
+  "block.ancient_debris.place": {
+    "playsound_mapping": "dig.ancient_debris",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:ancient_debris"
+  },
+  "block.bamboo_wood_hanging_sign.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:bamboo_hanging_sign[attached=true,rotation=0,waterlogged=false]"
+  },
+  "block.basalt.place": {
+    "playsound_mapping": "dig.basalt",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:basalt[axis=x]"
+  },
+  "block.bone_block.place": {
+    "playsound_mapping": "dig.bone_block",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:bone_block[axis=x]"
+  },
+  "block.candle.place": {
+    "playsound_mapping": "dig.candle",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:candle[candles=1,lit=false,waterlogged=false]"
+  },
+  "block.chain.place": {
+    "playsound_mapping": "dig.chain",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:chain[axis=y,waterlogged=false]"
+  },
+  "block.cherry_wood_hanging_sign.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:cherry_hanging_sign[attached=true,rotation=0,waterlogged=false]"
+  },
+  "block.comparator.click": {
+    "playsound_mapping": "random.click",
+    "bedrock_mapping": "BLOCK_CLICK"
+  },
+  "block.copper_grate.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:copper_grate[waterlogged=false]"
+  },
+  "block.decorated_pot.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:decorated_pot[cracked=false,facing=north,waterlogged=false]"
+  },
+  "block.dispenser.fail": {
+    "playsound_mapping": "random.click",
+    "bedrock_mapping": "DENY"
+  },
+  "block.froglight.place": {
+    "playsound_mapping": "step.froglight",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:ochre_froglight[axis=y]"
+  },
+  "block.frogspawn.place": {
+    "playsound_mapping": "step.frog_spawn",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:frogspawn"
+  },
+  "block.fungus.place": {
+    "playsound_mapping": "dig.fungus",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:crimson_fungus"
+  },
+  "block.gilded_blackstone.place": {
+    "playsound_mapping": "dig.stone",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:gilded_blackstone"
+  },
+  "block.grass.place": {
+    "playsound_mapping": "dig.grass",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:grass_block[snowy=false]"
+  },
+  "block.gravel.place": {
+    "playsound_mapping": "dig.gravel",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:gravel"
+  },
+  "block.hanging_sign.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:oak_hanging_sign[attached=true,rotation=0,waterlogged=false]"
+  },
+  "block.heavy_core.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:heavy_core[waterlogged=false]"
+  },
+  "block.honey_block.place": {
+    "playsound_mapping": "dig.honey_block",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:honey_block"
+  },
+  "block.lodestone.place": {
+    "playsound_mapping": "dig.lodestone",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:lodestone"
+  },
+  "block.metal.place": {
+    "playsound_mapping": "dig.stone",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:iron_block"
+  },
+  "block.nether_bricks.place": {
+    "playsound_mapping": "dig.nether_brick",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:nether_bricks"
+  },
+  "block.nether_gold_ore.place": {
+    "playsound_mapping": "dig.nether_gold_ore",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:nether_gold_ore"
+  },
+  "block.nether_ore.place": {
+    "playsound_mapping": "dig.nether_gold_ore",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:nether_gold_ore"
+  },
+  "block.nether_sprouts.place": {
+    "playsound_mapping": "dig.nether_sprouts",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:nether_sprouts"
+  },
+  "block.nether_wood_hanging_sign.place": {
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:crimson_hanging_sign[attached=true,rotation=0,waterlogged=false]"
+  },
+  "block.netherite_block.place": {
+    "playsound_mapping": "dig.netherite",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:netherite_block"
+  },
+  "block.netherrack.place": {
+    "playsound_mapping": "dig.netherrack",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:netherrack"
+  },
+  "block.nylium.place": {
+    "playsound_mapping": "dig.nylium",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:warped_nylium"
+  },
+  "block.roots.place": {
+    "playsound_mapping": "dig.roots",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:crimson_roots"
+  },
+  "block.sand.place": {
+    "playsound_mapping": "dig.sand",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:sand"
+  },
+  "block.sculk_vein.place": {
+    "playsound_mapping": "break.sculk_vein",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:sculk_vein[down=false,east=false,north=false,south=false,up=false,waterlogged=false,west=false]"
+  },
+  "block.shroomlight.place": {
+    "playsound_mapping": "dig.shroomlight",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:shroomlight"
+  },
+  "block.snow.place": {
+    "playsound_mapping": "dig.snow",
+    "bedrock_mapping": "ITEM_USE_ON",
+    "identifier": "minecraft:snow_block"
+  },
+  "block.soul_sand.place": {
+    "playsound_mapping": "dig.soul_sand",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:soul_sand"
+  },
+  "block.soul_soil.place": {
+    "playsound_mapping": "dig.soul_soil",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:soul_soil"
+  },
+  "block.stem.place": {
+    "playsound_mapping": "dig.stem",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:attached_pumpkin_stem[facing=north]"
+  },
+  "block.stone.place": {
+    "playsound_mapping": "dig.stone",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:stone"
+  },
+  "block.vine.place": {
+    "playsound_mapping": "dig.vines",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:vine[east=false,north=false,south=false,up=false,west=false]"
+  },
+  "block.wart_block.place": {
+    "playsound_mapping": "dig.nether_wart",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:warped_wart_block"
+  },
+  "block.wood.place": {
+    "playsound_mapping": "dig.wood",
+    "bedrock_mapping": "PLACE",
+    "identifier": "minecraft:oak_planks"
+  },
+  "entity.cod.death": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "DEATH"
+  },
+  "entity.cod.flop": {
+    "playsound_mapping": "mob.fish.flop",
+    "bedrock_mapping": "FLOP"
+  },
+  "entity.cod.hurt": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "HURT"
+  },
+  "entity.donkey.jump": {
+    "playsound_mapping": "mob.horse.jump",
+    "bedrock_mapping": "JUMP"
+  },
+  "entity.egg.throw": {
+    "playsound_mapping": "random.bow",
+    "bedrock_mapping": "THROW",
+    "identifier": "minecraft:player"
+  },
+  "entity.ender_eye.launch": {
+    "playsound_mapping": "random.bow",
+    "bedrock_mapping": "LAUNCH"
+  },
+  "entity.ender_pearl.throw": {
+    "playsound_mapping": "random.bow",
+    "bedrock_mapping": "THROW",
+    "identifier": "minecraft:player"
+  },
+  "entity.fishing_bobber.throw": {
+    "playsound_mapping": "random.bow",
+    "bedrock_mapping": "THROW"
+  },
+  "entity.fox.teleport": {
+    "playsound_mapping": "mob.endermen.portal",
+    "bedrock_mapping": ""
+  },
+  "entity.nautilus.swim": {
+    "playsound_mapping": "random.swim",
+    "bedrock_mapping": "SWIM"
+  },
+  "entity.player.teleport": {
+    "playsound_mapping": "mob.endermen.portal",
+    "bedrock_mapping": ""
+  },
+  "entity.puffer_fish.death": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "DEATH"
+  },
+  "entity.puffer_fish.flop": {
+    "playsound_mapping": "mob.fish.flop",
+    "bedrock_mapping": "FLOP"
+  },
+  "entity.puffer_fish.hurt": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "HURT"
+  },
+  "entity.salmon.death": {
+    "bedrock_mapping": "DEATH",
+    "identifier": "minecraft:salmon"
+  },
+  "entity.salmon.flop": {
+    "playsound_mapping": "mob.fish.flop",
+    "bedrock_mapping": "FLOP"
+  },
+  "entity.salmon.hurt": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "HURT"
+  },
+  "entity.snowball.throw": {
+    "playsound_mapping": "random.bow",
+    "bedrock_mapping": "THROW",
+    "identifier": "minecraft:player"
+  },
+  "entity.tadpole.flop": {
+    "playsound_mapping": "mob.fish.flop",
+    "bedrock_mapping": ""
+  },
+  "entity.tropical_fish.death": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "DEATH"
+  },
+  "entity.tropical_fish.flop": {
+    "playsound_mapping": "mob.fish.flop",
+    "bedrock_mapping": "FLOP"
+  },
+  "entity.tropical_fish.hurt": {
+    "playsound_mapping": "mob.fish.hurt",
+    "bedrock_mapping": "HURT"
+  },
+  "item.armor.equip_elytra": {
+    "playsound_mapping": "armor.equip_generic",
+    "bedrock_mapping": "ARMOR_EQUIP_ELYTRA"
+  },
+  "item.firecharge.use": {
+    "playsound_mapping": "mob.ghast.fireball",
+    "bedrock_mapping": "IGNITE"
+  },
+  "music.overworld.frozen_peaks": {
+    "playsound_mapping": "music.game.frozen_peaks",
+    "bedrock_mapping": ""
+  },
+  "music.overworld.meadow": {
+    "playsound_mapping": "music.game.meadow",
+    "bedrock_mapping": ""
+  }
+}

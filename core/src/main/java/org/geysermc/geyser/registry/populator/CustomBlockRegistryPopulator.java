@@ -57,6 +57,7 @@ import org.geysermc.geyser.level.block.type.Block;
 import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.level.physics.BoundingBox;
 import org.geysermc.geyser.level.physics.PistonBehavior;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
 import org.geysermc.geyser.registry.mappings.MappingsConfigReader;
@@ -340,14 +341,15 @@ public class CustomBlockRegistryPopulator {
      * Generates and returns the block property data for the provided custom block
      *
      * @param customBlock the custom block to generate block property data for
+     * @param protocolVersion the Bedrock protocol version of the palette
      * @return the block property data for the provided custom block
      */
     @SuppressWarnings("unchecked")
-    static BlockPropertyData generateBlockPropertyData(CustomBlockData customBlock) {
+    static BlockPropertyData generateBlockPropertyData(CustomBlockData customBlock, int protocolVersion) {
         List<NbtMap> permutations = new ArrayList<>();
         for (CustomBlockPermutation permutation : customBlock.permutations()) {
             permutations.add(NbtMap.builder()
-                    .putCompound("components", CustomBlockRegistryPopulator.convertComponents(permutation.components()))
+                    .putCompound("components", CustomBlockRegistryPopulator.convertComponents(permutation.components(), protocolVersion))
                     .putString("condition", permutation.condition())
                     .build());
         }
@@ -370,7 +372,7 @@ public class CustomBlockRegistryPopulator {
         CreativeCategory creativeCategory = customBlock.creativeCategory() != null ? customBlock.creativeCategory() : CreativeCategory.NONE;
         String creativeGroup = customBlock.creativeGroup() != null ? customBlock.creativeGroup() : "";
         NbtMapBuilder propertyTag = NbtMap.builder()
-                .putCompound("components", CustomBlockRegistryPopulator.convertComponents(customBlock.components()))
+                .putCompound("components", CustomBlockRegistryPopulator.convertComponents(customBlock.components(), protocolVersion))
                 // this is required or the client will crash
                 // in the future, this can be used to replace items in the creative inventory
                 // this would require us to map https://wiki.bedrock.dev/documentation/creative-categories.html#for-blocks programatically
@@ -394,9 +396,10 @@ public class CustomBlockRegistryPopulator {
      * Converts the provided custom block components to an {@link NbtMap} to be sent to the client in the StartGame packet
      *
      * @param components the custom block components to convert
+     * @param protocolVersion the Bedrock protocol version of the palette
      * @return the NBT representation of the provided custom block components
      */
-    private static NbtMap convertComponents(CustomBlockComponents components) {
+    private static NbtMap convertComponents(CustomBlockComponents components, int protocolVersion) {
         if (components == null) {
             return NbtMap.EMPTY;
         }
@@ -435,10 +438,15 @@ public class CustomBlockRegistryPopulator {
             NbtMapBuilder materialsBuilder = NbtMap.builder();
             for (Map.Entry<String, MaterialInstance> entry : components.materialInstances().entrySet()) {
                 MaterialInstance materialInstance = entry.getValue();
-                NbtMapBuilder materialBuilder = NbtMap.builder()
-                        // Bedrock stopped accepting a byte here in 1.26.20; it must be a float
-                        .putFloat("ambient_occlusion", materialInstance.ambientOcclusionExponent())
-                        .putBoolean("isotropic", materialInstance.isotropic());
+                NbtMapBuilder materialBuilder = NbtMap.builder();
+                if (GameProtocol.is26_40orHigher(protocolVersion)) {
+                    // Bedrock stopped accepting a byte here in 1.26.20; it must be a float
+                    materialBuilder.putFloat("ambient_occlusion", materialInstance.ambientOcclusionExponent());
+                } else {
+                    // MINEZ：1.21.130 仍是布尔值（按 5da8f379 接回）
+                    materialBuilder.putBoolean("ambient_occlusion", materialInstance.ambientOcclusion());
+                }
+                materialBuilder.putBoolean("isotropic", materialInstance.isotropic());
 
                 // todo this is actually an bitset, we should add the other properties some day
                 materialBuilder.putBoolean("packed_bools", materialInstance.faceDimming());
