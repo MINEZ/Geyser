@@ -276,7 +276,9 @@ public interface GeyserConfig {
         @Comment("""
             How Bedrock players can connect. Changes require a restart.
             "nethernet": the new connection method for Bedrock Edition. It needs signaling, see "signaling" below.
-            "both": accepts NetherNet and RakNet. Each needs its own UDP port, see "port" and "webrtc-port".""")
+            "both": accepts NetherNet and RakNet. Each needs its own UDP port, see "port" and "webrtc-port".
+            "raknet": accepts RakNet only, on the UDP "port" above, for clients that only speak RakNet such as
+            NetEase's China Edition. NetherNet, its signaling and "webrtc-port" are not used.""")
         default Transport transport() {
             return Transport.NETHERNET;
         }
@@ -323,10 +325,20 @@ public interface GeyserConfig {
 
         enum Transport {
             NETHERNET,
-            BOTH;
+            BOTH,
+            // MINEZ：只用 RakNet。网易中国版客户端只走 RakNet；NetherNet 所需的 WebRTC 库要求 glibc 2.34 与 OpenSSL 3，
+            // 在较旧的系统上加载不了。上游已移除这一项，本 Fork 保留
+            RAKNET;
 
             public boolean raknet() {
-                return this == BOTH;
+                return this != NETHERNET;
+            }
+
+            /**
+             * MINEZ：是否启动 NetherNet（WebRTC 与信令）。
+             */
+            public boolean nethernet() {
+                return this != RAKNET;
             }
         }
     }

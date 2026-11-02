@@ -296,8 +296,8 @@ public class ConfigLoaderTest {
         CommentedConfigurationNode latest = new ConfigLoader(tempDirectory.resolve("raknet-only-latest-" + platformType + ".yml").toFile(), platformType)
             .loadConfigurationNode(configClass);
 
-        // The comment no longer offers "raknet" either
-        assertEquals("nethernet", migrated.node("bedrock", "transport").getString());
+        // MINEZ：本 Fork 保留 raknet，值不迁移；旧的注释换成当前的注释
+        assertEquals("raknet", migrated.node("bedrock", "transport").getString());
         assertEquals(latest.node("bedrock", "transport").comment(), migrated.node("bedrock", "transport").comment());
     }
 
@@ -307,7 +307,8 @@ public class ConfigLoaderTest {
         File file = tempDirectory.resolve("raknet-current.yml").toFile();
         Files.writeString(file.toPath(), "bedrock:\n  transport: raknet\nconfig-version: " + Constants.CONFIG_VERSION + "\n");
         GeyserConfig edited = new ConfigLoader(file, PlatformType.STANDALONE).load0(GeyserRemoteConfig.class);
-        assertEquals(GeyserConfig.BedrockConfig.Transport.NETHERNET, edited.bedrock().transport());
+        // MINEZ：本 Fork 保留 raknet
+        assertEquals(GeyserConfig.BedrockConfig.Transport.RAKNET, edited.bedrock().transport());
 
         GeyserConfig argument = new ConfigLoader(tempDirectory.resolve("raknet-argument.yml").toFile(), PlatformType.STANDALONE)
             .transformer(root -> {
@@ -318,7 +319,7 @@ public class ConfigLoaderTest {
                 }
             })
             .load0(GeyserRemoteConfig.class);
-        assertEquals(GeyserConfig.BedrockConfig.Transport.NETHERNET, argument.bedrock().transport());
+        assertEquals(GeyserConfig.BedrockConfig.Transport.RAKNET, argument.bedrock().transport());
     }
 
     @Test
@@ -334,7 +335,8 @@ public class ConfigLoaderTest {
         CommentedConfigurationNode migrated = new ConfigLoader(file, PlatformType.STANDALONE)
             .loadConfigurationNode(GeyserRemoteConfig.class);
 
-        assertEquals("nethernet", migrated.node("bedrock", "transport").getString());
+        // MINEZ：本 Fork 保留 raknet，迁移时按小写重新写入
+        assertEquals("raknet", migrated.node("bedrock", "transport").getString());
         assertTrue(migrated.node("bedrock", "transport").comment().contains("Moved off \"raknet\" for the proxy"));
     }
 

@@ -125,12 +125,12 @@ public class EnvironmentOverridesTest {
 
     @Test
     void testRemovedRaknetTransportOverride() throws Exception {
-        // Overrides apply after migrations, so the removed value has to be moved there too, in any case
+        // MINEZ：本 Fork 保留 raknet，环境变量中的写法同样有效，大小写不限
         GeyserConfig config = new ConfigLoader(tempDirectory.resolve("raknet.yml").toFile(), PlatformType.STANDALONE)
             .environment(Map.of("GEYSER_BEDROCK_TRANSPORT", "RakNet"))
             .load0(GeyserRemoteConfig.class);
 
-        assertEquals(GeyserConfig.BedrockConfig.Transport.NETHERNET, config.bedrock().transport());
+        assertEquals(GeyserConfig.BedrockConfig.Transport.RAKNET, config.bedrock().transport());
     }
 
     @Test

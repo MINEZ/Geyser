@@ -269,38 +269,17 @@ public class ConfigMigrations {
                     return null;
                 })
                 .addAction(path("bedrock", "transport"), (path, value) -> {
-                    // Old defaults offer "raknet", which no longer loads, on a line of its own, so the current
-                    // comment is written instead. A comment of the user's own rarely starts a line with it
+                    // Old defaults offer "raknet" on a line of its own, so the current comment is written instead.
+                    // A comment of the user's own rarely starts a line with it
                     if (value instanceof CommentedConfigurationNode commented && commented.comment() != null
                             && commented.comment().lines().anyMatch(line -> line.strip().startsWith("\"raknet\""))) {
                         commented.comment(null);
                     }
-                    // The value itself is moved by the config loader, which also sees overrides
+                    // MINEZ：本 Fork 保留 raknet，值不迁移
                     return null;
                 })
                 .build()))
         .build();
-
-    /**
-     * Moves a "raknet" transport, which was removed, to "nethernet". The config loader runs this on the file at any
-     * version, and again once overrides apply.
-     */
-    static void moveRakNetOnly(ConfigurationNode transport, @Nullable GeyserLogger logger) throws SerializationException {
-        if (!"raknet".equalsIgnoreCase(transport.getString())) {
-            return;
-        }
-        if (logger != null) {
-            logger.error("      / \\");
-            logger.error("     /   \\      WARNING! Raknet-only transport has now been REMOVED.");
-            logger.error("    /  |  \\     Your server now tries to use NetherNet transport,");
-            logger.error("   /   |   \\    which means you MUST setup the network configurations required.");
-            logger.error("  /         \\   Please see our blog post over at https://geysermc.org/blog/preparing-for-nethernet");
-            logger.error(" /     o     \\  on how to configure NetherNet for your server.");
-            logger.error("/_____________\\");
-        }
-        // Not "both", so signaling and WebRTC can share the Bedrock port without RakNet in the way
-        transport.set("nethernet");
-    }
 
     static TransformAction renameAndMove(String... newPath) {
         return ((path, value) -> Arrays.stream(newPath).toArray());

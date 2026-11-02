@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.1-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.2-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -55,7 +55,7 @@
 | 基岩版 | 1.21.130、1.21.131、1.21.132（本 Fork 新增），26.40、26.41、26.42、26.43、26.44、26.45、26.50、26.51、26.52、26.60 |
 | Java 版 | 26.3 |
 
-基岩版 1.21.130 客户端只能经 RakNet 连接。上游默认的传输方式 `nethernet` 不接受 RakNet 连接，因此需要把 Geyser 配置中的 `bedrock.transport` 改为 `both`。服务端的基岩版端口默认仍为 UDP 19132。
+基岩版 1.21.130 与中国版客户端只能经 RakNet 连接。上游默认的传输方式 `nethernet` 不接受 RakNet 连接，因此需要把 Geyser 配置中的 `bedrock.transport` 改为本 Fork 保留的 `raknet`；也接纳 NetherNet 客户端时改为 `both`。使用 `raknet` 时只用到 UDP 的 `port`。
 
 上游不为版本打标签，我们以合并的方式跟随它的 `master` 分支：
 
@@ -73,6 +73,7 @@ git submodule update --init --recursive
 | 名称 | 类型 | 改动 |
 | --- | --- | --- |
 | 基岩版 1.21.130（协议 898） | 协议 | 新增 |
+| `bedrock.transport: raknet` | 配置 | 保留 |
 | 客户端无法解码的数据包 | 行为 | 修改 |
 | 构建产物的文件名 | 构建 | 修改 |
 | 版本号的显示 | 构建 | 修改 |
@@ -85,11 +86,13 @@ Java 26.1~26.3 新增、而 1.21.130 没有的内容以替身显示，不会因�
 - 定位栏关闭，也不跟踪路径点。
 - 新的实体类型照原名下发，客户端并不认识。
 
+**只用 RakNet 的传输方式。** 上游移除了 `raknet` 这一传输方式，并会把写着它的配置改为 `nethernet`。本 Fork 保留它，写着它的配置也保持原样：中国版客户端只走 RakNet，而 NetherNet 加载的 WebRTC 库要求 glibc 2.34 与 OpenSSL 3，Debian 10 等较旧的系统没有，每次启动都会报错，NetherNet 也始终起不来。使用 `raknet` 时，Geyser 只在 UDP 的 `port` 上监听，不加载这个库，也用不到信令与 `webrtc-port`；只支持 NetherNet 的客户端（例如近期的国际版基岩版）因此无法连接。`nethernet` 与 `both` 两种传输方式的行为与上游一致。
+
 **客户端无法解码的数据包。** 上游假定它发送的每个数据包与枚举值都存在于客户端的协议中，遇到不存在的就会在编码时抛出异常，玩家随之断开连接。现在对于低于 26.40 的协议，客户端协议中没有的数据包，以及客户端没有的音效、粒子、关卡事件与实体事件，会在发送前被丢弃，玩家只是少看到这一个效果。各协议不支持的值在第一次用到时逐个试编码得出，不必随协议库维护一份列表。实体标志与实体数据类型不作过滤，因为 Geyser 目前没有用到 1.21.130 缺少的这类值。
 
-**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.1.jar`，一眼就能分清不同的构建。
+**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.2.jar`，一眼就能分清不同的构建。
 
-**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.1 (git-master-abc1234)`。
+**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.2 (git-master-abc1234)`。
 
 ## 构建
 
@@ -103,28 +106,28 @@ Windows 上改用 `gradlew.bat build`。构建需要 JDK 21 及以上版本；Fa
 
 | 平台 | 文件 |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.1.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.1.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.1.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.1.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.1.jar` |
-| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.1.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.1.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.2.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.2.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.2.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.2.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.2.jar` |
+| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.2.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.2.jar` |
 
 同一文件夹中还有构建过程的中间产物，例如 `velocity-2.12.1-SNAPSHOT.jar`，不要安装它们。
 
 ## 版本号
 
-版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.1` 中：
+版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.2` 中：
 
 - `2.12.1` 是上游版本，来自 `gradle.properties` 中的 `version` 一行，去掉了 `-SNAPSHOT` 后缀。这一行与上游保持一致，因此只有上游修改它时才会产生冲突。
 - `b1280` 是本 Fork 所基于的上游构建号，来自同一文件中的 `upstreamBuild`，与上游为同一提交发布的官方构建一致，即上游的 `2.12.1-b1280`。
-- 末尾的 `.1` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
+- 末尾的 `.2` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
 
 上游为推送到 `master` 的每个提交编一个构建号。合并上游后，在 `https://download.geysermc.org/v2/projects/geyser/versions/<版本>/builds`（例如 `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`）的 `changes` 中找到所合并的上游提交对应的构建号，然后：
 
 - 把 `upstreamBuild` 改为该构建号，上游的 `version` 一行有变化时一并采用，并将 `minezRevision` 重新设为 `1`；
-- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.1` 到 `2.12.1-b1280.2`。
+- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.2` 到 `2.12.1-b1280.3`。
 
 同时更新两份 README 顶部的版本徽章，以及[构建](#构建)一节中的文件名。
 

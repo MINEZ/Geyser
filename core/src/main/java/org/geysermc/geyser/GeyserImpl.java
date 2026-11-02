@@ -434,7 +434,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
                 config.bedrock().transport(transport);
                 logger.info("Transport set from system property: " + transport.name().toLowerCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
-                logger.error("Invalid transport from system property: " + transportProperty + "! Use \"nethernet\" or \"both\". Defaulting to configured transport.");
+                logger.error("Invalid transport from system property: " + transportProperty + "! Use \"nethernet\", \"both\" or \"raknet\". Defaulting to configured transport.");
             }
         }
 
@@ -526,8 +526,11 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         if (transport.raknet()) {
             startRaknet(config, logger);
         }
-        this.netherNetServer = new NetherNetServer(this);
-        this.netherNetServer.start();
+        // MINEZ：只用 RakNet 时不启动 NetherNet，也就不加载 WebRTC 库
+        if (transport.nethernet()) {
+            this.netherNetServer = new NetherNetServer(this);
+            this.netherNetServer.start();
+        }
 
         if (config.java().authType() == AuthType.FLOODGATE) {
             try {
