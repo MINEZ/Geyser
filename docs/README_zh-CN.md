@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1.1-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.1-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -66,7 +66,7 @@ git merge upstream/master
 git submodule update --init --recursive
 ```
 
-合并不会改变我们已有提交的哈希。上游修改 `gradle.properties` 中的 `version` 一行时会产生冲突，按[版本号](#版本号)一节的规则解决即可。
+合并不会改变我们已有提交的哈希。每次合并后，按[版本号](#版本号)一节的规则更新版本号。
 
 ## 相对上游的改动
 
@@ -87,9 +87,9 @@ Java 26.1~26.3 新增、而 1.21.130 没有的内容以替身显示，不会因�
 
 **客户端无法解码的数据包。** 上游假定它发送的每个数据包与枚举值都存在于客户端的协议中，遇到不存在的就会在编码时抛出异常，玩家随之断开连接。现在对于低于 26.40 的协议，客户端协议中没有的数据包，以及客户端没有的音效、粒子、关卡事件与实体事件，会在发送前被丢弃，玩家只是少看到这一个效果。各协议不支持的值在第一次用到时逐个试编码得出，不必随协议库维护一份列表。实体标志与实体数据类型不作过滤，因为 Geyser 目前没有用到 1.21.130 缺少的这类值。
 
-**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1.1.jar`，一眼就能分清不同的构建。
+**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.1.jar`，一眼就能分清不同的构建。
 
-**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1.1 (git-master-abc1234)`。
+**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.1 (git-master-abc1234)`。
 
 ## 构建
 
@@ -103,22 +103,28 @@ Windows 上改用 `gradlew.bat build`。构建需要 JDK 21 及以上版本；Fa
 
 | 平台 | 文件 |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1.1.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1.1.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1.1.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1.1.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1.1.jar` |
-| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1.1.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1.1.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.1.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.1.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.1.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.1.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.1.jar` |
+| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.1.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.1.jar` |
 
 同一文件夹中还有构建过程的中间产物，例如 `velocity-2.12.1-SNAPSHOT.jar`，不要安装它们。
 
 ## 版本号
 
-版本号由去掉 `-SNAPSHOT` 后缀的上游版本加上本 Fork 的修订号组成：在 `2.12.1.1` 中，`2.12.1` 来自 `gradle.properties` 中的 `version` 一行，末尾的 `.1` 是同一文件中的 `minezRevision`。`version` 一行本身与上游保持一致，因此只有上游修改它时才会产生冲突。
+版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.1` 中：
 
-- 合并时带来了新的上游版本：采用上游的 `version` 一行，并将 `minezRevision` 重新设为 `1`；
-- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1.1` 到 `2.12.1.2`。
+- `2.12.1` 是上游版本，来自 `gradle.properties` 中的 `version` 一行，去掉了 `-SNAPSHOT` 后缀。这一行与上游保持一致，因此只有上游修改它时才会产生冲突。
+- `b1280` 是本 Fork 所基于的上游构建号，来自同一文件中的 `upstreamBuild`，与上游为同一提交发布的官方构建一致，即上游的 `2.12.1-b1280`。
+- 末尾的 `.1` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
+
+上游为推送到 `master` 的每个提交编一个构建号。合并上游后，在 `https://download.geysermc.org/v2/projects/geyser/versions/<版本>/builds`（例如 `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`）的 `changes` 中找到所合并的上游提交对应的构建号，然后：
+
+- 把 `upstreamBuild` 改为该构建号，上游的 `version` 一行有变化时一并采用，并将 `minezRevision` 重新设为 `1`；
+- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.1` 到 `2.12.1-b1280.2`。
 
 同时更新两份 README 顶部的版本徽章，以及[构建](#构建)一节中的文件名。
 

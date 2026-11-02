@@ -16,7 +16,7 @@ tasks {
 
     val shadowJar = named<ShadowJar>("shadowJar") {
         archiveBaseName.set(project.name)
-        // MINEZ：文件名带上版本号，例如 Geyser-Velocity-2.12.1.1.jar
+        // MINEZ：文件名带上版本号，例如 Geyser-Velocity-2.12.1-b1280.1.jar
         archiveVersion.set(minezVersion(project))
         archiveClassifier.set("")
         
