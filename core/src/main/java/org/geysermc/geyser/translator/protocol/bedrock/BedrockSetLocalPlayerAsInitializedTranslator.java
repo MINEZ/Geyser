@@ -29,6 +29,7 @@ import org.cloudburstmc.protocol.bedrock.packet.SetLocalPlayerAsInitializedPacke
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
 import org.geysermc.geyser.api.network.AuthType;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -43,6 +44,13 @@ public class BedrockSetLocalPlayerAsInitializedTranslator extends PacketTranslat
         if (session.getPlayerEntity().geyserId() == packet.getRuntimeEntityId()) {
             if (!session.getUpstream().isInitialized()) {
                 session.getUpstream().setInitialized(true);
+
+                // MINEZ：1.21.130 在进服的加载界面期间不理会发给自己的 MovePlayer（只用 RespawnPacket 的位置），
+                // 加载结束、发来这个包时立即重发待确认的传送（例如服务端在进服时传送玩家）
+                if (!GameProtocol.is26_40orHigher(session.protocolVersion()) && session.getUnconfirmedTeleport() != null) {
+                    session.getGeyser().getLogger().debug("The client finished loading, resending the unconfirmed teleport");
+                    session.resendUnconfirmedTeleport();
+                }
 
                 if (session.remoteServer().authType() == AuthType.ONLINE) {
                     if (!session.isLoggedIn()) {

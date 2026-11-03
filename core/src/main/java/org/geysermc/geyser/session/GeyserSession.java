@@ -2177,17 +2177,30 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         // Resend the teleport every few packets until Bedrock responds
         unconfirmedTeleport.incrementUnconfirmedFor();
         if (unconfirmedTeleport.shouldResend()) {
-            unconfirmedTeleport.resetUnconfirmedFor();
-            geyser.getLogger().debug("Resending teleport " + unconfirmedTeleport.getTeleportConfirmId());
-            getPlayerEntity().moveAbsolute(unconfirmedTeleport.getPosition(),
-                unconfirmedTeleport.getYaw(), unconfirmedTeleport.getPitch(), playerEntity.isOnGround(), true);
+            resendUnconfirmedTeleport();
+        }
+    }
 
-            if (unconfirmedTeleport.getTeleportType() == TeleportCache.TeleportType.KEEP_VELOCITY) {
-                SetEntityMotionPacket entityMotionPacket = new SetEntityMotionPacket();
-                entityMotionPacket.setRuntimeEntityId(playerEntity.geyserId());
-                entityMotionPacket.setMotion(unconfirmedTeleport.getVelocity());
-                this.sendUpstreamPacket(entityMotionPacket);
-            }
+    /**
+     * Resends the teleport that the client has not confirmed yet, if there is one.
+     * <p>
+     * MINEZ：由 {@link #confirmTeleport(Vector3f)} 中重发传送的代码抽出，1.21.130 的客户端结束加载界面时也用它立即重发一次。
+     */
+    public void resendUnconfirmedTeleport() {
+        if (unconfirmedTeleport == null) {
+            return;
+        }
+
+        unconfirmedTeleport.resetUnconfirmedFor();
+        geyser.getLogger().debug("Resending teleport " + unconfirmedTeleport.getTeleportConfirmId());
+        getPlayerEntity().moveAbsolute(unconfirmedTeleport.getPosition(),
+            unconfirmedTeleport.getYaw(), unconfirmedTeleport.getPitch(), playerEntity.isOnGround(), true);
+
+        if (unconfirmedTeleport.getTeleportType() == TeleportCache.TeleportType.KEEP_VELOCITY) {
+            SetEntityMotionPacket entityMotionPacket = new SetEntityMotionPacket();
+            entityMotionPacket.setRuntimeEntityId(playerEntity.geyserId());
+            entityMotionPacket.setMotion(unconfirmedTeleport.getVelocity());
+            this.sendUpstreamPacket(entityMotionPacket);
         }
     }
 

@@ -33,6 +33,7 @@ import org.cloudburstmc.protocol.bedrock.packet.RespawnPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityMotionPacket;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.TeleportCache;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
@@ -151,13 +152,23 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
         TeleportCache.TeleportType type = (deltaMovement.distanceSquared(Vector3f.ZERO) > 1.0E-8F) ?
             TeleportCache.TeleportType.KEEP_VELOCITY : TeleportCache.TeleportType.NORMAL;
 
+        TeleportCache previousTeleport = session.getUnconfirmedTeleport();
         // Set the unconfirmed teleport to ensure we send the adjusted Bedrock position in moveAbsolute (see CollisionManager#adjustPositionForBedrock)
         session.setUnconfirmedTeleport(new TeleportCache(session, teleportDestination, deltaMovement, newPitch, newYaw, teleportId, type));
         entity.moveAbsolute(teleportDestination, newYaw, newPitch, false, true);
 
         // Bedrock ignores teleports that are extremely close to the player's original position and orientation, so check if we need to cache the teleport
         if (lastPlayerPosition.distanceSquared(teleportDestination) < 0.001 && Math.abs(newPitch - lastPlayerPitch) < 5 && Math.abs(newYaw - lastPlayerYaw) < 5) {
-            session.setUnconfirmedTeleport(null);
+            // MINEZ：上一次传送还没有被客户端确认时，lastPlayerPosition 只是 Geyser 记下的目的地，客户端未必已经到了那里。
+            // 1.21.130 在加载界面（进服、跨服与切换维度）期间不理会发给自己的 MovePlayer，服务端紧接着把玩家传送到同一处两次时
+            // （例如插件在进服时传送），清掉待确认的传送会让 Geyser 把客户端停留的旧位置当作移动，既不再重发传送，
+            // 又只能发出同样被忽略的位置纠正。1.21.130 在这种情况下保留待确认的传送；26.40 及以上照旧
+            if (previousTeleport == null || GameProtocol.is26_40orHigher(session.protocolVersion())) {
+                session.setUnconfirmedTeleport(null);
+            } else {
+                session.getGeyser().getLogger().debug("Keeping teleport " + teleportId + " unconfirmed, as teleport "
+                    + previousTeleport.getTeleportConfirmId() + " to the same position has not been confirmed by the client yet");
+            }
         }
 
         if (type == TeleportCache.TeleportType.KEEP_VELOCITY) {
