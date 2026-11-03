@@ -29,6 +29,7 @@ import io.netty.channel.Channel;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.network.GeyserServerInitializer;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseClients;
 
 public class RakServerInitializer extends GeyserServerInitializer {
     private final boolean rakCookiesEnabled;
@@ -42,6 +43,11 @@ public class RakServerInitializer extends GeyserServerInitializer {
     protected void preInitChannel(Channel channel) throws Exception {
         if (!rakCookiesEnabled) {
             channel.setOption(RakChannelOption.RAK_PROTOCOL_VERSION, 11);
+        } else if (channel.config().getOption(RakChannelOption.RAK_PROTOCOL_VERSION) == NeteaseClients.RAKNET_PROTOCOL_VERSION) {
+            // MINEZ：网易客户端报 RakNet 8，却按 11 的方式批处理与压缩。记下原本的版本，再按 11 搭建管线。
+            // 关闭 cookie 时取不到客户端报的版本，只能都按 11 处理，网易客户端改由登录链识别
+            NeteaseClients.markRaknet8(channel);
+            channel.setOption(RakChannelOption.RAK_PROTOCOL_VERSION, NeteaseClients.VANILLA_RAKNET_PROTOCOL_VERSION);
         }
         super.preInitChannel(channel);
     }

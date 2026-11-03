@@ -48,6 +48,7 @@ import org.cloudburstmc.netty.handler.codec.raknet.server.RakServerOfflineHandle
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.event.connection.ConnectionRequestEvent;
 import org.geysermc.geyser.configuration.GeyserConfig;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseClients;
 import org.geysermc.geyser.network.bedrock.raknet.Bootstraps;
 import org.geysermc.geyser.network.bedrock.raknet.RakConnectionRequestHandler;
 import org.geysermc.geyser.network.bedrock.raknet.RakPingHandler;
@@ -210,7 +211,8 @@ public final class RaknetServer {
             .group(group, childGroup)
             .option(RakChannelOption.RAK_HANDLE_PING, true)
             // Every supported Bedrock version uses RakNet 11. 7 to 10 compress from the first frame without RequestNetworkSettings
-            .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[] {11})
+            // MINEZ：网易中国版客户端报 RakNet 8，实际按 11 工作，见 RakServerInitializer。列表须升序
+            .option(RakChannelOption.RAK_SUPPORTED_PROTOCOLS, new int[] {NeteaseClients.RAKNET_PROTOCOL_VERSION, 11})
             .option(RakChannelOption.RAK_MAX_MTU, this.geyser.config().advanced().bedrock().mtu())
             .option(RakChannelOption.RAK_PACKET_LIMIT, rakRateLimitingDisabled ? 0 : rakPacketLimit)
             .option(RakChannelOption.RAK_GLOBAL_PACKET_LIMIT, rakGlobalPacketLimit)

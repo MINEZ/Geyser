@@ -29,6 +29,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockDisconnectReasons;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.text.GeyserLocale;
 
@@ -50,6 +51,16 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
     PacketSignal defaultHandler(BedrockPacket packet) {
         geyser.getLogger().debug("Handled packet: " + packet.getClass().getSimpleName());
         return PacketSignal.HANDLED;
+    }
+
+    @Override
+    public PacketSignal handlePacket(BedrockPacket packet) {
+        if (packet instanceof NeteasePacket neteasePacket) {
+            // MINEZ：网易专有的数据包（PyRpc 等）暂不处理，记下后丢弃
+            geyser.getLogger().debug("Dropped China Edition packet " + neteasePacket + " from " + session.bedrockUsername());
+            return PacketSignal.HANDLED;
+        }
+        return BedrockPacketHandler.super.handlePacket(packet);
     }
 
     @Override

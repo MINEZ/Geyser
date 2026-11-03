@@ -173,6 +173,7 @@ import org.geysermc.geyser.registry.type.BlockMappings;
 import org.geysermc.geyser.registry.type.ItemMappings;
 import org.geysermc.geyser.session.auth.AuthData;
 import org.geysermc.geyser.session.auth.BedrockClientData;
+import org.geysermc.geyser.session.auth.NeteaseProfile;
 import org.geysermc.geyser.session.cache.AdvancementsCache;
 import org.geysermc.geyser.session.cache.BlockBreakHandler;
 import org.geysermc.geyser.session.cache.BookEditCache;
@@ -283,6 +284,11 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     @Setter
     private AuthData authData;
     private BedrockClientData clientData;
+    /**
+     * MINEZ：网易中国版客户端登录链中的身份信息，国际版客户端为 null。
+     */
+    @Setter
+    private @Nullable NeteaseProfile neteaseProfile;
     /**
      * Used for Floodgate skin uploading
      */

@@ -133,7 +133,9 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
             case COMPLETED -> {
                 finishedResourcePackSending = true;
                 if (geyser.config().java().authType() != AuthType.ONLINE) {
-                    session.authenticate(session.getAuthData().name());
+                    // MINEZ：网易玩家的名字可能不合 Java 版的规则，改用 NeteaseLogin 算出的名字
+                    session.authenticate(session.getNeteaseProfile() != null
+                        ? session.getNeteaseProfile().javaUsername() : session.getAuthData().name());
                 } else if (!couldLoginUserByName(session.getAuthData().name())) {
                     // We must spawn the white world
                     session.connect();

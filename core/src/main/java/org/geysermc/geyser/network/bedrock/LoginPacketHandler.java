@@ -41,11 +41,15 @@ import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
 import org.cloudburstmc.protocol.bedrock.packet.NetworkSettingsPacket;
 import org.cloudburstmc.protocol.bedrock.packet.PlayStatusPacket;
 import org.cloudburstmc.protocol.bedrock.packet.RequestNetworkSettingsPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UnknownPacket;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.cloudburstmc.protocol.common.util.Zlib;
 import org.geysermc.geyser.Constants;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.event.bedrock.SessionInitializeEvent;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseClients;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseCompression;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.session.GeyserSession;
@@ -63,6 +67,10 @@ public class LoginPacketHandler extends LoggingPacketHandler {
     private static final String ENCRYPTED_INPUT_MARKER = "geyser-encrypted-input-marker";
 
     private final CompressionStrategy compressionStrategy;
+    /**
+     * MINEZ：网易客户端的压缩，解压时容忍带 zlib 头的流。
+     */
+    private final CompressionStrategy neteaseCompressionStrategy;
     private Stage stage = Stage.NETWORK_SETTINGS;
     /**
      * Whether a batch has been read through the decryptor.
@@ -76,12 +84,24 @@ public class LoginPacketHandler extends LoggingPacketHandler {
         ZlibCompression compression = new ZlibCompression(Zlib.RAW);
         compression.setLevel(this.geyser.config().advanced().bedrock().compressionLevel());
         this.compressionStrategy = new SimpleCompressionStrategy(compression);
+
+        NeteaseCompression neteaseCompression = new NeteaseCompression();
+        neteaseCompression.setLevel(this.geyser.config().advanced().bedrock().compressionLevel());
+        this.neteaseCompressionStrategy = new SimpleCompressionStrategy(neteaseCompression);
     }
 
     @Override
     public PacketSignal handlePacket(BedrockPacket packet) {
         if (session.isClosed()) {
             // Disconnecting, including the rest of the batch that caused it
+            return PacketSignal.HANDLED;
+        }
+
+        if (packet instanceof NeteasePacket || (packet instanceof UnknownPacket unknown && NeteasePacket.isNeteaseId(unknown.getPacketId()))) {
+            // MINEZ：网易客户端在登录过程中也可能发来专有的数据包（例如 Mod SDK 的 PyRpc），丢弃即可，不必断开。
+            // 关闭 RakNet cookie 时登录前还认不出网易客户端，这些包会解成 UnknownPacket
+            String dropped = packet instanceof UnknownPacket unknown ? "with ID " + unknown.getPacketId() : packet.toString();
+            geyser.getLogger().debug("Dropped China Edition packet " + dropped + " while logging in");
             return PacketSignal.HANDLED;
         }
 
@@ -128,9 +148,34 @@ public class LoginPacketHandler extends LoggingPacketHandler {
         return true;
     }
 
+    /**
+     * MINEZ：为握手时报 RakNet 8 的连接（网易客户端）选用网易的编解码器。
+     * 登录链若不是网易签发的，登录时再换回国际版的编解码器，见 NeteaseLogin。
+     */
+    private boolean setNeteaseCodec(int protocolVersion) {
+        BedrockCodec packetCodec = GameProtocol.getNeteaseCodec(protocolVersion);
+        if (packetCodec == null) {
+            String supportedVersions = GameProtocol.getNeteaseBedrockVersions();
+            geyser.getLogger().info("Refused a China Edition client on protocol " + protocolVersion + " from "
+                + (geyser.config().logPlayerIpAddresses() ? session.getSocketAddress() : "<IP address withheld>")
+                + "; supported: " + supportedVersions);
+            if (GameProtocol.isNewerThanNeteaseCodecs(protocolVersion)) {
+                session.disconnect(GeyserLocale.getLocaleStringLog("geyser.network.outdated.server", supportedVersions));
+            } else {
+                session.getUpstream().getSession().setCodec(BedrockCompat.disconnectCompat(protocolVersion));
+                session.disconnect(GeyserLocale.getLocaleStringLog("geyser.network.outdated.client", supportedVersions));
+            }
+            return false;
+        }
+
+        session.getUpstream().getSession().setCodec(packetCodec);
+        return true;
+    }
+
     @Override
     public PacketSignal handle(RequestNetworkSettingsPacket packet) {
-        if (!setCorrectCodec(packet.getProtocolVersion())) {
+        boolean netease = NeteaseClients.isRaknet8(session.getUpstream().getSession().getPeer().getChannel());
+        if (!(netease ? setNeteaseCodec(packet.getProtocolVersion()) : setCorrectCodec(packet.getProtocolVersion()))) {
             return PacketSignal.HANDLED;
         }
 
@@ -139,7 +184,7 @@ public class LoginPacketHandler extends LoggingPacketHandler {
         responsePacket.setCompressionAlgorithm(PacketCompressionAlgorithm.ZLIB);
         responsePacket.setCompressionThreshold(512);
         session.sendUpstreamPacketImmediately(responsePacket);
-        session.getUpstream().getSession().getPeer().setCompression(compressionStrategy);
+        session.getUpstream().getSession().getPeer().setCompression(netease ? neteaseCompressionStrategy : compressionStrategy);
 
         stage = Stage.LOGIN;
         return PacketSignal.HANDLED;
@@ -160,7 +205,10 @@ public class LoginPacketHandler extends LoggingPacketHandler {
 
         if (session.isClosed()) {
             // Can happen if Xbox validation fails
-            session.forciblyCloseUpstream();
+            // MINEZ：因为不是网易客户端而拒绝的登录不强制关闭，否则客户端收不到“请使用中国版客户端”的提示
+            if (!NeteaseClients.isRefused(session.getUpstream().getSession().getPeer().getChannel())) {
+                session.forciblyCloseUpstream();
+            }
             return PacketSignal.HANDLED;
         }
 

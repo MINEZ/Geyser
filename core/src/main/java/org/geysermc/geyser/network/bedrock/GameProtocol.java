@@ -56,6 +56,11 @@ public final class GameProtocol {
     static final List<BedrockCodec> SUPPORTED_BEDROCK_CODECS = new ArrayList<>();
 
     /**
+     * MINEZ：网易中国版客户端用的编解码器，以同一协议的国际版编解码器为基础，见 {@link NeteaseCodec}。
+     */
+    static final List<BedrockCodec> NETEASE_BEDROCK_CODECS = new ArrayList<>();
+
+    /**
      * All bedrock protocol versions that Geyser supports
      */
     public static final IntList SUPPORTED_BEDROCK_PROTOCOLS = new IntArrayList();
@@ -90,6 +95,9 @@ public final class GameProtocol {
         register(Bedrock_v2169.CODEC, "26.45");
         register(Bedrock_v2193.CODEC, "26.50", "26.51", "26.52");
         register(Bedrock_v2225.CODEC, "26.60");
+
+        // MINEZ：网易中国版 3.10（内核 1.21.130）
+        NETEASE_BEDROCK_CODECS.add(NeteaseCodec.build(getBedrockCodec(Bedrock_v898.CODEC.getProtocolVersion())));
 
         MinecraftVersion latestBedrock = SUPPORTED_BEDROCK_VERSIONS.getLast();
         DEFAULT_BEDROCK_VERSION = latestBedrock.versionString();
@@ -137,6 +145,37 @@ public final class GameProtocol {
             }
         }
         return null;
+    }
+
+    /**
+     * MINEZ：取网易中国版客户端用的编解码器。
+     *
+     * @param protocolVersion 客户端报的协议版本
+     * @return 网易的编解码器，不支持这一版本时为 null
+     */
+    public static @Nullable BedrockCodec getNeteaseCodec(int protocolVersion) {
+        for (BedrockCodec packetCodec : NETEASE_BEDROCK_CODECS) {
+            if (packetCodec.getProtocolVersion() == protocolVersion) {
+                return packetCodec;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * MINEZ：客户端的协议是否比支持的网易中国版客户端都新，用于选择断开时的提示。
+     */
+    public static boolean isNewerThanNeteaseCodecs(int protocolVersion) {
+        return NETEASE_BEDROCK_CODECS.stream().allMatch(codec -> protocolVersion > codec.getProtocolVersion());
+    }
+
+    /**
+     * MINEZ：支持的网易中国版客户端所对应的基岩版版本，例如 1.21.130。
+     */
+    public static String getNeteaseBedrockVersions() {
+        return NETEASE_BEDROCK_CODECS.stream()
+            .map(BedrockCodec::getMinecraftVersion)
+            .collect(Collectors.joining(", "));
     }
 
     /* Bedrock convenience methods to gatekeep features and easily remove the check on version removal */

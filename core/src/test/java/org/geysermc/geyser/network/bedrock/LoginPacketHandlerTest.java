@@ -37,7 +37,9 @@ import org.cloudburstmc.protocol.bedrock.packet.CommandRequestPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
 import org.cloudburstmc.protocol.bedrock.packet.RequestNetworkSettingsPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ServerboundLoadingScreenPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UnknownPacket;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.type.BlockMappings;
@@ -119,6 +121,29 @@ class LoginPacketHandlerTest {
         connection.handle(requestNetworkSettings());
         connection.handle(login());
         connection.assertHandedOver();
+    }
+
+    /**
+     * MINEZ：网易专有的数据包在登录过程中丢弃，不断开。
+     */
+    @Test
+    void chinaEditionPacketsDoNotInterruptTheLogin() {
+        Connection connection = new Connection(true);
+        connection.handle(new NeteasePacket.PyRpc());
+        connection.handle(requestNetworkSettings());
+        UnknownPacket unknown = new UnknownPacket();
+        unknown.setPacketId(NeteasePacket.PyRpc.ID);
+        connection.handle(unknown);
+        connection.handle(login());
+        connection.receiveEncrypted();
+        connection.handle(new NeteasePacket.NeteaseJson());
+        connection.handle(new ClientToServerHandshakePacket());
+        connection.assertHandedOver();
+
+        // 其他未知的数据包照旧断开
+        UnknownPacket other = new UnknownPacket();
+        other.setPacketId(201);
+        new Connection(true).assertDisconnectsOn(other);
     }
 
     @Test

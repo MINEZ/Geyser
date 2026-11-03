@@ -230,6 +230,29 @@ public interface GeyserConfig {
         }
     }
 
+    /**
+     * MINEZ：网易中国版客户端的设置。
+     */
+    @ConfigSerializable
+    interface NeteaseConfig {
+        @Comment("""
+            Whether only NetEase's China Edition clients may join. A client is taken to be one when its login is signed
+            by NetEase's root key, or by a key in "trusted-root-keys" below. Every other client is refused while logging in,
+            and told to join with the China Edition client. Turn this off to let other Bedrock clients join as well,
+            for example while troubleshooting. China Edition clients connect over RakNet only, see "transport".""")
+        @DefaultBoolean(true)
+        boolean onlyNeteaseClients();
+
+        @Comment("""
+            Root public keys to trust for China Edition logins, in addition to NetEase's own, as Base64-encoded X.509 keys.
+            NetEase signs logins from some environments with other keys, for example the development build of the PC client.
+            With "debug-mode" on, every China Edition login logs the root key it was signed with. Only add keys found that way:
+            whoever holds the private key of a listed key can log in as any player.""")
+        default List<String> trustedRootKeys() {
+            return Collections.emptyList();
+        }
+    }
+
     @ConfigSerializable
     interface BedrockConfig extends BedrockListener {
         @Comment("""
@@ -298,6 +321,10 @@ public interface GeyserConfig {
             Signaling is how Bedrock players find this server to set up a NetherNet WebRTC connection to it.
             Only used with the "nethernet" and "both" transports. Changes require a restart.""")
         SignalingConfig signaling();
+
+        // MINEZ：网易中国版客户端
+        @Comment("Settings for NetEase's Minecraft China Edition clients.")
+        NeteaseConfig netease();
 
         @Exclude
         @Override

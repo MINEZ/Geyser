@@ -223,7 +223,8 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
 
     public void initialize() {
         // Setup encryption early so we don't start if we can't auth
-        if (config().advanced().bedrock().validateBedrockLogin()) {
+        // MINEZ：只接受网易客户端时用不到微软的根公钥，不必因为访问不了微软的服务而停止
+        if (config().advanced().bedrock().validateBedrockLogin() && !config().bedrock().netease().onlyNeteaseClients()) {
             try {
                 EncryptionUtils.getMojangPublicKey();
             } catch (Throwable t) {
@@ -533,6 +534,12 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         if (transport.nethernet()) {
             this.netherNetServer = new NetherNetServer(this);
             this.netherNetServer.start();
+        }
+        // MINEZ：中国版客户端只走 RakNet
+        if (config.bedrock().netease().onlyNeteaseClients() && !transport.raknet()) {
+            logger.warning("Only China Edition clients may join (\"only-netease-clients\" under \"bedrock.netease\"), but they connect over RakNet, "
+                + "which the \"" + transport.name().toLowerCase(Locale.ROOT) + "\" transport does not accept. No player can join until "
+                + "\"bedrock.transport\" is set to \"raknet\" or \"both\".");
         }
 
         if (config.java().authType() == AuthType.FLOODGATE) {
