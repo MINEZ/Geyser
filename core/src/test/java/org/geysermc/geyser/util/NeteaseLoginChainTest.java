@@ -167,4 +167,51 @@ class NeteaseLoginChainTest {
             assertFalse(description.contains(entry.split("\\.")[2]), description);
         }
     }
+    @Test
+    void selfSignedNeteaseLoginIsRecognised() {
+        NeteaseLoginChain.SelfSigned selfSigned = NeteaseLoginChain.selfSigned(
+            new CertificateChainPayload(chains.selfSignedChain(" ev "), AuthType.SELF_SIGNED));
+        assertNotNull(selfSigned);
+        assertEquals("ev", selfSigned.displayName());
+        assertEquals(NeteaseTestChains.encoded(chains.client), Base64.getEncoder().encodeToString(selfSigned.identityPublicKey().getEncoded()));
+        // 一段链不是网易签发的正式登录
+        assertNull(validate(chains.selfSignedChain("ev"), trusting(NeteaseTestChains.encoded(chains.root))).verified());
+    }
+
+    @Test
+    void selfSignedLoginWithoutNeteaseFieldsIsNotNetease() {
+        // 国际版客户端离线登录时的自签名链
+        Map<String, Object> extra = Map.of("XUID", "", "displayName", "Steve", "identity", "7724e383-c82b-359f-822e-021d6db84e6c");
+        assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(chains.selfSignedChain(extra), AuthType.SELF_SIGNED)));
+        assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(
+            chains.selfSignedChain(Map.of("displayName", " ", "netease_uid", 1L)), AuthType.SELF_SIGNED)));
+    }
+
+    @Test
+    void selfSignedLoginMustBeSignedByItsOwnKey() {
+        // 由另一个密钥签名、却声称是客户端自己的公钥
+        Map<String, Object> claims = Map.of("extraData", Map.of("displayName", "ev", "netease_uid", 1L),
+            "identityPublicKey", NeteaseTestChains.encoded(chains.client));
+        assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(
+            List.of(NeteaseTestChains.sign(chains.root, claims)), AuthType.SELF_SIGNED)));
+
+        List<String> tampered = new ArrayList<>(chains.selfSignedChain("ev"));
+        String[] parts = tampered.getFirst().split("\\.");
+        String payload = new String(Base64.getUrlDecoder().decode(parts[1])).replace("\"ev\"", "\"xx\"");
+        tampered.set(0, parts[0] + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes()) + "." + parts[2]);
+        assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(tampered, AuthType.SELF_SIGNED)));
+
+        // 三段链、令牌都不是自签名登录
+        assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(chains.chain(), AuthType.FULL)));
+        assertNull(NeteaseLoginChain.selfSigned(new TokenPayload("header.payload.signature", AuthType.FULL)));
+    }
+
+    @Test
+    void describeShowsTheModPcFields() {
+        List<String> lines = NeteaseLoginChain.describe(new CertificateChainPayload(chains.selfSignedChain("ev"), AuthType.SELF_SIGNED));
+        String text = String.join("\n", lines);
+        assertTrue(text.contains("netease_uid=2147483648"), text);
+        assertTrue(text.contains("version=3.10"), text);
+        assertTrue(text.contains("netease_sid=<0 characters, withheld>"), text);
+    }
 }

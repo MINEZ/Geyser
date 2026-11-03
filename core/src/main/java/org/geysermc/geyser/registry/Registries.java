@@ -149,6 +149,12 @@ public final class Registries {
     public static final VersionedRegistry<ItemMappings> ITEMS = VersionedRegistry.create(RegistryLoaders.empty(Int2ObjectOpenHashMap::new));
 
     /**
+     * MINEZ：网易中国版客户端用的 {@link ItemMappings}，按协议号登记。其中方块物品的方块编号按网易的调色板，
+     * 见 {@link org.geysermc.geyser.registry.populator.NeteasePalette}。
+     */
+    public static final VersionedRegistry<ItemMappings> NETEASE_ITEMS = VersionedRegistry.create(RegistryLoaders.empty(Int2ObjectOpenHashMap::new));
+
+    /**
      * A mapped registry holding the {@link ParticleType} to a corresponding {@link ParticleMapping}, containing various pieces of
      * data primarily for how Bedrock should handle the particle.
      */

@@ -163,6 +163,13 @@ public final class GameProtocol {
     }
 
     /**
+     * MINEZ：是否为网易中国版客户端用的编解码器，即会话是否为网易客户端的会话。
+     */
+    public static boolean isNeteaseCodec(@Nullable BedrockCodec codec) {
+        return codec != null && NETEASE_BEDROCK_CODECS.contains(codec);
+    }
+
+    /**
      * MINEZ：客户端的协议是否比支持的网易中国版客户端都新，用于选择断开时的提示。
      */
     public static boolean isNewerThanNeteaseCodecs(int protocolVersion) {

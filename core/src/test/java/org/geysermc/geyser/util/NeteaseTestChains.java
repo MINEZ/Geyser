@@ -113,6 +113,33 @@ final class NeteaseTestChains {
     }
 
     /**
+     * MINEZ：Mod PC 开发包那样的自签名登录链：只有一段，由客户端自己的密钥签名，指向客户端自己的公钥。
+     * extraData 的字段与 Mod PC 3.10 实测相同（XUID 与 netease_sid 为空，带 netease_uid 与 version）。
+     */
+    List<String> selfSignedChain(String displayName) {
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("XUID", "");
+        extra.put("displayName", displayName);
+        extra.put("identity", "7724e383-c82b-359f-822e-021d6db84e6c");
+        extra.put("netease_sid", "");
+        extra.put("netease_uid", 2147483648L);
+        extra.put("version", "3.10");
+        return selfSignedChain(extra);
+    }
+
+    /**
+     * 以给定的 extraData 生成自签名的一段链，例如国际版客户端离线登录时的那种。
+     */
+    List<String> selfSignedChain(Map<String, Object> extra) {
+        Map<String, Object> claims = new LinkedHashMap<>();
+        claims.put("exp", now + 3600);
+        claims.put("extraData", extra);
+        claims.put("identityPublicKey", encoded(client));
+        claims.put("nbf", now - 60);
+        return List.of(sign(client, claims));
+    }
+
+    /**
      * 客户端数据 JWT，由客户端的密钥签名。
      */
     String clientData(Map<String, Object> claims) {

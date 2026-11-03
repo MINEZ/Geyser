@@ -119,30 +119,38 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ItemRegistryPopulator {
 
     @SuppressWarnings("unused") // kept here for convenience when updating
-    record PaletteVersion(String version, int protocolVersion, String creativeVersion, Map<Item, Item> javaOnlyItems, ItemRemapper remapper) {
+    // MINEZ：新增 netease，为 true 时生成网易中国版客户端用的物品表，见 NeteasePalette
+    record PaletteVersion(String version, int protocolVersion, String creativeVersion, Map<Item, Item> javaOnlyItems, ItemRemapper remapper, boolean netease) {
 
         public PaletteVersion(String version, int protocolVersion) {
-            this(version, protocolVersion, null, Collections.emptyMap(), (item, mapping) -> mapping);
+            this(version, protocolVersion, null, Collections.emptyMap(), (item, mapping) -> mapping, false);
         }
 
         public PaletteVersion(String version, int protocolVersion, Map<Item, Item> javaOnlyItems) {
-            this(version, protocolVersion, null, javaOnlyItems, (item, mapping) -> mapping);
+            this(version, protocolVersion, null, javaOnlyItems, (item, mapping) -> mapping, false);
         }
 
         public PaletteVersion(String version, int protocolVersion, ItemRemapper remapper) {
-            this(version, protocolVersion, null, Collections.emptyMap(), remapper);
+            this(version, protocolVersion, null, Collections.emptyMap(), remapper, false);
         }
 
         public PaletteVersion(String version, int protocolVersion, String creativeVersion) {
-            this(version, protocolVersion, creativeVersion, Collections.emptyMap(), (item, mapping) -> mapping);
+            this(version, protocolVersion, creativeVersion, Collections.emptyMap(), (item, mapping) -> mapping, false);
         }
 
         public PaletteVersion(String version, int protocolVersion, Map<Item, Item> javaOnlyItems, String creativeVersion) {
-            this(version, protocolVersion, creativeVersion, javaOnlyItems, (item, mapping) -> mapping);
+            this(version, protocolVersion, creativeVersion, javaOnlyItems, (item, mapping) -> mapping, false);
         }
 
         public String creativeVersion() {
             return creativeVersion == null ? version : creativeVersion;
+        }
+
+        /**
+         * MINEZ：这份物品表所对应的方块映射，网易中国版客户端用网易的调色板。
+         */
+        BlockMappings blockMappings() {
+            return (netease ? BlockRegistries.NETEASE_BLOCKS : BlockRegistries.BLOCKS).forVersion(protocolVersion);
         }
     }
 
@@ -154,6 +162,9 @@ public class ItemRegistryPopulator {
         paletteVersions.add(new PaletteVersion("26_40", Bedrock_v2168.CODEC.getProtocolVersion(), WildernessBoundConverter.itemMappings()));
         paletteVersions.add(new PaletteVersion("26_50", Bedrock_v2193.CODEC.getProtocolVersion()));
         paletteVersions.add(new PaletteVersion("26_60", Bedrock_v2225.CODEC.getProtocolVersion()));
+        // MINEZ：网易中国版 1.21.130，由国际版 1.21.130 的物品表生成，方块物品按网易的调色板编号
+        paletteVersions.add(new PaletteVersion("1_21_130", Bedrock_v898.CODEC.getProtocolVersion(), null,
+            MountsOfMayhemConverter.itemMappings(), (item, mapping) -> mapping, true));
 
         GeyserBootstrap bootstrap = GeyserImpl.getInstance().getBootstrap();
 
@@ -184,6 +195,10 @@ public class ItemRegistryPopulator {
                 itemEntries = JsonUtils.fromJson(stream, paletteEntriesType);
             } catch (Exception e) {
                 throw new AssertionError("Unable to load Bedrock runtime item IDs", e);
+            }
+            if (palette.netease()) {
+                // MINEZ：去掉网易客户端没有的物品
+                itemEntries = NeteasePalette.items(itemEntries);
             }
 
             NbtMap vanillaComponents;
@@ -286,7 +301,7 @@ public class ItemRegistryPopulator {
             Map<CreativeItemCategory, Integer> lastCreativeGroupIds = new Object2IntOpenHashMap<>();
             CreativeItemRegistryPopulator.readCreativeItemGroups(palette, creativeItems, creativeItemGroups, creativeGroupIds, lastCreativeGroupIds);
 
-            BlockMappings blockMappings = BlockRegistries.BLOCKS.forVersion(palette.protocolVersion());
+            BlockMappings blockMappings = palette.blockMappings(); // MINEZ：网易中国版客户端用网易的调色板
 
             Set<Item> javaOnlyItems = new ObjectOpenHashSet<>();
             Collections.addAll(javaOnlyItems, Items.SPECTRAL_ARROW, Items.TIPPED_ARROW, Items.KNOWLEDGE_BOOK, Items.DEBUG_STICK);
@@ -758,7 +773,8 @@ public class ItemRegistryPopulator {
                     .customBlockItemDefinitions(customBlockItemDefinitions)
                     .build();
 
-            Registries.ITEMS.register(palette.protocolVersion(), itemMappings);
+            // MINEZ：网易中国版客户端的物品表另行登记
+            (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
 
             firstMappingsPass = false;
         }

@@ -60,6 +60,7 @@ import org.geysermc.geyser.level.block.type.Block;
 import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.level.block.type.FlowerPotBlock;
 import org.geysermc.geyser.registry.BlockRegistries;
+import org.geysermc.geyser.registry.VersionedRegistry;
 import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
 import org.geysermc.geyser.registry.populator.conversion.BlockRemapper;
 import org.geysermc.geyser.registry.populator.conversion.ICanHasMoreStates;
@@ -82,6 +83,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
@@ -132,12 +134,19 @@ public final class BlockRegistryPopulator {
                 .put(ObjectIntPair.of("26_60", Bedrock_v2225.CODEC.getProtocolVersion()), tag -> tag)
             .build();
 
+        // MINEZ：网易中国版 1.21.130 的调色板由国际版 1.21.130 的生成，单独编号，登记到 NETEASE_BLOCKS，见 NeteasePalette
+        List<PaletteSource> palettes = new ArrayList<>();
+        blockMappers.forEach((palette, mapper) -> palettes.add(new PaletteSource(palette, palette.key(), mapper, UnaryOperator.identity(), BlockRegistries.BLOCKS)));
+        palettes.add(new PaletteSource(ObjectIntPair.of("1_21_130", Bedrock_v898.CODEC.getProtocolVersion()), "netease_1_21_130",
+            NeteasePalette.remapper(MountsOfMayhemConverter.INSTANCE), NeteasePalette::blockStates, BlockRegistries.NETEASE_BLOCKS));
+
         // We can keep this strong as nothing should be garbage collected
         // Safe to intern since Cloudburst NBT is immutable
         //noinspection UnstableApiUsage
         Interner<NbtMap> statesInterner = Interners.newStrongInterner();
 
-        for (ObjectIntPair<String> palette : blockMappers.keySet()) {
+        for (PaletteSource source : palettes) {
+            ObjectIntPair<String> palette = source.palette();
             int protocolVersion = palette.valueInt();
             List<NbtMap> vanillaBlockStates;
             List<NbtMap> blockStates;
@@ -156,6 +165,8 @@ public final class BlockRegistryPopulator {
                     builder.putCompound("states", statesInterner.intern((NbtMap) builder.remove("states")));
                     vanillaBlockStates.set(i, builder.build());
                 }
+                // MINEZ：网易的调色板在这里由国际版的生成，国际版原样不变
+                vanillaBlockStates = source.states().apply(vanillaBlockStates);
 
                 blockStates = new ArrayList<>(vanillaBlockStates);
             } catch (Exception e) {
@@ -236,7 +247,7 @@ public final class BlockRegistryPopulator {
             BlockDefinition movingBlockDefinition = null;
             Iterator<NbtMap> blocksIterator = BLOCKS_NBT.iterator();
 
-            BlockRemapper stateMapper = blockMappers.get(palette);
+            BlockRemapper stateMapper = source.remapper(); // MINEZ：网易的调色板另有转换
 
             GeyserBedrockBlock[] javaToBedrockBlocks = new GeyserBedrockBlock[JAVA_BLOCKS_SIZE];
             GeyserBedrockBlock[] javaToVanillaBedrockBlocks = new GeyserBedrockBlock[JAVA_BLOCKS_SIZE];
@@ -284,7 +295,7 @@ public final class BlockRegistryPopulator {
                                     Unable to find %s Bedrock runtime ID for %s! This will be replaced with an update block. Original block tag:
                                     %s
                                     Updated block tag:
-                                    %s""".formatted(javaId, palette.key(), originalBedrockTag, bedrockTag));
+                                    %s""".formatted(javaId, source.name(), originalBedrockTag, bedrockTag));
                                 ERRORED_IDS.add(javaIdReplacement);
                             }
                             bedrockDefinition = new GeyserBedrockBlock(-1, NbtMap.fromMap(Map.of(
@@ -295,7 +306,7 @@ public final class BlockRegistryPopulator {
                                 Unable to find %s Bedrock runtime ID for %s! Original block tag:
                                 %s
                                 Updated block tag:
-                                %s""".formatted(javaId, palette.key(), originalBedrockTag, bedrockTag));
+                                %s""".formatted(javaId, source.name(), originalBedrockTag, bedrockTag));
                         }
                     }
                 } else {
@@ -428,7 +439,7 @@ public final class BlockRegistryPopulator {
                 }
             });
 
-            BlockRegistries.BLOCKS.register(palette.valueInt(), builder.bedrockRuntimeMap(bedrockRuntimeMap)
+            source.registry().register(palette.valueInt(), builder.bedrockRuntimeMap(bedrockRuntimeMap)
                     .javaToBedrockBlocks(javaToBedrockBlocks)
                     .javaToVanillaBedrockBlocks(javaToVanillaBedrockBlocks)
                     .javaToBedrockIdentifiers(javaToBedrockIdentifiers)
@@ -442,6 +453,19 @@ public final class BlockRegistryPopulator {
                     .customBlockStateDefinitions(customBlockStateDefinitions)
                     .build());
         }
+    }
+
+    /**
+     * MINEZ：一份要登记的调色板。
+     *
+     * @param palette  调色板文件名中的版本与协议号
+     * @param name     日志中的名字
+     * @param remapper Java 版方块到这份调色板的转换
+     * @param states   读入调色板之后的处理，国际版不处理
+     * @param registry 登记到的注册表
+     */
+    private record PaletteSource(ObjectIntPair<String> palette, String name, BlockRemapper remapper,
+                                 UnaryOperator<List<NbtMap>> states, VersionedRegistry<BlockMappings> registry) {
     }
 
     private static void registerJavaBlocks() {
@@ -500,7 +524,8 @@ public final class BlockRegistryPopulator {
      * @param str The string to hash
      * @return The hashed string
      */
-    private static long fnv164(String str) {
+    // MINEZ：NeteasePalette 也要用，由 private 改为包内可见
+    static long fnv164(String str) {
         long hash = FNV1_64_OFFSET_BASIS;
         for (byte b : str.getBytes(StandardCharsets.UTF_8)) {
             hash *= FNV1_64_PRIME;

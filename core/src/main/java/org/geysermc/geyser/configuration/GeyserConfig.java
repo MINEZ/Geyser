@@ -245,12 +245,24 @@ public interface GeyserConfig {
 
         @Comment("""
             Root public keys to trust for China Edition logins, in addition to NetEase's own, as Base64-encoded X.509 keys.
-            NetEase signs logins from some environments with other keys, for example the development build of the PC client.
-            With "debug-mode" on, every China Edition login logs the root key it was signed with. Only add keys found that way:
-            whoever holds the private key of a listed key can log in as any player.""")
+            NetEase may sign logins from other environments with other keys. With "debug-mode" on, every China Edition login
+            logs the root key it was signed with. Only add keys found that way: whoever holds the private key of a listed key
+            can log in as any player. The development build of the PC client ("Mod PC") signs its login itself instead,
+            see "allow-self-signed-logins".""")
         default List<String> trustedRootKeys() {
             return Collections.emptyList();
         }
+
+        // MINEZ：自签名的网易登录（例如 Mod PC 开发包）以隔离的开发者身份放行
+        @Comment("""
+            Whether to let in China Edition clients that sign their login themselves instead of having NetEase sign it,
+            such as the development build of NetEase's PC client ("Mod PC"). Nothing in such a login can be verified:
+            anyone can send one with any name and UID. Such players therefore never join as the name, UID or XUID they claim,
+            but under an isolated developer identity: "DEV" followed by their nickname, keeping only letters, digits and
+            underscores, at most 16 characters (for example "DEVSteve"). Everyone using the same nickname shares that identity.
+            Only turn this on for test servers and NetEase's review runs, never on a server with real players' data.""")
+        @DefaultBoolean
+        boolean allowSelfSignedLogins();
     }
 
     @ConfigSerializable

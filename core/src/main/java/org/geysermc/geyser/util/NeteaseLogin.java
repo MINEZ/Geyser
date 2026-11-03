@@ -69,6 +69,7 @@ import java.security.spec.ECGenParameterSpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,6 +91,10 @@ final class NeteaseLogin {
     private static final AlgorithmConstraints ES384_ONLY =
         new AlgorithmConstraints(AlgorithmConstraints.ConstraintType.PERMIT, AlgorithmIdentifiers.ECDSA_USING_P384_CURVE_AND_SHA384);
     private static final SecureRandom RANDOM = new SecureRandom();
+    /**
+     * MINEZ：自签名登录的开发者身份在 Java 端的名字前缀。
+     */
+    static final String DEVELOPER_PREFIX = "DEV";
 
     private static volatile @Nullable TrustedRoots trustedRoots;
 
@@ -135,9 +140,23 @@ final class NeteaseLogin {
         }
 
         if (verified == null) {
+            // MINEZ：像网易客户端一样连接、用网易的协议，登录链却是自签名的一段（例如 Mod PC 开发包）
+            NeteaseLoginChain.SelfSigned selfSigned = raknet8 && GameProtocol.getNeteaseCodec(session.getUpstream().getProtocolVersion()) != null
+                ? NeteaseLoginChain.selfSigned(payload) : null;
+            if (selfSigned != null && config.allowSelfSignedLogins()) {
+                return loginSelfSigned(session, payload, clientJwt, selfSigned);
+            }
             if (config.onlyNeteaseClients()) {
-                logger.info("Refused a login from " + address(session) + " that is not from a China Edition client: " + result.reason()
-                    + (raknet8 && !geyser.config().debugMode() ? ". It connected like a China Edition client; enable debug mode to log its login chain" : ""));
+                String hint;
+                if (selfSigned != null) {
+                    hint = ". It is a self-signed China Edition login, as the development build of the PC client (Mod PC) sends;"
+                        + " \"bedrock.netease.allow-self-signed-logins\" would let it join under an isolated developer identity";
+                } else if (raknet8 && !geyser.config().debugMode()) {
+                    hint = ". It connected like a China Edition client; enable debug mode to log its login chain";
+                } else {
+                    hint = "";
+                }
+                logger.info("Refused a login from " + address(session) + " that is not from a China Edition client: " + result.reason() + hint);
                 NeteaseClients.markRefused(channel);
                 session.disconnect(NeteaseClients.NOT_NETEASE_MESSAGE);
                 return Outcome.REFUSED;
@@ -168,26 +187,8 @@ final class NeteaseLogin {
             session.getUpstream().getSession().setCodec(neteaseCodec);
         }
 
-        byte[] clientData = verifyClientData(clientJwt, verified.identityPublicKey());
-        if (clientData == null) {
-            throw new IllegalStateException("Client data isn't signed by the given chain data");
-        }
-        BedrockClientData data = JsonUtils.fromJson(clientData, BedrockClientData.class);
-        data.setOriginalString(clientJwt);
-        if (data.getServerAddress() == null) {
-            // 部分网易客户端不带这一项，而上游取加入地址时默认它存在
-            data.setServerAddress("");
-        }
-        session.setClientData(data);
-        if (payload instanceof CertificateChainPayload chainPayload) {
-            session.setCertChainData(chainPayload.getChain());
-        }
-
-        if (!geyser.config().advanced().bedrock().useWaterdogpeForwarding()
-                && session.getUpstream().getSession().getPeer() instanceof NetherNetPeer) {
-            if (LoginEncryptionUtils.refusedByBinding(geyser, session, TransportIdentityBinding.mismatch(channel, verified.identityPublicKey()))) {
-                return Outcome.REFUSED;
-            }
+        if (!acceptClientData(session, payload, clientJwt, verified.identityPublicKey())) {
+            return Outcome.REFUSED;
         }
 
         NeteaseProfile profile = profile(verified);
@@ -211,6 +212,120 @@ final class NeteaseLogin {
         return startEncryptionHandshake(session, verified.identityPublicKey()) ? Outcome.AWAITING_HANDSHAKE : Outcome.LOGGED_IN;
     }
 
+    /**
+     * 验证并记下客户端数据，经 NetherNet 连接时再核对传输层的身份绑定。
+     *
+     * @return 是否通过；不通过时已断开连接
+     */
+    private static boolean acceptClientData(GeyserSession session, AuthPayload payload, String clientJwt, PublicKey identityPublicKey) throws Exception {
+        byte[] clientData = verifyClientData(clientJwt, identityPublicKey);
+        if (clientData == null) {
+            throw new IllegalStateException("Client data isn't signed by the given chain data");
+        }
+        BedrockClientData data = JsonUtils.fromJson(clientData, BedrockClientData.class);
+        data.setOriginalString(clientJwt);
+        if (data.getServerAddress() == null) {
+            // 部分网易客户端不带这一项，而上游取加入地址时默认它存在
+            data.setServerAddress("");
+        }
+        session.setClientData(data);
+        if (payload instanceof CertificateChainPayload chainPayload) {
+            session.setCertChainData(chainPayload.getChain());
+        }
+
+        GeyserImpl geyser = session.getGeyser();
+        if (!geyser.config().advanced().bedrock().useWaterdogpeForwarding()
+                && session.getUpstream().getSession().getPeer() instanceof NetherNetPeer) {
+            Channel channel = session.getUpstream().getSession().getPeer().getChannel();
+            return !LoginEncryptionUtils.refusedByBinding(geyser, session, TransportIdentityBinding.mismatch(channel, identityPublicKey));
+        }
+        return true;
+    }
+
+    /**
+     * MINEZ：以隔离的开发者身份放行自签名的网易登录（例如 Mod PC 开发包），只在开启 allow-self-signed-logins 时调用。
+     * <p>
+     * 这种登录中的昵称、UID、XUID、identity 都由客户端自己填写，无法核实，所以都不用作身份：Java 端的名字为
+     * {@link #developerUsername}，Bedrock 端的 UUID 与 XUID 都由这个名字算出，与真实的网易账号互不相干。
+     * 同一昵称总得到同一身份（离线模式下即同一角色）。会话上的 {@link NeteaseProfile#developer()} 为 true。
+     */
+    private static Outcome loginSelfSigned(GeyserSession session, AuthPayload payload, String clientJwt,
+                                           NeteaseLoginChain.SelfSigned selfSigned) throws Exception {
+        GeyserLogger logger = session.getGeyser().getLogger();
+        // 调用方已确认这是网易客户端的连接与协议，编解码器理应已是网易的；以防万一再确认一次
+        BedrockCodec neteaseCodec = GameProtocol.getNeteaseCodec(session.getUpstream().getProtocolVersion());
+        if (neteaseCodec != null && session.getUpstream().getSession().getCodec() != neteaseCodec) {
+            session.getUpstream().getSession().setCodec(neteaseCodec);
+        }
+        if (!acceptClientData(session, payload, clientJwt, selfSigned.identityPublicKey())) {
+            return Outcome.REFUSED;
+        }
+
+        String username = developerUsername(selfSigned.displayName());
+        Map<String, Object> extraData = selfSigned.extraData();
+        NeteaseProfile profile = new NeteaseProfile(null, selfSigned.displayName(), username, null,
+            NeteaseLoginChain.text(extraData.get("env")),
+            NeteaseLoginChain.text(extraData.get("platform")),
+            NeteaseLoginChain.text(extraData.get("os_name")),
+            NeteaseLoginChain.text(extraData.get("engineVersion")),
+            NeteaseLoginChain.text(extraData.get("patchVersion")),
+            NeteaseLoginChain.text(extraData.get("bit")),
+            Base64.getEncoder().encodeToString(selfSigned.identityPublicKey().getEncoded()),
+            null, true);
+        session.setNeteaseProfile(profile);
+        session.setAuthData(new AuthData(username, developerUuid(username), developerXuid(username), -1, null));
+
+        logger.debug("Self-signed China Edition login from " + address(session) + " (nickname \"" + selfSigned.displayName()
+            + "\", client key " + NeteaseLoginChain.fingerprintOf(profile.rootKey()) + "): ignoring the name, UID, XUID and identity it claims, "
+            + "it joins under the isolated developer identity " + username);
+        logger.info("Let a self-signed China Edition login (such as the Mod PC development build) from " + address(session)
+            + " join under the isolated developer identity " + username + ", as allow-self-signed-logins is on; its name and UID cannot be verified");
+
+        return startEncryptionHandshake(session, selfSigned.identityPublicKey()) ? Outcome.AWAITING_HANDSHAKE : Outcome.LOGGED_IN;
+    }
+
+    /**
+     * MINEZ：自签名登录进入 Java 服时用的名字：“DEV”加昵称中的字母、数字与下划线，总长不超过 16 个字符，例如 DEVSteve；
+     * 昵称中一个这样的字符都没有（例如全是中文）时，改为 “DEV” 加由昵称算出的 8 位十六进制散列，例如 DEV1a2b3c4d。
+     * 名字只由昵称决定，同一昵称总得到同一名字。
+     */
+    static String developerUsername(String displayName) {
+        String kept = displayName.replaceAll("[^A-Za-z0-9_]", "");
+        if (kept.isEmpty()) {
+            kept = HexFormat.of().formatHex(sha256(displayName), 0, 4);
+        }
+        String name = DEVELOPER_PREFIX + kept;
+        return name.length() > 16 ? name.substring(0, 16) : name;
+    }
+
+    /**
+     * MINEZ：开发者身份的 Bedrock 端 UUID，由名字算出，与客户端自报的 identity 无关。
+     */
+    static UUID developerUuid(String username) {
+        return UUID.nameUUIDFromBytes(("netease-developer:" + username).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * MINEZ：开发者身份的 XUID，由名字算出的 63 位正整数，最高的第 62 位总为 1，不会与网易 UID、Xbox 的 XUID 重合。
+     * Floodgate 等处把 XUID 当作数字解析，所以不用字母。
+     */
+    static String developerXuid(String username) {
+        byte[] digest = sha256("netease-developer:" + username);
+        long value = 0;
+        for (int i = 0; i < 8; i++) {
+            value = (value << 8) | (digest[i] & 0xFF);
+        }
+        return Long.toString((value & 0x3FFF_FFFF_FFFF_FFFFL) | 0x4000_0000_0000_0000L);
+    }
+
+    private static byte[] sha256(String text) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
     static NeteaseProfile profile(NeteaseLoginChain.Verified verified) {
         Map<String, Object> extraData = verified.extraData();
         String displayName = NeteaseLoginChain.text(extraData.get("displayName"));
@@ -227,7 +342,8 @@ final class NeteaseLogin {
             NeteaseLoginChain.text(extraData.get("patchVersion")),
             NeteaseLoginChain.text(extraData.get("bit")),
             verified.rootKey(),
-            NeteaseLoginChain.text(extraData.get("netease_sid")));
+            NeteaseLoginChain.text(extraData.get("netease_sid")),
+            false);
     }
 
     /**

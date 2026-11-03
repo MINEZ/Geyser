@@ -61,6 +61,12 @@ public class BlockRegistries {
     public static final VersionedRegistry<BlockMappings> BLOCKS = VersionedRegistry.create(RegistryLoaders.empty(Int2ObjectOpenHashMap::new));
 
     /**
+     * MINEZ：网易中国版客户端用的 {@link BlockMappings}，按协议号登记。网易的方块调色板与同一协议的国际版不同，
+     * 见 {@link org.geysermc.geyser.registry.populator.NeteasePalette}。
+     */
+    public static final VersionedRegistry<BlockMappings> NETEASE_BLOCKS = VersionedRegistry.create(RegistryLoaders.empty(Int2ObjectOpenHashMap::new));
+
+    /**
      * A registry which stores Java IDs to Java {@link BlockState}s, each with their specific state differences and a link
      * to the overarching block.
      */

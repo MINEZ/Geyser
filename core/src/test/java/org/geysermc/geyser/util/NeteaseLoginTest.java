@@ -55,7 +55,9 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -86,6 +88,10 @@ class NeteaseLoginTest {
     private void configure(boolean onlyNetease, String... trustedRootKeys) {
         when(session.getGeyser().config().bedrock().netease().onlyNeteaseClients()).thenReturn(onlyNetease);
         when(session.getGeyser().config().bedrock().netease().trustedRootKeys()).thenReturn(List.of(trustedRootKeys));
+    }
+
+    private void allowSelfSigned(boolean allow) {
+        when(session.getGeyser().config().bedrock().netease().allowSelfSignedLogins()).thenReturn(allow);
     }
 
     private String clientData() {
@@ -195,5 +201,110 @@ class NeteaseLoginTest {
         SecretKey clientKey = NeteaseLogin.secretKey(client.getPrivate(), server.getPublic(), salt);
         assertArrayEquals(serverKey.getEncoded(), clientKey.getEncoded());
         assertEquals(32, serverKey.getEncoded().length);
+    }
+    @Test
+    void selfSignedNeteaseLoginIsRefusedWhenNotAllowed() throws Exception {
+        configure(true);
+        allowSelfSigned(false);
+        NeteaseClients.markRaknet8(channel);
+        NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.selfSignedChain("ev"), AuthType.SELF_SIGNED), clientData());
+        assertEquals(NeteaseLogin.Outcome.REFUSED, outcome);
+        verify(session).disconnect("客户端版本错误，请使用中国版客户端加入游戏。");
+        verify(session, never()).setAuthData(any());
+        verify(session, never()).setNeteaseProfile(any());
+    }
+
+    @Test
+    void selfSignedNeteaseLoginJoinsAsAnIsolatedDeveloper() throws Exception {
+        configure(true);
+        allowSelfSigned(true);
+        NeteaseClients.markRaknet8(channel);
+        NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.selfSignedChain("ev"), AuthType.SELF_SIGNED), clientData());
+
+        assertEquals(NeteaseLogin.Outcome.AWAITING_HANDSHAKE, outcome);
+        verify(session, never()).disconnect(anyString());
+
+        ArgumentCaptor<NeteaseProfile> profile = ArgumentCaptor.forClass(NeteaseProfile.class);
+        verify(session).setNeteaseProfile(profile.capture());
+        assertTrue(profile.getValue().developer());
+        assertEquals("DEVev", profile.getValue().javaUsername());
+        assertEquals("ev", profile.getValue().displayName());
+        // 自报的 UID、XUID 与会话 ID 都不记
+        assertNull(profile.getValue().uid());
+        assertNull(profile.getValue().xuid());
+        assertNull(profile.getValue().sessionId());
+
+        ArgumentCaptor<AuthData> authData = ArgumentCaptor.forClass(AuthData.class);
+        verify(session).setAuthData(authData.capture());
+        assertEquals("DEVev", authData.getValue().name());
+        assertEquals(NeteaseLogin.developerXuid("DEVev"), authData.getValue().xuid());
+        assertNotEquals("2147483648", authData.getValue().xuid());
+        assertTrue(Long.parseLong(authData.getValue().xuid()) >= 1L << 62);
+        assertNotEquals("7724e383-c82b-359f-822e-021d6db84e6c", authData.getValue().uuid().toString());
+        assertEquals(NeteaseLogin.developerUuid("DEVev"), authData.getValue().uuid());
+
+        verify(session).sendUpstreamPacketImmediately(any(ServerToClientHandshakePacket.class));
+        assertNotNull(channel.pipeline().get(BedrockEncryptionEncoder.NAME));
+    }
+
+    @Test
+    void selfSignedNeteaseLoginOutsideTheNeteaseConnectionIsRefused() throws Exception {
+        // 没有以 RakNet 8 连接（不像网易客户端）时，即使开启了开关也不放行
+        configure(true);
+        allowSelfSigned(true);
+        NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.selfSignedChain("ev"), AuthType.SELF_SIGNED), clientData());
+        assertEquals(NeteaseLogin.Outcome.REFUSED, outcome);
+        verify(session).disconnect("客户端版本错误，请使用中国版客户端加入游戏。");
+        verify(session, never()).setAuthData(any());
+    }
+
+    @Test
+    void selfSignedInternationalLoginIsStillRefused() throws Exception {
+        configure(true);
+        allowSelfSigned(true);
+        NeteaseClients.markRaknet8(channel);
+        Map<String, Object> extra = Map.of("XUID", "", "displayName", "Steve", "identity", "7724e383-c82b-359f-822e-021d6db84e6c");
+        NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.selfSignedChain(extra), AuthType.SELF_SIGNED), clientData());
+        assertEquals(NeteaseLogin.Outcome.REFUSED, outcome);
+        verify(session).disconnect("客户端版本错误，请使用中国版客户端加入游戏。");
+        verify(session, never()).setAuthData(any());
+        verify(session, never()).setNeteaseProfile(any());
+    }
+
+    @Test
+    void signedNeteaseLoginIsUnchangedWhenSelfSignedLoginsAreAllowed() throws Exception {
+        configure(true, NeteaseTestChains.encoded(chains.root));
+        allowSelfSigned(true);
+        NeteaseClients.markRaknet8(channel);
+        NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.chain(), AuthType.FULL), clientData());
+        assertEquals(NeteaseLogin.Outcome.AWAITING_HANDSHAKE, outcome);
+
+        ArgumentCaptor<NeteaseProfile> profile = ArgumentCaptor.forClass(NeteaseProfile.class);
+        verify(session).setNeteaseProfile(profile.capture());
+        assertFalse(profile.getValue().developer());
+        assertEquals("2147483648", profile.getValue().uid());
+        assertEquals("NE2147483648", profile.getValue().javaUsername());
+        ArgumentCaptor<AuthData> authData = ArgumentCaptor.forClass(AuthData.class);
+        verify(session).setAuthData(authData.capture());
+        assertEquals("1234567890", authData.getValue().xuid());
+        assertEquals("6f8ad1fb-6c2b-3d4f-9a1e-7d4a1c2b3e4f", authData.getValue().uuid().toString());
+    }
+
+    @Test
+    void developerUsernames() {
+        assertEquals("DEVev", NeteaseLogin.developerUsername("ev"));
+        assertEquals("DEVSteve_1", NeteaseLogin.developerUsername("Steve_1"));
+        assertEquals("DEVSteve1", NeteaseLogin.developerUsername("Steve 1!"));
+        assertEquals("DEVAb_c", NeteaseLogin.developerUsername("Ab_c-测试"));
+        assertEquals("DEVSeventeenChar", NeteaseLogin.developerUsername("SeventeenCharName"));
+
+        // 全是中文时用散列：同一昵称总得到同一名字，不同昵称得到不同名字
+        String zhangSan = NeteaseLogin.developerUsername("张三");
+        assertTrue(zhangSan.matches("DEV[0-9a-f]{8}"), zhangSan);
+        assertEquals(zhangSan, NeteaseLogin.developerUsername("张三"));
+        assertNotEquals(zhangSan, NeteaseLogin.developerUsername("李四"));
+        for (String name : List.of("ev", "张三", "SeventeenCharName", "a b c d e f g h i j k l m n o p")) {
+            assertTrue(NeteaseLogin.developerUsername(name).matches("DEV[A-Za-z0-9_]{1,13}"), name);
+        }
     }
 }

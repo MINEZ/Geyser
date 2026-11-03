@@ -79,7 +79,13 @@ public final class NeteaseLoginChain {
      * 记入 debug 日志的 extraData 字段。其余字段只记名字，{@code netease_sid} 只记是否存在。
      */
     private static final List<String> LOGGED_EXTRA_DATA = List.of("displayName", "uid", "XUID", "identity", "env",
-        "platform", "os_name", "engineVersion", "patchVersion", "bit");
+        "platform", "os_name", "engineVersion", "patchVersion", "bit", "netease_uid", "version");
+
+    /**
+     * MINEZ：只有网易客户端才在 extraData 中带的字段，至少带其中一项的自签名登录才当作网易客户端。
+     * Mod PC 3.10 的开发包实测带 netease_uid 与 netease_sid（后者为空），netease_uuid 见于资料中的房间登录。
+     */
+    static final List<String> NETEASE_ONLY_EXTRA_DATA = List.of("netease_uid", "netease_uuid", "netease_sid");
 
     private NeteaseLoginChain() {
     }
@@ -93,6 +99,17 @@ public final class NeteaseLoginChain {
      * @param rootKey           签发第二段的根公钥（规范化后的 Base64）
      */
     public record Verified(ECPublicKey identityPublicKey, Map<String, Object> identity, Map<String, Object> extraData, String rootKey) {
+    }
+
+    /**
+     * MINEZ：自签名的网易登录，例如 Mod PC 开发包。登录链只有一段，由客户端用自己的密钥签名，没有网易的签名，
+     * 其中的名字、UID 等都无法核实。
+     *
+     * @param identityPublicKey 客户端的公钥，即这一段头部的 {@code x5u}，也是载荷中的 {@code identityPublicKey}
+     * @param extraData         载荷中的 extraData
+     * @param displayName       extraData 中的昵称，去掉了首尾空白
+     */
+    public record SelfSigned(ECPublicKey identityPublicKey, Map<String, Object> extraData, String displayName) {
     }
 
     /**
@@ -181,6 +198,52 @@ public final class NeteaseLoginChain {
     }
 
     /**
+     * MINEZ：判断登录是否为自签名的网易登录：登录链只有一段；头部的 {@code x5u} 与载荷中的 {@code identityPublicKey}
+     * 是同一个公钥，并且签名对得上（只允许 ES384）；extraData 中带网易特有的字段（见 {@link #NETEASE_ONLY_EXTRA_DATA}）
+     * 与不为空的 {@code displayName}。不检查有效期：自签名的有效期由客户端自己写，没有意义。
+     * <p>
+     * 这只说明登录“像网易客户端”，不能证明任何身份；是否放行、以什么身份放行由调用方决定。
+     *
+     * @return 是自签名的网易登录时为其内容，否则为 null
+     */
+    public static @Nullable SelfSigned selfSigned(AuthPayload payload) {
+        if (!(payload instanceof CertificateChainPayload chainPayload) || chainPayload.getChain() == null
+                || chainPayload.getChain().size() != 1) {
+            return null;
+        }
+        try {
+            String entry = chainPayload.getChain().getFirst();
+            LoginLimits.checkJwtHeader(entry);
+            JsonWebSignature signature = new JsonWebSignature();
+            signature.setCompactSerialization(entry);
+            signature.setAlgorithmConstraints(ES384_ONLY);
+            ECPublicKey key = parseKey(signature.getHeader(HeaderParameterNames.X509_URL));
+            signature.setKey(key);
+            if (!signature.verifySignature()) {
+                return null;
+            }
+            Map<String, Object> claims = LoginLimits.parseJson(signature.getUnverifiedPayload());
+            if (!(claims.get("identityPublicKey") instanceof String identityKey) || !sameKey(key, parseKey(identityKey))) {
+                return null;
+            }
+            if (!(claims.get("extraData") instanceof Map<?, ?> rawExtraData)) {
+                return null;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> extraData = (Map<String, Object>) rawExtraData;
+            if (NETEASE_ONLY_EXTRA_DATA.stream().noneMatch(extraData::containsKey)) {
+                return null;
+            }
+            if (!(extraData.get("displayName") instanceof String name) || name.isBlank()) {
+                return null;
+            }
+            return new SelfSigned(key, extraData, name.strip());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * @return 时间窗口不对时的说明，在有效期内或没有写明时为 null
      */
     private static @Nullable String checkWindow(Map<String, Object> claims, long nowSeconds) {
@@ -210,7 +273,8 @@ public final class NeteaseLoginChain {
                 return true;
             }
             if (claims.get("extraData") instanceof Map<?, ?> extraData
-                && (extraData.containsKey("uid") || extraData.containsKey("netease_sid") || extraData.containsKey("env"))) {
+                && (extraData.containsKey("uid") || extraData.containsKey("env")
+                    || NETEASE_ONLY_EXTRA_DATA.stream().anyMatch(extraData::containsKey))) {
                 return true;
             }
         }

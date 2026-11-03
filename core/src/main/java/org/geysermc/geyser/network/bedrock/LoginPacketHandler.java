@@ -252,8 +252,11 @@ public class LoginPacketHandler extends LoggingPacketHandler {
         }
 
         // Set the block translation based off of version
-        session.setBlockMappings(BlockRegistries.BLOCKS.forVersion(loginProtocolVersion));
-        session.setItemMappings(Registries.ITEMS.forVersion(loginProtocolVersion));
+        // MINEZ：网易中国版客户端的方块调色板与物品表与同一协议的国际版不同，另行登记，见 NeteasePalette。
+        // 网易客户端的会话（包括自签名登录的开发者身份）都已换上网易的编解码器
+        boolean netease = GameProtocol.isNeteaseCodec(session.getUpstream().getSession().getCodec());
+        session.setBlockMappings((netease ? BlockRegistries.NETEASE_BLOCKS : BlockRegistries.BLOCKS).forVersion(loginProtocolVersion));
+        session.setItemMappings((netease ? Registries.NETEASE_ITEMS : Registries.ITEMS).forVersion(loginProtocolVersion));
 
         geyser.getSessionManager().addPendingSession(session);
 

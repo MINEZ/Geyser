@@ -39,7 +39,6 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.CreativeItemGroup;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.geysermc.geyser.GeyserBootstrap;
 import org.geysermc.geyser.GeyserImpl;
-import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.registry.type.BlockMappings;
 import org.geysermc.geyser.registry.type.GeyserBedrockBlock;
 import org.geysermc.geyser.util.JsonUtils;
@@ -127,7 +126,7 @@ public class CreativeItemRegistryPopulator {
             throw new AssertionError("Unable to load creative items", e);
         }
 
-        BlockMappings blockMappings = BlockRegistries.BLOCKS.forVersion(palette.protocolVersion());
+        BlockMappings blockMappings = palette.blockMappings(); // MINEZ：网易中国版客户端用网易的调色板
         for (JsonElement itemNode : creativeItemEntries) {
             ItemData.Builder itemBuilder = createItemData((JsonObject) itemNode, items, blockMappings, definitions);
             if (itemBuilder == null) {
