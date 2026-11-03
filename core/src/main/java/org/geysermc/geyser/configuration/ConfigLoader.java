@@ -52,12 +52,13 @@ import java.util.function.Consumer;
 public final class ConfigLoader {
     private static final String HEADER = """
         --------------------------------
-        Geyser Configuration File
+        Geyser Configuration File (unofficial MINEZ fork)
         
         A bridge between Minecraft: Bedrock Edition and Minecraft: Java Edition.
         
-        GitHub: https://github.com/GeyserMC/Geyser
-        Discord: https://discord.gg/geysermc
+        This fork: https://github.com/MINEZ/Geyser
+        Report problems with this fork: https://github.com/MINEZ/Geyser/issues
+        Upstream project: https://github.com/GeyserMC/Geyser
         Wiki: https://geysermc.org/wiki
         
         NOTICE: See https://geysermc.org/wiki/geyser/setup/ for the setup guide. Many video tutorials are outdated.

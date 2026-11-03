@@ -241,10 +241,13 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         logger.info("");
         logger.info(GeyserLocale.getLocaleStringLog("geyser.core.load", NAME, VERSION));
         logger.info("");
-        if (IS_DEV) {
-            logger.info(GeyserLocale.getLocaleStringLog("geyser.core.dev_build", "https://discord.gg/geysermc"));
-            logger.info("");
-        }
+        // MINEZ：说明这是非官方 Fork，问题反馈到本 Fork，而不是上游的 Discord
+        logger.info("Unofficial MINEZ fork - not supported by the GeyserMC team.");
+        logger.info("Report problems with this fork at https://github.com/MINEZ/Geyser/issues, never on the GeyserMC Discord.");
+        logger.info("");
+        logger.info("This fork: https://github.com/MINEZ/Geyser");
+        logger.info("Upstream project: https://geysermc.org");
+        logger.info("");
         logger.info("******************************************");
 
         eventBus.subscribe(this, GeyserDefineCustomBlocksEvent.class, BuiltInMappings::registerBlocks);
