@@ -23,6 +23,13 @@
  * @link https://github.com/GeyserMC/Geyser
  */
 
+/*
+ * MINEZ：本文件改写自 CloudburstMC Protocol（https://github.com/CloudburstMC/Protocol）中的 PlayerAuthInputSerializer_v766
+ * 等序列化器，按网易中国版客户端的数据包格式修改了部分字段。CloudburstMC Protocol 以 Apache License 2.0 授权，
+ * Copyright 2020 NukkitX，许可证全文见本仓库的
+ * core/src/main/resources/META-INF/licenses/CloudburstMC-Protocol-LICENSE.txt，构建产物中也附带一份。
+ */
+
 package org.geysermc.geyser.network.bedrock.netease.serializer;
 
 import io.netty.buffer.ByteBuf;
