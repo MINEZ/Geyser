@@ -162,6 +162,16 @@ public class FormCache {
         }
     }
 
+    /**
+     * MINEZ：关掉所有表单，但不调用它们的处理器。登录闸门结束时用，免得插件的关闭处理器（例如重新显示表单）在闸门结束后还被调用。
+     */
+    public void discardForms() {
+        if (!this.forms.isEmpty()) {
+            this.forms.clear();
+            session.sendUpstreamPacket(new ClientboundCloseFormPacket());
+        }
+    }
+
     public void closeForms() {
         if (!this.forms.isEmpty()) {
             // Copy them to ensure any response handler's sent form isn't instantly cleared

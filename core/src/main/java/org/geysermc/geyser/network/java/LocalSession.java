@@ -37,6 +37,8 @@ import io.netty.channel.ReflectiveChannelFactory;
 import io.netty.channel.unix.PreferredDirectByteBufAllocator;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.mcprotocollib.network.helper.NettyHelper;
 import org.geysermc.mcprotocollib.network.netty.MinecraftChannelInitializer;
 import org.geysermc.mcprotocollib.network.packet.PacketProtocol;
@@ -56,10 +58,20 @@ public final class LocalSession extends ClientNetworkSession {
     private static PreferredDirectByteBufAllocator PREFERRED_DIRECT_BYTE_BUF_ALLOCATOR = null;
 
     private final SocketAddress spoofedRemoteAddress;
+    /**
+     * MINEZ：这个直连所属的 Geyser 会话，经通道交给服务端一侧，见 {@link DirectConnections}。
+     */
+    private final @Nullable GeyserSession geyserSession;
 
     public LocalSession(SocketAddress targetAddress, String clientIp, MinecraftProtocol protocol, Executor packetHandlerExecutor) {
+        this(targetAddress, clientIp, protocol, packetHandlerExecutor, null);
+    }
+
+    public LocalSession(SocketAddress targetAddress, String clientIp, MinecraftProtocol protocol, Executor packetHandlerExecutor,
+                        @Nullable GeyserSession geyserSession) {
         super(targetAddress, protocol, packetHandlerExecutor, null, null);
         this.spoofedRemoteAddress = new InetSocketAddress(clientIp, 0);
+        this.geyserSession = geyserSession;
     }
 
     @Override
@@ -96,6 +108,7 @@ public final class LocalSession extends ClientNetworkSession {
             @Override
             public void initChannel(@NonNull Channel channel) throws Exception {
                 ((LocalChannelWithRemoteAddress) channel).spoofedRemoteAddress(spoofedRemoteAddress);
+                ((LocalChannelWithRemoteAddress) channel).geyserSession(geyserSession);
 
                 NettyHelper.initializeHAProxySupport(LocalSession.this, channel);
 

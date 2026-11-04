@@ -31,11 +31,14 @@ import org.cloudburstmc.protocol.bedrock.packet.GameRulesChangedPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetPlayerGameTypePacket;
 import org.geysermc.erosion.Constants;
 import org.geysermc.floodgate.pluginmessage.PluginMessageChannels;
+import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.api.event.bedrock.SessionJoinEvent;
 import org.geysermc.geyser.api.network.AuthType;
 import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
 import org.geysermc.geyser.level.BedrockDimension;
 import org.geysermc.geyser.level.JavaDimension;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.auth.GatedLoginImpl;
 import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -141,6 +144,12 @@ public class JavaLoginTranslator extends PacketTranslator<ClientboundLoginPacket
 
         if (!needsSpawnPacket) {
             session.sendDownstreamGamePacket(ServerboundPlayerLoadedPacket.INSTANCE);
+
+            // MINEZ：登录闸门显示过表单时，客户端在等待世界中就已初始化，照常的 SessionJoinEvent 没有触发，在这里补上
+            GatedLoginImpl gated = session.getGatedLogin();
+            if (gated != null && gated.takePendingJoinEvent()) {
+                GeyserImpl.getInstance().eventBus().fire(new SessionJoinEvent(session));
+            }
         }
     }
 }

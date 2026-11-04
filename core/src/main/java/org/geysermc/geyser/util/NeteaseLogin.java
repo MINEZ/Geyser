@@ -197,15 +197,15 @@ final class NeteaseLogin {
         UUID identity = parseUuid(NeteaseLoginChain.text(extraData.get("identity")));
         if (identity == null) {
             // 暂时的做法：没有可用的 identity 时由网易 UID 生成，同一账号总得到同一个 UUID
-            identity = UUID.nameUUIDFromBytes(("netease:" + profile.uid()).getBytes(StandardCharsets.UTF_8));
+            identity = UUID.nameUUIDFromBytes(("netease:" + profile.accountId()).getBytes(StandardCharsets.UTF_8));
         }
-        String xuid = profile.xuid() != null ? profile.xuid() : profile.uid();
+        String xuid = profile.xuid() != null ? profile.xuid() : profile.accountId();
         long issuedAt = verified.identity().get("iat") instanceof Number iat ? iat.longValue() : -1;
         session.setAuthData(new AuthData(profile.displayName(), identity, xuid, issuedAt, null));
 
         logger.debug("China Edition client " + profile + " logged in from " + address(session) + ", root key " + NeteaseLoginChain.fingerprintOf(profile.rootKey()));
         if (!profile.javaUsername().equals(profile.displayName())) {
-            logger.debug("The name \"" + profile.displayName() + "\" of China Edition player " + profile.uid()
+            logger.debug("The name \"" + profile.displayName() + "\" of China Edition player " + profile.accountId()
                 + " is not a valid Java username, so they join the Java server as " + profile.javaUsername());
         }
 
@@ -271,7 +271,7 @@ final class NeteaseLogin {
             NeteaseLoginChain.text(extraData.get("patchVersion")),
             NeteaseLoginChain.text(extraData.get("bit")),
             Base64.getEncoder().encodeToString(selfSigned.identityPublicKey().getEncoded()),
-            null, true);
+            null, false, true);
         session.setNeteaseProfile(profile);
         session.setAuthData(new AuthData(username, developerUuid(username), developerXuid(username), -1, null));
 
@@ -330,11 +330,9 @@ final class NeteaseLogin {
         Map<String, Object> extraData = verified.extraData();
         String displayName = NeteaseLoginChain.text(extraData.get("displayName"));
         String xuid = NeteaseLoginChain.text(extraData.get("XUID"));
+        // MINEZ：uid 只取登录链中的 uid，不以 XUID 代替；没有登录闸门时的名字照旧在没有 uid 时用 XUID
         String uid = NeteaseLoginChain.text(extraData.get("uid"));
-        if (uid == null) {
-            uid = xuid;
-        }
-        return new NeteaseProfile(uid, displayName, javaUsername(displayName, uid), xuid,
+        return new NeteaseProfile(uid, displayName, javaUsername(displayName, uid != null ? uid : xuid), xuid,
             NeteaseLoginChain.text(extraData.get("env")),
             NeteaseLoginChain.text(extraData.get("platform")),
             NeteaseLoginChain.text(extraData.get("os_name")),
@@ -343,6 +341,7 @@ final class NeteaseLogin {
             NeteaseLoginChain.text(extraData.get("bit")),
             verified.rootKey(),
             NeteaseLoginChain.text(extraData.get("netease_sid")),
+            NeteaseLoginChain.NETEASE_ROOT_KEY.equals(verified.rootKey()),
             false);
     }
 

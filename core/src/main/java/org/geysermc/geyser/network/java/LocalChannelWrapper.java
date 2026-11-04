@@ -28,6 +28,8 @@ package org.geysermc.geyser.network.java;
 import io.netty.channel.DefaultChannelPipeline;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.local.LocalServerChannel;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.geyser.session.GeyserSession;
 
 import java.net.InetSocketAddress;
 import java.util.Objects;
@@ -40,6 +42,10 @@ public class LocalChannelWrapper extends LocalChannel {
      * {@link #newChannelPipeline()} is called during super, so this exists until the wrapper can be initialized.
      */
     private volatile ChannelWrapper tempWrapper;
+    /**
+     * MINEZ：对端（Geyser 一侧）所属的会话，由 LocalServerChannelWrapper 设定，见 {@link DirectConnections}。
+     */
+    private volatile @Nullable GeyserSession geyserSession;
 
     public LocalChannelWrapper(LocalServerChannel parent, LocalChannel peer) {
         super(parent, peer);
@@ -49,6 +55,14 @@ public class LocalChannelWrapper extends LocalChannel {
 
     public ChannelWrapper wrapper() {
         return wrapper;
+    }
+
+    public @Nullable GeyserSession geyserSession() {
+        return geyserSession;
+    }
+
+    void geyserSession(@Nullable GeyserSession geyserSession) {
+        this.geyserSession = geyserSession;
     }
 
     @Override

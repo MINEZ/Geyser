@@ -26,6 +26,7 @@
 package org.geysermc.geyser.api.connection;
 
 import org.checkerframework.checker.index.qual.Positive;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.api.connection.Connection;
 import org.geysermc.geyser.api.bedrock.camera.CameraData;
 import org.geysermc.geyser.api.bedrock.camera.CameraShake;
@@ -33,6 +34,7 @@ import org.geysermc.geyser.api.command.CommandSource;
 import org.geysermc.geyser.api.entity.EntityData;
 import org.geysermc.geyser.api.entity.type.player.GeyserAvatarEntity;
 import org.geysermc.geyser.api.entity.type.player.GeyserPlayerEntity;
+import org.geysermc.geyser.api.login.LoginGateResult;
 import org.geysermc.geyser.api.skin.SkinData;
 
 import java.util.NoSuchElementException;
@@ -80,6 +82,26 @@ public interface GeyserConnection extends Connection, CommandSource {
      * Gets the Bedrock protocol version of the player.
      */
     int protocolVersion();
+
+    /**
+     * MINEZ：经 Geyser 验证的网易中国版客户端身份，见 {@link NeteaseIdentity}。
+     * 国际版客户端，以及还没有完成基岩版登录（登录链、客户端数据与加密握手）的会话为 null。
+     *
+     * @return 网易身份，可能为 null
+     */
+    default @Nullable NeteaseIdentity neteaseIdentity() {
+        return null;
+    }
+
+    /**
+     * MINEZ：登录闸门放行这个会话时的结果，其中的名字为实际连接 Java 端所用的名字，见 {@link org.geysermc.geyser.api.login.LoginGate}。
+     * 登录时没有注册闸门、闸门还没有放行，或者被闸门断开时为 null。
+     *
+     * @return 闸门的放行结果，可能为 null
+     */
+    default LoginGateResult.@Nullable Allow loginGateResult() {
+        return null;
+    }
 
     /**
      * Attempts to open the {@code minecraft:pause_screen_additions} dialog tag. This method opens this dialog the same way Java does, that is:

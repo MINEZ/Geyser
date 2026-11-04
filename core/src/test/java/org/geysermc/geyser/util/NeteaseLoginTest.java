@@ -291,6 +291,56 @@ class NeteaseLoginTest {
     }
 
     @Test
+    void uidIsNotReplacedByTheXuid() throws Exception {
+        // MINEZ：登录链中没有 uid 时，uid 为 null，不以 XUID 代替；没有登录闸门时的名字与身份照旧由 XUID 得出
+        chains.extraData.remove("uid");
+        configure(true, NeteaseTestChains.encoded(chains.root));
+        NeteaseClients.markRaknet8(channel);
+        NeteaseLogin.login(session, new CertificateChainPayload(chains.chain(), AuthType.FULL), clientData());
+
+        ArgumentCaptor<NeteaseProfile> profile = ArgumentCaptor.forClass(NeteaseProfile.class);
+        verify(session).setNeteaseProfile(profile.capture());
+        assertNull(profile.getValue().uid());
+        assertEquals("1234567890", profile.getValue().xuid());
+        assertEquals("1234567890", profile.getValue().accountId());
+        assertEquals("NE1234567890", profile.getValue().javaUsername());
+        ArgumentCaptor<AuthData> authData = ArgumentCaptor.forClass(AuthData.class);
+        verify(session).setAuthData(authData.capture());
+        assertEquals("1234567890", authData.getValue().xuid());
+    }
+
+    @Test
+    void onlyTheBuiltInRootIsOfficial() throws Exception {
+        // 测试用的根公钥经 trusted-root-keys 信任，不是内置的网易根公钥
+        configure(true, NeteaseTestChains.encoded(chains.root));
+        NeteaseClients.markRaknet8(channel);
+        NeteaseLogin.login(session, new CertificateChainPayload(chains.chain(), AuthType.FULL), clientData());
+        ArgumentCaptor<NeteaseProfile> profile = ArgumentCaptor.forClass(NeteaseProfile.class);
+        verify(session).setNeteaseProfile(profile.capture());
+        assertFalse(profile.getValue().officialRoot());
+
+        // 内置的网易根公钥签发的登录（无法以真的私钥签名，直接构造验证结果）
+        assertEquals(NeteaseLoginChain.NETEASE_ROOT_KEY, NeteaseLoginChain.canonical(NeteaseLoginChain.NETEASE_ROOT_KEY));
+        NeteaseLoginChain.Verified official = new NeteaseLoginChain.Verified(
+            (java.security.interfaces.ECPublicKey) chains.client.getPublic(), Map.of(), chains.extraData, NeteaseLoginChain.NETEASE_ROOT_KEY);
+        assertTrue(NeteaseLogin.profile(official).officialRoot());
+        assertEquals("2147483648", NeteaseLogin.profile(official).uid());
+    }
+
+    @Test
+    void developerIdentityIsNeverOfficial() throws Exception {
+        configure(true);
+        allowSelfSigned(true);
+        NeteaseClients.markRaknet8(channel);
+        NeteaseLogin.login(session, new CertificateChainPayload(chains.selfSignedChain("ev"), AuthType.SELF_SIGNED), clientData());
+        ArgumentCaptor<NeteaseProfile> profile = ArgumentCaptor.forClass(NeteaseProfile.class);
+        verify(session).setNeteaseProfile(profile.capture());
+        assertTrue(profile.getValue().developer());
+        assertFalse(profile.getValue().officialRoot());
+        assertNull(profile.getValue().accountId());
+    }
+
+    @Test
     void developerUsernames() {
         assertEquals("DEVev", NeteaseLogin.developerUsername("ev"));
         assertEquals("DEVSteve_1", NeteaseLogin.developerUsername("Steve_1"));

@@ -26,6 +26,7 @@
 package org.geysermc.geyser.platform.velocity;
 
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.proxy.network.Connections;
 import com.velocitypowered.proxy.network.TransportType;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -49,19 +50,28 @@ import io.netty.channel.uring.IoUringIoHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.ThreadAwareExecutor;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.geyser.GeyserBootstrap;
+import org.geysermc.geyser.network.java.DirectConnections;
 import org.geysermc.geyser.network.java.GeyserInjector;
 import org.geysermc.geyser.network.java.IoHandlerWrapper;
 import org.geysermc.geyser.network.java.LocalServerChannelWrapper;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Supplier;
 
 public class GeyserVelocityInjector extends GeyserInjector {
     private final ProxyServer proxy;
+    /**
+     * MINEZ：Velocity 的 {@code MinecraftConnection#getSessionId()}（Velocity 4.3.0 起）。编译时用的 Velocity 还没有这个方法，
+     * 所以以反射取得；为 null 时表示还没有查找过。
+     */
+    private volatile @Nullable Method sessionIdGetter;
+    private volatile boolean warnedNoSessionId;
 
     public GeyserVelocityInjector(ProxyServer proxy) {
         this.proxy = proxy;
@@ -127,6 +137,8 @@ public class GeyserVelocityInjector extends GeyserInjector {
                 @Override
                 protected void initChannel(@NonNull Channel ch) throws Exception {
                     initChannel.invoke(channelInitializer, ch);
+                    // MINEZ：登记 Velocity 为这个进程内直连分配的会话 ID，插件可由此认出来自 Geyser 的连接
+                    registerProxySession(bootstrap, ch);
 
                     if (bootstrap.config().advanced().java().disableCompression() && GeyserVelocityCompressionDisabler.ENABLED) {
                         ch.pipeline().addAfter("minecraft-encoder", "geyser-compression-disabler",
@@ -142,6 +154,37 @@ public class GeyserVelocityInjector extends GeyserInjector {
 
         this.localChannel = channelFuture;
         this.serverSocketAddress = channelFuture.channel().localAddress();
+    }
+
+    /**
+     * MINEZ：取得 Velocity 刚为这个通道建立的 {@code MinecraftConnection} 的会话 ID，登记到 {@link DirectConnections}。
+     * 这个通道是 Geyser 自己的 {@code LocalServerChannelWrapper} 接受的，只能来自同一个 JVM。
+     */
+    private void registerProxySession(GeyserBootstrap bootstrap, Channel channel) {
+        Object connection = channel.pipeline().get(Connections.HANDLER);
+        if (connection == null) {
+            return;
+        }
+        try {
+            Method getter = sessionIdGetter;
+            if (getter == null || getter.getDeclaringClass() != connection.getClass()) {
+                getter = connection.getClass().getMethod("getSessionId");
+                sessionIdGetter = getter;
+            }
+            if (getter.invoke(connection) instanceof UUID sessionId) {
+                if (!DirectConnections.register(channel, sessionId)) {
+                    bootstrap.getGeyserLogger().debug("A direct connection without a Geyser session got the Velocity session ID " + sessionId);
+                }
+            }
+        } catch (NoSuchMethodException e) {
+            if (!warnedNoSessionId) {
+                warnedNoSessionId = true;
+                bootstrap.getGeyserLogger().warning("This Velocity does not give connections a session ID (added in Velocity 4.3.0), "
+                    + "so plugins cannot look up Geyser players by it (connectionByProxySessionId)");
+            }
+        } catch (ReflectiveOperationException e) {
+            bootstrap.getGeyserLogger().error("Could not read the Velocity session ID of a direct connection", e);
+        }
     }
 
     private static IoHandlerFactory getNativeHandlerFactory() {

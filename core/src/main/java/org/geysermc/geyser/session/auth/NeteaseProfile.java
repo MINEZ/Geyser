@@ -30,12 +30,14 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /**
  * MINEZ：网易中国版客户端登录链中的身份信息，经网易的根公钥（或配置中额外信任的根公钥）验证过。
  * <p>
- * 先保存在会话上，供以后的账号方案使用。Java 端的身份暂时沿用 auth-type 的现有机制，用的是 {@link #javaUsername()}。
+ * 保存在会话上。插件经 API 取得的是不含会话 ID 的 {@link NeteaseIdentityImpl}。没有登录闸门时，Java 端的身份沿用
+ * auth-type 的现有机制，用的是 {@link #javaUsername()}；有登录闸门时由闸门决定（见 GatedLoginImpl）。
  * <p>
  * 自签名的网易登录（例如 Mod PC 开发包）也有一份，但其中的内容都无法核实：{@link #developer()} 为 true，
  * 不记 uid、XUID 与会话 ID，账号方案应把它们排除在外。
  *
- * @param uid           网易用户的数字 ID，开发者身份为 null
+ * @param uid           网易用户的数字 ID，只取登录链 extraData 中的 uid，没有时为 null（MINEZ：不以 XUID 代替，见 {@link #accountId()}）；
+ *                      开发者身份为 null
  * @param displayName   登录链中的玩家名，可能含中文等 Java 版不允许的字符
  * @param javaUsername  进入 Java 服时用的玩家名，见 NeteaseLogin
  * @param xuid          登录链中的 XUID，不是 Xbox 账号的 ID；开发者身份为 null
@@ -47,6 +49,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * @param bit           客户端位数
  * @param rootKey       签发登录链的根公钥（Base64 编码的 X.509 公钥）；开发者身份为客户端自己的公钥
  * @param sessionId     网易会话 ID（netease_sid）。可用于向网易核验身份，不要写进日志；开发者身份为 null
+ * @param officialRoot  MINEZ：登录链是否由内置的网易正式环境根公钥签发（不是 trusted-root-keys 中的其他根公钥）；开发者身份为 false
  * @param developer     是否为自签名登录的隔离身份（开发者身份），见 NeteaseLogin
  */
 public record NeteaseProfile(
@@ -62,8 +65,17 @@ public record NeteaseProfile(
     @Nullable String bit,
     String rootKey,
     @Nullable String sessionId,
+    boolean officialRoot,
     boolean developer
 ) {
+    /**
+     * MINEZ：沿用此前的账号编号：登录链中的 uid，没有时为 XUID（即此前的 uid），用于没有登录闸门时“NE”加编号的名字、
+     * 登录链中没有 identity 时的 UUID 与 AuthData 中的 XUID。开发者身份为 null。
+     */
+    public @Nullable String accountId() {
+        return uid != null ? uid : xuid;
+    }
+
     /**
      * 不含会话 ID，以免被写进日志。
      */
@@ -71,6 +83,6 @@ public record NeteaseProfile(
     public String toString() {
         return "NeteaseProfile[uid=" + uid + ", displayName=" + displayName + ", javaUsername=" + javaUsername + ", xuid=" + xuid
             + ", env=" + env + ", platform=" + platform + ", osName=" + osName + ", engineVersion=" + engineVersion
-            + ", patchVersion=" + patchVersion + ", bit=" + bit + ", developer=" + developer + "]";
+            + ", patchVersion=" + patchVersion + ", bit=" + bit + ", officialRoot=" + officialRoot + ", developer=" + developer + "]";
     }
 }

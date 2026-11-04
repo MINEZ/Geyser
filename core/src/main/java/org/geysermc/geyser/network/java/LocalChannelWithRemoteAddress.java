@@ -26,6 +26,8 @@
 package org.geysermc.geyser.network.java;
 
 import io.netty.channel.local.LocalChannel;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.geyser.session.GeyserSession;
 
 import java.net.SocketAddress;
 
@@ -34,6 +36,10 @@ import java.net.SocketAddress;
  */
 public class LocalChannelWithRemoteAddress extends LocalChannel {
     private SocketAddress spoofedAddress;
+    /**
+     * MINEZ：这个直连所属的 Geyser 会话，由 LocalSession 设定，见 {@link DirectConnections}。
+     */
+    private volatile @Nullable GeyserSession geyserSession;
 
     public SocketAddress spoofedRemoteAddress() {
         return spoofedAddress;
@@ -41,5 +47,13 @@ public class LocalChannelWithRemoteAddress extends LocalChannel {
 
     public void spoofedRemoteAddress(SocketAddress socketAddress) {
         this.spoofedAddress = socketAddress;
+    }
+
+    public @Nullable GeyserSession geyserSession() {
+        return geyserSession;
+    }
+
+    public void geyserSession(@Nullable GeyserSession geyserSession) {
+        this.geyserSession = geyserSession;
     }
 }

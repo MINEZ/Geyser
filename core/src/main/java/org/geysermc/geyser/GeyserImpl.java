@@ -67,6 +67,7 @@ import org.geysermc.geyser.api.event.lifecycle.GeyserPreInitializeEvent;
 import org.geysermc.geyser.api.event.lifecycle.GeyserPreReloadEvent;
 import org.geysermc.geyser.api.event.lifecycle.GeyserRegisterPermissionsEvent;
 import org.geysermc.geyser.api.event.lifecycle.GeyserShutdownEvent;
+import org.geysermc.geyser.api.login.LoginGate;
 import org.geysermc.geyser.api.network.AuthType;
 import org.geysermc.geyser.api.network.BedrockListener;
 import org.geysermc.geyser.api.network.RemoteServer;
@@ -85,6 +86,7 @@ import org.geysermc.geyser.level.WorldManager;
 import org.geysermc.geyser.network.RaknetServer;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.nethernet.NetherNetServer;
+import org.geysermc.geyser.network.java.DirectConnections;
 import org.geysermc.geyser.ping.GeyserLegacyPingPassthrough;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.loader.ResourcePackLoader;
@@ -95,6 +97,7 @@ import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.PendingMicrosoftAuthentication;
 import org.geysermc.geyser.session.SessionDisconnectListener;
 import org.geysermc.geyser.session.SessionManager;
+import org.geysermc.geyser.session.auth.GatedLoginImpl;
 import org.geysermc.geyser.skin.FloodgateSkinUploader;
 import org.geysermc.geyser.skin.ProvidedSkins;
 import org.geysermc.geyser.skin.SkinProvider;
@@ -132,6 +135,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -158,6 +162,10 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
     private static final Pattern IP_REGEX = Pattern.compile("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b");
 
     private final SessionManager sessionManager = new SessionManager();
+    /**
+     * MINEZ：插件注册的登录闸门，见 {@link LoginGate}。
+     */
+    private final AtomicReference<LoginGate> loginGate = new AtomicReference<>();
 
     private FloodgateCipher cipher;
     private @Nullable FloodgateSkinUploader skinUploader;
@@ -598,6 +606,49 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
     @Override
     public @Nullable GeyserSession connectionByXuid(@NonNull String xuid) {
         return sessionManager.sessionByXuid(xuid);
+    }
+
+    @Override
+    public void registerLoginGate(@NonNull LoginGate gate) {
+        Objects.requireNonNull(gate, "gate");
+        if (!loginGate.compareAndSet(null, gate)) {
+            if (loginGate.get() == gate) {
+                return;
+            }
+            throw new IllegalStateException("Another login gate is already registered: " + loginGate.get().getClass().getName());
+        }
+        getLogger().info("Registered the login gate " + gate.getClass().getName() + "; Bedrock players now wait for it before joining the Java server");
+        if (config() != null && config().java().authType() == AuthType.ONLINE) {
+            getLogger().warning("The login gate is not used while java.auth-type is online");
+        }
+    }
+
+    @Override
+    public boolean unregisterLoginGate(@NonNull LoginGate gate) {
+        if (!loginGate.compareAndSet(gate, null)) {
+            return false;
+        }
+        getLogger().info("Unregistered the login gate " + gate.getClass().getName());
+        // MINEZ：还在这个闸门中等待的玩家无法再得到结果，断开
+        for (GeyserSession session : sessionManager.getAllSessions()) {
+            GatedLoginImpl gated = session.getGatedLogin();
+            if (gated != null && gated.isOf(gate)) {
+                gated.unregistered();
+            }
+        }
+        return true;
+    }
+
+    /**
+     * MINEZ：当前注册的登录闸门。
+     */
+    public @Nullable LoginGate loginGate() {
+        return loginGate.get();
+    }
+
+    @Override
+    public @Nullable GeyserSession connectionByProxySessionId(@NonNull UUID proxySessionId) {
+        return DirectConnections.get(proxySessionId);
     }
 
     @Override

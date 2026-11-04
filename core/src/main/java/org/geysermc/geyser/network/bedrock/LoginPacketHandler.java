@@ -251,6 +251,9 @@ public class LoginPacketHandler extends LoggingPacketHandler {
             return;
         }
 
+        // MINEZ：基岩版登录已经完成，从这时起插件可以取得网易身份
+        session.finishBedrockLogin();
+
         // Set the block translation based off of version
         // MINEZ：网易中国版客户端的方块调色板与物品表与同一协议的国际版不同，另行登记，见 NeteasePalette。
         // 网易客户端的会话（包括自签名登录的开发者身份）都已换上网易的编解码器

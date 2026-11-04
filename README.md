@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.7-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.8-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -80,6 +80,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Bedrock 1.21.130 (protocol 898) | Protocol | Added |
 | Clients other than China Edition | Behaviour | Changed |
 | Self-signed China Edition logins | Behaviour | Added |
+| Login gate and NetEase identities for plugins | API | Added |
 | `bedrock.netease` | Config | Added |
 | `bedrock.transport: raknet` | Config | Kept |
 | Packets the client cannot decode | Behaviour | Changed |
@@ -93,7 +94,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 - **RakNet.** They report RakNet protocol 8, yet batch and compress like 11: VarInt packet headers, and no compression before `RequestNetworkSettings`. RakNet now accepts 8 alongside 11, notes the reported version on the connection, and builds the pipeline of 11 for it. After negotiation they use raw deflate like international clients; batches that some builds send as zlib-wrapped streams are read as well.
 - **Protocol.** China Edition 1.21.130 has its own codec, built on the international one for protocol 898 with NetEase's changes to `PlayerAuthInput`, `Text`, `CommandRequest`, `Animate`, `ResourcePackStack`, `ContainerOpen`, `SetPlayerInventoryOptions`, `BiomeDefinitionList` and `PlayerEnchantOptions`, and to the IDs of container slot types and particles. The packets only NetEase has, such as `PyRpc` of its Mod SDK, are recognised and dropped, with a debug message. International sessions keep their codecs unchanged.
 - **Login.** The login chain has to be signed by NetEase's root key, or by one listed in `bedrock.netease.trusted-root-keys`; its signatures and validity windows are checked as for Microsoft's. The login and its encryption handshake no longer go through the protocol library's `EncryptionUtils`, which contacts Microsoft's services when it loads, and while only China Edition clients may join, Geyser no longer stops at startup when it cannot reach them. With `debug-mode` on, every China Edition login logs its chain: the issuer, key fingerprints and validity of each entry, the full root key, and fields such as `env`, `engineVersion` and `patchVersion`, but never a token or the NetEase session ID.
-- **Identity.** The NetEase UID and the other identity fields are kept on the session for a later account scheme. The Java side still follows `auth-type`: a player joins under the name in their login chain, or as `NE` followed by their NetEase UID when that name has characters Java does not allow. Replacing just those characters could give two players the same name, and so the same account in offline mode.
+- **Identity.** The NetEase UID and the other identity fields are kept on the session, and plugins can read them, see the login gate below. Without a login gate, the Java side still follows `auth-type`: a player joins under the name in their login chain, or as `NE` followed by their NetEase UID when that name has characters Java does not allow. Replacing just those characters could give two players the same name, and so the same account in offline mode.
 - **Blocks and items.** China Edition numbers blocks by its own block palette, which differs from 1.21.130's: it has `micro_block` but no `chalkboard`, which shifts most block IDs, and the crafting table and furnaces carry a `custom_appearance` state. China Edition sessions get their own palette and block and item mappings, generated at startup from the 1.21.130 data by those differences rather than shipped as a data file; the item table drops `board` and `chalkboard`, which China Edition lacks. International 1.21.130 sessions keep the palette they had.
 
 With `-DGeyser.RakSendCookie=false` the reported RakNet version is lost, so China Edition clients are told apart by their login chain alone, and zlib-wrapped batches are no longer read. Not covered yet: other players' skins are not confirmed (`ConfirmSkin`), nor is `PyRpc` forwarded, nor are China Edition's VIP resource packs and behaviour packs sent.
@@ -101,6 +102,14 @@ With `-DGeyser.RakSendCookie=false` the reported RakNet version is lost, so Chin
 **Clients other than China Edition.** While `bedrock.netease.only-netease-clients` is on, which it is by default, any client whose login chain NetEase did not sign is refused while logging in with 客户端版本错误，请使用中国版客户端加入游戏。 ("Wrong client version, please join with the China Edition client."). The connection is not forcibly closed, so the client shows the message. Turned off, other clients join as upstream lets them.
 
 **Self-signed China Edition logins.** The development build of NetEase's PC client ("Mod PC") signs its own login, a single entry with no NetEase signature, so nothing in it can be verified. Such a login is refused like any other unless `bedrock.netease.allow-self-signed-logins` is on. It is only recognised on a connection that behaves like China Edition (RakNet 8, protocol 898) and carries NetEase's own fields such as `netease_uid`; a self-signed international login is still refused. When let in, the player never joins as the name, UID or XUID they claim, but under an isolated developer identity: `DEV` followed by their nickname, keeping only letters, digits and underscores, at most 16 characters, or `DEV` followed by a short hash of the nickname when nothing is left. The session marks the identity as a developer one, for a later account scheme to leave out. Meant for test servers and NetEase's review runs only.
+
+**Login gate and NetEase identities for plugins.** Plugins running in the same process as Geyser, such as a Velocity plugin next to Geyser-Velocity, can now take part in the login of Bedrock players. Geyser's API gains three things:
+
+- `GeyserConnection#neteaseIdentity()` gives the verified China Edition identity of a session: the NetEase UID (only the `uid` of the login chain, never replaced by the XUID), the XUID, the nickname, `env` and the platform details, whether NetEase's built-in root key signed the chain (`officialRoot`), and whether it is the developer identity of a self-signed login (`developer`). It is only there once the Bedrock login, encryption handshake included, has finished, and it never holds the NetEase session ID or any token.
+- `GeyserApi#registerLoginGate` registers a login gate, at most one at a time. Once a Bedrock player has passed Geyser's checks and received the resource packs, and before Geyser connects to the Java server, the session waits for the gate, which may show Cumulus forms meanwhile; for these, Geyser first spawns a blank waiting world, as it does for online-mode logins. The gate then lets the player in under a Java username of its choosing, up to 16 characters without whitespace (other characters, such as Chinese, are passed on as they are), optionally keeping an object of its own on the session (`GeyserConnection#loginGateResult()`), or disconnects them with a message. The wait times out after ten minutes unless the gate sets another limit, and the gate is told when the player leaves, the wait times out or the gate is unregistered. Forms still open when the gate ends are closed without calling their handlers. With `auth-type: online` the Java identity comes from the Microsoft account, and the gate is not used.
+- `GeyserApi#connectionByProxySessionId` finds the session behind a connection the proxy received over Geyser's in-process direct connection (`use-direct-connection`), by the session ID the proxy gave it. Geyser-Velocity registers Velocity's `InboundConnection#getSessionId()` (Velocity 4.3.0 and newer) for each such connection while Velocity sets it up, so a plugin can tell, for example in `PreLoginEvent`, whether a connection really comes from Geyser in the same process. Connections over the network are never found. When the direct connection cannot be set up, Geyser now logs an error saying that Bedrock players will join over the network instead.
+
+Without a registered gate, Bedrock players join exactly as before, and the Java names of China Edition players still follow the rule under Identity above.
 
 **`bedrock.netease`.** A new section of the config:
 
@@ -128,9 +137,9 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.7.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.8.jar`, so builds can be told apart at a glance.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.7 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.8 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -146,19 +155,19 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.7.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.7.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.7.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.7.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.7.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.7.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.7.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.8.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.8.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.8.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.8.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.8.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.8.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.8.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.7`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.8`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
@@ -167,7 +176,7 @@ The version follows upstream's own release numbering, with this fork's revision 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.7` to `2.12.1-b1280.8`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.8` to `2.12.1-b1280.9`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 

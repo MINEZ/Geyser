@@ -120,10 +120,12 @@ import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.bedrock.camera.CameraData;
 import org.geysermc.geyser.api.bedrock.camera.CameraShake;
 import org.geysermc.geyser.api.connection.GeyserConnection;
+import org.geysermc.geyser.api.connection.NeteaseIdentity;
 import org.geysermc.geyser.api.entity.EntityData;
 import org.geysermc.geyser.api.entity.type.player.GeyserPlayerEntity;
 import org.geysermc.geyser.api.event.bedrock.SessionDisconnectEvent;
 import org.geysermc.geyser.api.event.bedrock.SessionLoginEvent;
+import org.geysermc.geyser.api.login.LoginGateResult;
 import org.geysermc.geyser.api.network.RemoteServer;
 import org.geysermc.geyser.api.skin.SkinData;
 import org.geysermc.geyser.api.util.PlatformType;
@@ -173,6 +175,8 @@ import org.geysermc.geyser.registry.type.BlockMappings;
 import org.geysermc.geyser.registry.type.ItemMappings;
 import org.geysermc.geyser.session.auth.AuthData;
 import org.geysermc.geyser.session.auth.BedrockClientData;
+import org.geysermc.geyser.session.auth.GatedLoginImpl;
+import org.geysermc.geyser.session.auth.NeteaseIdentityImpl;
 import org.geysermc.geyser.session.auth.NeteaseProfile;
 import org.geysermc.geyser.session.cache.AdvancementsCache;
 import org.geysermc.geyser.session.cache.BlockBreakHandler;
@@ -289,6 +293,22 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      */
     @Setter
     private @Nullable NeteaseProfile neteaseProfile;
+    /**
+     * MINEZ：交给插件的网易身份，完成基岩版登录（含加密握手）后才有，见 {@link #finishBedrockLogin()}。
+     */
+    @Getter(AccessLevel.NONE)
+    private volatile @Nullable NeteaseIdentityImpl neteaseIdentity;
+    /**
+     * MINEZ：登录闸门中的这次登录，登录时没有注册闸门时为 null。
+     */
+    @Setter
+    private volatile @Nullable GatedLoginImpl gatedLogin;
+    /**
+     * MINEZ：登录闸门放行时的结果，见 {@link #loginGateResult()}。
+     */
+    @Getter(AccessLevel.NONE)
+    @Setter
+    private volatile LoginGateResult.@Nullable Allow loginGateResult;
     /**
      * Used for Floodgate skin uploading
      */
@@ -1216,9 +1236,10 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         ClientSession downstream;
         if (geyser.getBootstrap().getSocketAddress() != null) {
             // We're going to connect through the JVM and not through TCP
+            // MINEZ：带上这个会话，代理一端可以由直连的通道认出它（见 DirectConnections）
             downstream = new LocalSession(geyser.getBootstrap().getSocketAddress(),
                 upstream.getAddress().getAddress().getHostAddress(),
-                this.protocol, this.tickEventLoop);
+                this.protocol, this.tickEventLoop, this);
             downstream.setFlag(MinecraftConstants.CLIENT_HOST, this.remoteServer.address());
             downstream.setFlag(MinecraftConstants.CLIENT_PORT, this.remoteServer.port());
             this.downstream = new DownstreamSession(downstream);
@@ -1268,6 +1289,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     public void disconnect(Component reason) {
         if (!closed) {
             loggedIn = false;
+
+            // MINEZ：还在登录闸门中等待时，通知插件并结束等待
+            GatedLoginImpl gated = this.gatedLogin;
+            if (gated != null) {
+                gated.sessionClosed();
+            }
 
             SessionDisconnectEvent disconnectEvent = new SessionDisconnectEventImpl(this, reason);
             if (authData != null && clientData != null) { // can occur if player disconnects before Bedrock auth finishes
@@ -1927,6 +1954,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     public boolean sendForm(@NonNull Form form) {
         // Check if we're in the config stage, if so, prepare the client for forms
         if (this.downstream != null && this.downstream.isState(ProtocolState.CONFIGURATION)) {
+            this.prepareForConfigurationForm();
+        } else if (isWaitingInLoginGate()) {
+            // MINEZ：登录闸门中还没有下游，同样先生成等待世界，表单在客户端加载完后显示
+            if (!sentSpawnPacket) {
+                this.gatedLogin.waitingWorldShown();
+            }
             this.prepareForConfigurationForm();
         }
         // First close any dialogs that are open. This won't execute the dialog's closing action.
@@ -2631,6 +2664,35 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     @Override
     public @NonNull String xuid() {
         return authData.xuid();
+    }
+
+    @Override
+    public @Nullable NeteaseIdentity neteaseIdentity() {
+        return neteaseIdentity;
+    }
+
+    @Override
+    public LoginGateResult.@Nullable Allow loginGateResult() {
+        return loginGateResult;
+    }
+
+    /**
+     * MINEZ：基岩版登录（登录链、客户端数据，以及需要时的加密握手）已经完成，由 LoginPacketHandler 调用。
+     * 从这时起插件才能取得网易身份。
+     */
+    public void finishBedrockLogin() {
+        NeteaseProfile profile = this.neteaseProfile;
+        if (profile != null && authData != null) {
+            this.neteaseIdentity = NeteaseIdentityImpl.of(profile, authData.uuid());
+        }
+    }
+
+    /**
+     * MINEZ：是否停在登录闸门中、还没有连接 Java 端。
+     */
+    public boolean isWaitingInLoginGate() {
+        GatedLoginImpl gated = this.gatedLogin;
+        return downstream == null && gated != null && gated.isPending();
     }
 
     @Override

@@ -33,6 +33,7 @@ import org.geysermc.geyser.api.connection.GeyserConnection;
 import org.geysermc.geyser.api.event.EventBus;
 import org.geysermc.geyser.api.event.EventRegistrar;
 import org.geysermc.geyser.api.extension.ExtensionManager;
+import org.geysermc.geyser.api.login.LoginGate;
 import org.geysermc.geyser.api.network.BedrockListener;
 import org.geysermc.geyser.api.network.RemoteServer;
 import org.geysermc.geyser.api.util.MinecraftVersion;
@@ -149,6 +150,36 @@ public interface GeyserApi extends GeyserApiBase {
      * @return the console command source
      */
     CommandSource consoleCommandSource();
+
+    /**
+     * MINEZ：注册登录闸门，见 {@link LoginGate}。同时至多注册一个。
+     *
+     * @param gate 登录闸门
+     * @throws IllegalStateException 已经注册了别的闸门
+     */
+    void registerLoginGate(LoginGate gate);
+
+    /**
+     * MINEZ：注销登录闸门。仍在闸门中等待的玩家以 {@link org.geysermc.geyser.api.login.GatedLogin.CancelReason#UNREGISTERED}
+     * 结束并被断开；之后登录的玩家照旧直接连接 Java 端。
+     *
+     * @param gate 登录闸门
+     * @return 它是否为当前注册的闸门
+     */
+    boolean unregisterLoginGate(LoginGate gate);
+
+    /**
+     * MINEZ：按代理为 Geyser 的进程内直连分配的会话 ID 取得会话。
+     * <p>
+     * 只有 Geyser 以进程内的直连（{@code use-direct-connection}，Netty 的 {@code LocalChannel}）连入的代理会登记：
+     * 目前只有 Geyser-Velocity，会话 ID 即 Velocity 的 {@code InboundConnection#getSessionId()}（Velocity 4.3.0 起）。
+     * 经网络连入的连接一律查不到，所以查得到就说明这个连接确实来自本进程中的 Geyser，而不是冒充的网络客户端。
+     * 登记从 Velocity 为这个连接调用初始化器时开始，到连接关闭时结束；会话已关闭时也查不到。
+     *
+     * @param proxySessionId 代理的会话 ID
+     * @return 会话，查不到时为 null
+     */
+    @Nullable GeyserConnection connectionByProxySessionId(UUID proxySessionId);
 
     /**
      * Gets the current {@link GeyserApiBase} instance.

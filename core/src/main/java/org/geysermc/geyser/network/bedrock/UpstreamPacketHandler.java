@@ -40,6 +40,7 @@ import org.cloudburstmc.protocol.bedrock.packet.ResourcePacksInfoPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetTitlePacket;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.api.login.LoginGate;
 import org.geysermc.geyser.api.network.AuthType;
 import org.geysermc.geyser.api.pack.PackCodec;
 import org.geysermc.geyser.api.pack.ResourcePack;
@@ -53,6 +54,7 @@ import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.loader.ResourcePackLoader;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.PendingMicrosoftAuthentication;
+import org.geysermc.geyser.session.auth.GatedLoginImpl;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.util.MathUtils;
 
@@ -134,8 +136,15 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
                 finishedResourcePackSending = true;
                 if (geyser.config().java().authType() != AuthType.ONLINE) {
                     // MINEZ：网易玩家的名字可能不合 Java 版的规则，改用 NeteaseLogin 算出的名字
-                    session.authenticate(session.getNeteaseProfile() != null
-                        ? session.getNeteaseProfile().javaUsername() : session.getAuthData().name());
+                    String username = session.getNeteaseProfile() != null
+                        ? session.getNeteaseProfile().javaUsername() : session.getAuthData().name();
+                    LoginGate gate = geyser.loginGate();
+                    if (gate != null) {
+                        // MINEZ：有插件注册了登录闸门时，先等它放行，由它决定连接 Java 端所用的名字
+                        GatedLoginImpl.start(session, gate, username);
+                    } else {
+                        session.authenticate(username);
+                    }
                 } else if (!couldLoginUserByName(session.getAuthData().name())) {
                     // We must spawn the white world
                     session.connect();
