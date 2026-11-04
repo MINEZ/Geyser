@@ -237,7 +237,7 @@ public class ConnectionTestCommand extends GeyserCommand {
     private void sendLinks(GeyserCommandSource sender) {
         sender.sendMessage("If you still face issues, check the setup guide for instructions: " +
                 "https://wiki.geysermc.org/geyser/setup/");
-        // MINEZ：问题反馈到本 Fork，而不是上游的 Discord
+        // MINEZ：问题反馈到本 Fork，而不是上游的 Discord。
         sender.sendMessage("If that does not work, see " + "https://wiki.geysermc.org/geyser/fixing-unable-to-connect-to-world/" + ", or report it at: " + "https://github.com/MINEZ/Geyser/issues");
     }
 }

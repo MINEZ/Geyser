@@ -38,7 +38,7 @@ public sealed interface LoginGateResult permits LoginGateResult.Allow, LoginGate
     /**
      * 放行，以 {@link GatedLogin#defaultUsername()} 连接 Java 端。
      *
-     * @return 结果
+     * @return 结果。
      */
     static @NonNull Allow allow() {
         return new Allow(null, null);
@@ -47,8 +47,8 @@ public sealed interface LoginGateResult permits LoginGateResult.Allow, LoginGate
     /**
      * 放行，以给定的名字连接 Java 端。
      *
-     * @param javaUsername Java 端的名字，见 {@link Allow}
-     * @return 结果
+     * @param javaUsername Java 端的名字，见 {@link Allow}。
+     * @return 结果。
      */
     static @NonNull Allow allow(@NonNull String javaUsername) {
         return new Allow(Objects.requireNonNull(javaUsername, "javaUsername"), null);
@@ -57,9 +57,9 @@ public sealed interface LoginGateResult permits LoginGateResult.Allow, LoginGate
     /**
      * 放行，以给定的名字连接 Java 端，并在会话上记下附加信息，之后由 {@link org.geysermc.geyser.api.connection.GeyserConnection#loginGateResult()} 取得。
      *
-     * @param javaUsername Java 端的名字，为 null 时用 {@link GatedLogin#defaultUsername()}
-     * @param attachment   附加信息，由插件自己定义，Geyser 不读取，也不发给 Java 端
-     * @return 结果
+     * @param javaUsername Java 端的名字，为 null 时用 {@link GatedLogin#defaultUsername()}。
+     * @param attachment   附加信息，由插件自己定义，Geyser 不读取，也不发给 Java 端。
+     * @return 结果。
      */
     static @NonNull Allow allow(@Nullable String javaUsername, @Nullable Object attachment) {
         return new Allow(javaUsername, attachment);
@@ -68,8 +68,8 @@ public sealed interface LoginGateResult permits LoginGateResult.Allow, LoginGate
     /**
      * 以给定的提示断开。
      *
-     * @param reason 断开时显示给玩家的提示
-     * @return 结果
+     * @param reason 断开时显示给玩家的提示。
+     * @return 结果。
      */
     static @NonNull Disconnect disconnect(@NonNull String reason) {
         return new Disconnect(reason);
@@ -82,8 +82,8 @@ public sealed interface LoginGateResult permits LoginGateResult.Allow, LoginGate
      * 不含空白与控制字符；字符集合不再限制（例如中文），是否接受由 Java 端决定。
      * 由 {@link org.geysermc.geyser.api.connection.GeyserConnection#loginGateResult()} 取得的结果中，名字总是实际使用的名字。
      *
-     * @param javaUsername Java 端的名字，为 null 时用 {@link GatedLogin#defaultUsername()}
-     * @param attachment   附加信息，由插件自己定义
+     * @param javaUsername Java 端的名字，为 null 时用 {@link GatedLogin#defaultUsername()}。
+     * @param attachment   附加信息，由插件自己定义。
      */
     record Allow(@Nullable String javaUsername, @Nullable Object attachment) implements LoginGateResult {
         /**
@@ -109,7 +109,7 @@ public sealed interface LoginGateResult permits LoginGateResult.Allow, LoginGate
     /**
      * 以给定的提示断开。
      *
-     * @param reason 断开时显示给玩家的提示
+     * @param reason 断开时显示给玩家的提示。
      */
     record Disconnect(@NonNull String reason) implements LoginGateResult {
         public Disconnect {

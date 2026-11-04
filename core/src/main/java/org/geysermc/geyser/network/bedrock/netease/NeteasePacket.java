@@ -68,19 +68,19 @@ public abstract class NeteasePacket implements BedrockPacket {
     private byte[] payload = new byte[0];
 
     /**
-     * @return 是否为网易专有数据包的 ID。没有用网易的编解码器时，它们解成 {@code UnknownPacket}
+     * @return 是否为网易专有数据包的 ID。没有用网易的编解码器时，它们解成 {@code UnknownPacket}。
      */
     public static boolean isNeteaseId(int packetId) {
         return IDS.contains(packetId);
     }
 
     /**
-     * @return 网易为这个包分配的 ID
+     * @return 网易为这个包分配的 ID。
      */
     public abstract int packetId();
 
     /**
-     * @return 未解析的负载
+     * @return 未解析的负载。
      */
     public byte[] payload() {
         return payload;

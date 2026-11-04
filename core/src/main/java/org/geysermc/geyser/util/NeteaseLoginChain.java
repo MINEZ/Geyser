@@ -93,10 +93,10 @@ public final class NeteaseLoginChain {
     /**
      * 验证通过的登录链。
      *
-     * @param identityPublicKey 客户端的身份公钥，用来验证客户端数据并完成加密握手
-     * @param identity          第三段的载荷
-     * @param extraData         第三段载荷中的 extraData
-     * @param rootKey           签发第二段的根公钥（规范化后的 Base64）
+     * @param identityPublicKey 客户端的身份公钥，用来验证客户端数据并完成加密握手。
+     * @param identity          第三段的载荷。
+     * @param extraData         第三段载荷中的 extraData。
+     * @param rootKey           签发第二段的根公钥（规范化后的 Base64）。
      */
     public record Verified(ECPublicKey identityPublicKey, Map<String, Object> identity, Map<String, Object> extraData, String rootKey) {
     }
@@ -105,9 +105,9 @@ public final class NeteaseLoginChain {
      * MINEZ：自签名的网易登录，例如 Mod PC 开发包。登录链只有一段，由客户端用自己的密钥签名，没有网易的签名，
      * 其中的名字、UID 等都无法核实。
      *
-     * @param identityPublicKey 客户端的公钥，即这一段头部的 {@code x5u}，也是载荷中的 {@code identityPublicKey}
-     * @param extraData         载荷中的 extraData
-     * @param displayName       extraData 中的昵称，去掉了首尾空白
+     * @param identityPublicKey 客户端的公钥，即这一段头部的 {@code x5u}，也是载荷中的 {@code identityPublicKey}。
+     * @param extraData         载荷中的 extraData。
+     * @param displayName       extraData 中的昵称，去掉了首尾空白。
      */
     public record SelfSigned(ECPublicKey identityPublicKey, Map<String, Object> extraData, String displayName) {
     }
@@ -115,8 +115,8 @@ public final class NeteaseLoginChain {
     /**
      * 校验的结果。
      *
-     * @param verified 验证通过时的内容，否则为 null
-     * @param reason   不通过的原因，用于日志
+     * @param verified 验证通过时的内容，否则为 null。
+     * @param reason   不通过的原因，用于日志。
      */
     public record Result(@Nullable Verified verified, String reason) {
         static Result failed(String reason) {
@@ -127,9 +127,9 @@ public final class NeteaseLoginChain {
     /**
      * 校验登录链是否由受信任的网易根公钥签发，并且各段都在有效期内。
      *
-     * @param payload      登录包中的认证信息
-     * @param trustedRoots 受信任的根公钥，规范化后的 Base64，见 {@link #parseTrustedRoots}
-     * @param nowSeconds   当前时间（Unix 秒）
+     * @param payload      登录包中的认证信息。
+     * @param trustedRoots 受信任的根公钥，规范化后的 Base64，见 {@link #parseTrustedRoots}。
+     * @param nowSeconds   当前时间（Unix 秒）。
      */
     public static Result validate(AuthPayload payload, Set<String> trustedRoots, long nowSeconds) {
         if (!(payload instanceof CertificateChainPayload chainPayload)) {
@@ -141,7 +141,7 @@ public final class NeteaseLoginChain {
         }
 
         try {
-            // 先只看第二段的签发者，国际版的登录不必逐段验签
+            // 先只看第二段的签发者，国际版的登录不必逐段验签。
             String rootKey = canonical(header(chain.get(1), HeaderParameterNames.X509_URL));
             if (rootKey == null || !trustedRoots.contains(rootKey)) {
                 return Result.failed("the chain is not signed by a trusted NetEase root key (root key " + fingerprintOf(rootKey) + ")");
@@ -204,7 +204,7 @@ public final class NeteaseLoginChain {
      * <p>
      * 这只说明登录“像网易客户端”，不能证明任何身份；是否放行、以什么身份放行由调用方决定。
      *
-     * @return 是自签名的网易登录时为其内容，否则为 null
+     * @return 是自签名的网易登录时为其内容，否则为 null。
      */
     public static @Nullable SelfSigned selfSigned(AuthPayload payload) {
         if (!(payload instanceof CertificateChainPayload chainPayload) || chainPayload.getChain() == null
@@ -244,10 +244,10 @@ public final class NeteaseLoginChain {
     }
 
     /**
-     * @return 时间窗口不对时的说明，在有效期内或没有写明时为 null
+     * @return 时间窗口不对时的说明，在有效期内或没有写明时为 null。
      */
     private static @Nullable String checkWindow(Map<String, Object> claims, long nowSeconds) {
-        // 网易的登录链是否总带有效期，资料中没有说明。写明了就检查，没写明则放行，并在 debug 日志中看得到
+        // 网易的登录链是否总带有效期，资料中没有说明。写明了就检查，没写明则放行，并在 debug 日志中看得到。
         if (claims.get("exp") instanceof Number exp && nowSeconds > exp.longValue() + ALLOWED_CLOCK_SKEW_SECONDS) {
             return "expired at " + exp.longValue();
         }
@@ -337,7 +337,7 @@ public final class NeteaseLoginChain {
     /**
      * 把配置中的根公钥规范化。读不出来的写一条警告后跳过。
      *
-     * @return 网易的根公钥与配置中的根公钥，规范化后的 Base64
+     * @return 网易的根公钥与配置中的根公钥，规范化后的 Base64。
      */
     public static Set<String> parseTrustedRoots(Collection<String> configured, Consumer<String> warning) {
         Set<String> roots = new LinkedHashSet<>();
@@ -357,7 +357,7 @@ public final class NeteaseLoginChain {
     }
 
     /**
-     * @return 公钥的 SHA-256 指纹前 16 位十六进制，读不出来时说明原因
+     * @return 公钥的 SHA-256 指纹前 16 位十六进制，读不出来时说明原因。
      */
     public static String fingerprintOf(@Nullable String canonicalKey) {
         if (canonicalKey == null) {
@@ -372,7 +372,7 @@ public final class NeteaseLoginChain {
     }
 
     /**
-     * @return 规范化后的 Base64 编码的 X.509 公钥，不是 EC 公钥时为 null
+     * @return 规范化后的 Base64 编码的 X.509 公钥，不是 EC 公钥时为 null。
      */
     static @Nullable String canonical(@Nullable String base64Key) {
         if (base64Key == null) {
@@ -428,7 +428,7 @@ public final class NeteaseLoginChain {
     }
 
     /**
-     * @return 字符串或数字的文字形式，空白或其他类型时为 null
+     * @return 字符串或数字的文字形式，空白或其他类型时为 null。
      */
     static @Nullable String text(@Nullable Object value) {
         String text = value instanceof String string ? string : value instanceof Number number ? String.valueOf(number) : null;

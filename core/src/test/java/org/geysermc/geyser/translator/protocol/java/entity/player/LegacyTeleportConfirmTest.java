@@ -120,7 +120,7 @@ class LegacyTeleportConfirmTest {
             teleport(2, 300.5, -60, 300.5);
             assertEquals(2, unconfirmed.get().getTeleportConfirmId());
 
-            // 第一次传送尚未被客户端确认，紧接着又传送到同一处（例如插件在进服时传送）
+            // 第一次传送尚未被客户端确认，紧接着又传送到同一处（例如插件在进服时传送）。
             teleport(3, 300.5, -60, 300.5);
             if (legacy) {
                 TeleportCache kept = unconfirmed.get();
@@ -137,7 +137,7 @@ class LegacyTeleportConfirmTest {
     @ValueSource(booleans = {true, false})
     void teleportToTheConfirmedPosition(boolean legacy) {
         run(legacy, () -> {
-            // 没有待确认的传送时，传送到客户端已在的位置照旧不等确认（客户端会忽略这样的传送）
+            // 没有待确认的传送时，传送到客户端已在的位置照旧不等确认（客户端会忽略这样的传送）。
             teleport(4, 10.5, -60, -5.5);
             assertNull(unconfirmed.get());
         });
@@ -154,7 +154,7 @@ class LegacyTeleportConfirmTest {
             new BedrockPlayerActionTranslator().translate(session, done);
             verify(session, legacy ? times(1) : never()).resendUnconfirmedTeleport();
 
-            // 没有待确认的传送时不重发
+            // 没有待确认的传送时不重发。
             unconfirmed.set(null);
             new BedrockPlayerActionTranslator().translate(session, done);
             verify(session, legacy ? times(1) : never()).resendUnconfirmedTeleport();
@@ -169,7 +169,7 @@ class LegacyTeleportConfirmTest {
             when(session.getUpstream()).thenReturn(upstream);
             when(session.remoteServer()).thenReturn(mock(org.geysermc.geyser.api.network.RemoteServer.class));
             teleport(2, 300.5, -60, 300.5);
-            // 只看重发，不走登录完成之后的流程
+            // 只看重发，不走登录完成之后的流程。
             when(session.isLoggedIn()).thenReturn(false);
 
             SetLocalPlayerAsInitializedPacket initialized = new SetLocalPlayerAsInitializedPacket();

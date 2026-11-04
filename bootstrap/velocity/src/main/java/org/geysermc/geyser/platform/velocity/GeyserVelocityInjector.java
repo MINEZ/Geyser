@@ -137,7 +137,7 @@ public class GeyserVelocityInjector extends GeyserInjector {
                 @Override
                 protected void initChannel(@NonNull Channel ch) throws Exception {
                     initChannel.invoke(channelInitializer, ch);
-                    // MINEZ：登记 Velocity 为这个进程内直连分配的会话 ID，插件可由此认出来自 Geyser 的连接
+                    // MINEZ：登记 Velocity 为这个进程内直连分配的会话 ID，插件可由此认出来自 Geyser 的连接。
                     registerProxySession(bootstrap, ch);
 
                     if (bootstrap.config().advanced().java().disableCompression() && GeyserVelocityCompressionDisabler.ENABLED) {

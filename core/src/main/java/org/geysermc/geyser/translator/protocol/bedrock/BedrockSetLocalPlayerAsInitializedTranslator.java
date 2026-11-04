@@ -46,7 +46,7 @@ public class BedrockSetLocalPlayerAsInitializedTranslator extends PacketTranslat
                 session.getUpstream().setInitialized(true);
 
                 // MINEZ：1.21.130 在进服的加载界面期间不理会发给自己的 MovePlayer（只用 RespawnPacket 的位置），
-                // 加载结束、发来这个包时立即重发待确认的传送（例如服务端在进服时传送玩家）
+                // 加载结束、发来这个包时立即重发待确认的传送（例如服务端在进服时传送玩家）。
                 if (!GameProtocol.is26_40orHigher(session.protocolVersion()) && session.getUnconfirmedTeleport() != null) {
                     session.getGeyser().getLogger().debug("The client finished loading, resending the unconfirmed teleport");
                     session.resendUnconfirmedTeleport();
@@ -69,7 +69,7 @@ public class BedrockSetLocalPlayerAsInitializedTranslator extends PacketTranslat
                     // else we were able to log the user in
                 }
                 if (!session.isLoggedIn() && session.isWaitingInLoginGate()) {
-                    // MINEZ：登录闸门中的表单在客户端加载完等待世界之前只是缓存着，这时发出
+                    // MINEZ：登录闸门中的表单在客户端加载完等待世界之前只是缓存着，这时发出。
                     session.getFormCache().resendAllForms();
                 }
                 if (session.isLoggedIn()) {

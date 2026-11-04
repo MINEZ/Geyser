@@ -62,8 +62,8 @@ public class NeteaseBiomeDefinitionListSerializer extends BiomeDefinitionListSer
         buffer.writeFloatLE(definition.getScale());
         buffer.writeIntLE(definition.getMapWaterColor().getRGB());
         buffer.writeBoolean(definition.isRain());
-        buffer.writeIntLE(0); // 网易字段
-        helper.writeString(buffer, ""); // 网易字段
+        buffer.writeIntLE(0); // 网易字段。
+        helper.writeString(buffer, ""); // 网易字段。
         helper.writeOptionalNull(buffer, definition.getTags(), (byteBuf, aHelper, tags) -> {
             VarInts.writeUnsignedInt(byteBuf, tags.size());
             for (String tag : tags) {
@@ -84,8 +84,8 @@ public class NeteaseBiomeDefinitionListSerializer extends BiomeDefinitionListSer
         float scale = buffer.readFloatLE();
         Color mapWaterColor = new Color(buffer.readIntLE(), true);
         boolean rain = buffer.readBoolean();
-        buffer.readIntLE(); // 网易字段
-        helper.readString(buffer); // 网易字段
+        buffer.readIntLE(); // 网易字段。
+        helper.readString(buffer); // 网易字段。
         IndexedList<String> tags = helper.readOptional(buffer, null, byteBuf -> {
             int length = VarInts.readUnsignedInt(byteBuf);
             Preconditions.checkArgument(byteBuf.isReadable(length * 2), "Not enough readable bytes for tags");

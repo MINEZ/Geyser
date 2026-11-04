@@ -75,7 +75,7 @@ public final class BedrockPlayerAuthInputTranslator extends PacketTranslator<Pla
         SessionPlayerEntity entity = session.getPlayerEntity();
 
         session.setClientTicks(packet.getTick());
-        // MINEZ：客户端预测的载具自 26.10 起才由 Geyser 处理，1.21.130 照旧（按 5da8f379 接回）
+        // MINEZ：客户端预测的载具自 26.10 起才由 Geyser 处理，1.21.130 照旧（按 5da8f379 接回）。
         session.setInClientPredictedVehicle(packet.getInputData().contains(PlayerAuthInputData.IN_CLIENT_PREDICTED_IN_VEHICLE) && entity.getVehicle() != null
             && GameProtocol.is26_40orHigher(session.protocolVersion()));
 

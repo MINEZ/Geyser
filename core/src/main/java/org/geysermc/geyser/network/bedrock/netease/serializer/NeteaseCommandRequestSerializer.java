@@ -60,6 +60,6 @@ public class NeteaseCommandRequestSerializer extends CommandRequestSerializer_v8
         packet.setInternal(buffer.readBoolean());
         buffer.readBoolean(); // unlimit
         helper.readString(buffer);
-        packet.setVersion(48); // 与原版 898 的序列化器相同
+        packet.setVersion(48); // 与原版 898 的序列化器相同。
     }
 }

@@ -82,7 +82,7 @@ public class BedrockPlayerActionTranslator extends PacketTranslator<PlayerAction
                 session.sendUpstreamPacket(attributesPacket);
 
                 // MINEZ：1.21.130 在维度切换的加载界面期间不理会发给自己的 MovePlayer，结束时停在 RespawnPacket 的位置上，
-                // 期间发出的传送就丢了。客户端报告切换完成后立即重发待确认的传送，不必等 TeleportCache 按移动包计数重发
+                // 期间发出的传送就丢了。客户端报告切换完成后立即重发待确认的传送，不必等 TeleportCache 按移动包计数重发。
                 if (!GameProtocol.is26_40orHigher(session.protocolVersion()) && session.getUnconfirmedTeleport() != null) {
                     session.getGeyser().getLogger().debug("The client finished changing dimension, resending the unconfirmed teleport");
                     session.resendUnconfirmedTeleport();

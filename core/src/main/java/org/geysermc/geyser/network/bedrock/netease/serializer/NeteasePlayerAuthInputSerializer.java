@@ -73,7 +73,7 @@ public class NeteasePlayerAuthInputSerializer extends PlayerAuthInputSerializer_
     private static final PlayerAuthInputData[] FLAGS = PlayerAuthInputData.values();
 
     /**
-     * @return 这个标志位在网易客户端线上的位置
+     * @return 这个标志位在网易客户端线上的位置。
      */
     static int wireBit(PlayerAuthInputData flag) {
         int ordinal = flag.ordinal();
@@ -167,7 +167,7 @@ public class NeteasePlayerAuthInputSerializer extends PlayerAuthInputSerializer_
         packet.setAnalogMoveVector(helper.readVector2f(buffer));
         packet.setCameraOrientation(helper.readVector3f(buffer));
         packet.setRawMoveVector(helper.readVector2f(buffer));
-        // 包尾的网易字段：视角、相对相机的转向、位移是否待更新、是否着地、重置位置。Geyser 以 Java 服务端的判断为准，不读取
+        // 包尾的网易字段：视角、相对相机的转向、位移是否待更新、是否着地、重置位置。Geyser 以 Java 服务端的判断为准，不读取。
         buffer.skipBytes(Math.min(buffer.readableBytes(), 1 + 4 + 4 + 1 + 1 + 1));
     }
 }

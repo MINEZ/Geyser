@@ -76,7 +76,7 @@ class NeteaseLoginChainTest {
 
     @Test
     void chainOfAnUntrustedRootIsRefused() {
-        // 例如国际版客户端：第二段由微软的根公钥签发
+        // 例如国际版客户端：第二段由微软的根公钥签发。
         NeteaseLoginChain.Result result = validate(chains.chain(), trusting());
         assertNull(result.verified());
         assertTrue(result.reason().contains("not signed by a trusted NetEase root key"), result.reason());
@@ -85,7 +85,7 @@ class NeteaseLoginChainTest {
 
     @Test
     void extraTrustedRootKeyIsAccepted() {
-        // 配置中的写法可以带空白，也可以是另一种 Base64 排版，规范化后比较
+        // 配置中的写法可以带空白，也可以是另一种 Base64 排版，规范化后比较。
         String key = "  " + NeteaseTestChains.encoded(chains.root) + "\n";
         assertNotNull(validate(chains.chain(), trusting(key)).verified());
     }
@@ -103,7 +103,7 @@ class NeteaseLoginChainTest {
         List<String> chain = new ArrayList<>(chains.chain());
         String identity = chain.get(2);
         String[] parts = identity.split("\\.");
-        // 换一段载荷，签名对不上
+        // 换一段载荷，签名对不上。
         String other = NeteaseTestChains.sign(chains.intermediate, Map.of("identityPublicKey", NeteaseTestChains.encoded(chains.client),
             "extraData", Map.of("displayName", "Other", "uid", 1)));
         chain.set(2, parts[0] + "." + other.split("\\.")[1] + "." + parts[2]);
@@ -115,7 +115,7 @@ class NeteaseLoginChainTest {
     @Test
     void entrySignedByAnotherKeyIsRefused() {
         List<String> chain = new ArrayList<>(chains.chain());
-        // 第三段改由不相干的密钥签发：头部的 x5u 与上一段指向的密钥不一致
+        // 第三段改由不相干的密钥签发：头部的 x5u 与上一段指向的密钥不一致。
         chain.set(2, NeteaseTestChains.sign(NeteaseTestChains.keyPair(), Map.of("identityPublicKey", NeteaseTestChains.encoded(chains.client),
             "extraData", Map.of("displayName", "Other", "uid", 1))));
         NeteaseLoginChain.Result result = validate(chain, trusting(NeteaseTestChains.encoded(chains.root)));
@@ -162,7 +162,7 @@ class NeteaseLoginChainTest {
         assertTrue(description.contains("env=development"), description);
         assertTrue(description.contains("patchVersion=3.10.5.301327"), description);
         assertTrue(description.contains("root key (x5u of entry 1): " + NeteaseTestChains.encoded(chains.root)), description);
-        // 不写出任何一段完整的令牌
+        // 不写出任何一段完整的令牌。
         for (String entry : chain) {
             assertFalse(description.contains(entry.split("\\.")[2]), description);
         }
@@ -174,13 +174,13 @@ class NeteaseLoginChainTest {
         assertNotNull(selfSigned);
         assertEquals("ev", selfSigned.displayName());
         assertEquals(NeteaseTestChains.encoded(chains.client), Base64.getEncoder().encodeToString(selfSigned.identityPublicKey().getEncoded()));
-        // 一段链不是网易签发的正式登录
+        // 一段链不是网易签发的正式登录。
         assertNull(validate(chains.selfSignedChain("ev"), trusting(NeteaseTestChains.encoded(chains.root))).verified());
     }
 
     @Test
     void selfSignedLoginWithoutNeteaseFieldsIsNotNetease() {
-        // 国际版客户端离线登录时的自签名链
+        // 国际版客户端离线登录时的自签名链。
         Map<String, Object> extra = Map.of("XUID", "", "displayName", "Steve", "identity", "7724e383-c82b-359f-822e-021d6db84e6c");
         assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(chains.selfSignedChain(extra), AuthType.SELF_SIGNED)));
         assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(
@@ -189,7 +189,7 @@ class NeteaseLoginChainTest {
 
     @Test
     void selfSignedLoginMustBeSignedByItsOwnKey() {
-        // 由另一个密钥签名、却声称是客户端自己的公钥
+        // 由另一个密钥签名、却声称是客户端自己的公钥。
         Map<String, Object> claims = Map.of("extraData", Map.of("displayName", "ev", "netease_uid", 1L),
             "identityPublicKey", NeteaseTestChains.encoded(chains.client));
         assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(
@@ -201,7 +201,7 @@ class NeteaseLoginChainTest {
         tampered.set(0, parts[0] + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes()) + "." + parts[2]);
         assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(tampered, AuthType.SELF_SIGNED)));
 
-        // 三段链、令牌都不是自签名登录
+        // 三段链、令牌都不是自签名登录。
         assertNull(NeteaseLoginChain.selfSigned(new CertificateChainPayload(chains.chain(), AuthType.FULL)));
         assertNull(NeteaseLoginChain.selfSigned(new TokenPayload("header.payload.signature", AuthType.FULL)));
     }

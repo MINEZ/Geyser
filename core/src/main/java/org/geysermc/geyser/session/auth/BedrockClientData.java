@@ -61,7 +61,7 @@ public final class BedrockClientData {
     @SerializedName(value = "GameVersion")
     private String gameVersion;
     @SerializedName(value = "ServerAddress")
-    @Setter // MINEZ：部分网易客户端不带这一项，见 NeteaseLogin
+    @Setter // MINEZ：部分网易客户端不带这一项，见 NeteaseLogin。
     private String serverAddress;
     @SerializedName(value = "ThirdPartyName")
     private String username;

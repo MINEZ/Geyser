@@ -501,7 +501,7 @@ public class CustomItemRegistryPopulator {
         // This can be missing if a non-vanilla item didn't specify a max stack size, or if a component patch removed the component. In that case vanilla Minecraft defaults to 1
         int stackSize = components.getOrDefault(DataComponentTypes.MAX_STACK_SIZE, 1);
 
-        // MINEZ：26.30 以前 minecraft:wearable 会覆盖这个组件，可装备的物品无法堆叠，见 MCPE-176931（按 5da8f379 接回）
+        // MINEZ：26.30 以前 minecraft:wearable 会覆盖这个组件，可装备的物品无法堆叠，见 MCPE-176931（按 5da8f379 接回）。
         boolean sendStackSizeComponent = GameProtocol.is26_40orHigher(context.protocolVersion());
 
         // Hack for v1 compat: Allow e.g. carved pumpkins to continue working as a base

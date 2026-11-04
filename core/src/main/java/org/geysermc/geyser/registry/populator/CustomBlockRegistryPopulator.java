@@ -443,7 +443,7 @@ public class CustomBlockRegistryPopulator {
                     // Bedrock stopped accepting a byte here in 1.26.20; it must be a float
                     materialBuilder.putFloat("ambient_occlusion", materialInstance.ambientOcclusionExponent());
                 } else {
-                    // MINEZ：1.21.130 仍是布尔值（按 5da8f379 接回）
+                    // MINEZ：1.21.130 仍是布尔值（按 5da8f379 接回）。
                     materialBuilder.putBoolean("ambient_occlusion", materialInstance.ambientOcclusion());
                 }
                 materialBuilder.putBoolean("isotropic", materialInstance.isotropic());

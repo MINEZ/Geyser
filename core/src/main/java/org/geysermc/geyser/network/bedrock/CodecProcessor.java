@@ -410,7 +410,7 @@ public class CodecProcessor {
         if (!legacyReceiptPackets && !Boolean.getBoolean("Geyser.PartneredServerPackets")) {
             codecBuilder.updateSerializer(RefreshEntitlementsPacket.class, IGNORED_SERIALIZER);
             codecBuilder.updateSerializer(PurchaseReceiptPacket.class, IGNORED_SERIALIZER);
-            // MINEZ：26.10 起才有，1.21.130 的编解码器里没有这个包
+            // MINEZ：26.10 起才有，1.21.130 的编解码器里没有这个包。
             if (GameProtocol.is26_40orHigher(codec.getProtocolVersion())) {
                 codecBuilder.updateSerializer(PartyChangedPacket.class, IGNORED_SERIALIZER);
             }
@@ -428,7 +428,7 @@ public class CodecProcessor {
             codecBuilder.updateSerializer(BossEventPacket.class, BOSS_EVENT_SERIALIZER_V1001);
         }
 
-        // MINEZ：1.21.130 换回旧版序列化器
+        // MINEZ：1.21.130 换回旧版序列化器。
         if (!GameProtocol.is26_40orHigher(codec.getProtocolVersion())) {
             codecBuilder
                 .updateSerializer(InventoryContentPacket.class, INVENTORY_CONTENT_SERIALIZER_V748)

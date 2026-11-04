@@ -231,7 +231,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
 
     public void initialize() {
         // Setup encryption early so we don't start if we can't auth
-        // MINEZ：只接受网易客户端时用不到微软的根公钥，不必因为访问不了微软的服务而停止
+        // MINEZ：只接受网易客户端时用不到微软的根公钥，不必因为访问不了微软的服务而停止。
         if (config().advanced().bedrock().validateBedrockLogin() && !config().bedrock().netease().onlyNeteaseClients()) {
             try {
                 EncryptionUtils.getMojangPublicKey();
@@ -250,7 +250,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         logger.info("");
         logger.info(GeyserLocale.getLocaleStringLog("geyser.core.load", NAME, VERSION));
         logger.info("");
-        // MINEZ：说明这是非官方 Fork，问题反馈到本 Fork，而不是上游的 Discord
+        // MINEZ：说明这是非官方 Fork，问题反馈到本 Fork，而不是上游的 Discord。
         logger.info("Unofficial MINEZ fork - not supported by the GeyserMC team.");
         logger.info("Report problems with this fork at https://github.com/MINEZ/Geyser/issues, never on the GeyserMC Discord.");
         logger.info("");
@@ -538,12 +538,12 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         if (transport.raknet()) {
             startRaknet(config, logger);
         }
-        // MINEZ：只用 RakNet 时不启动 NetherNet，也就不加载 WebRTC 库
+        // MINEZ：只用 RakNet 时不启动 NetherNet，也就不加载 WebRTC 库。
         if (transport.nethernet()) {
             this.netherNetServer = new NetherNetServer(this);
             this.netherNetServer.start();
         }
-        // MINEZ：中国版客户端只走 RakNet
+        // MINEZ：中国版客户端只走 RakNet。
         if (config.bedrock().netease().onlyNeteaseClients() && !transport.raknet()) {
             logger.warning("Only China Edition clients may join (\"only-netease-clients\" under \"bedrock.netease\"), but they connect over RakNet, "
                 + "which the \"" + transport.name().toLowerCase(Locale.ROOT) + "\" transport does not accept. No player can join until "
@@ -629,7 +629,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
             return false;
         }
         getLogger().info("Unregistered the login gate " + gate.getClass().getName());
-        // MINEZ：还在这个闸门中等待的玩家无法再得到结果，断开
+        // MINEZ：还在这个闸门中等待的玩家无法再得到结果，断开。
         for (GeyserSession session : sessionManager.getAllSessions()) {
             GatedLoginImpl gated = session.getGatedLogin();
             if (gated != null && gated.isOf(gate)) {

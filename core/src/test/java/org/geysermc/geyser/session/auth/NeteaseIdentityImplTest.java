@@ -72,7 +72,7 @@ class NeteaseIdentityImplTest {
 
         assertFalse(identity.toString().contains(SESSION_ID));
         assertFalse(((Object) identity) instanceof NeteaseProfile);
-        // 接口与实现都没有会话 ID、令牌之类的成员
+        // 接口与实现都没有会话 ID、令牌之类的成员。
         for (Method method : NeteaseIdentity.class.getMethods()) {
             assertSecretFree(method.getName());
         }

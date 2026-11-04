@@ -61,8 +61,8 @@ public final class NeteasePalette {
     /**
      * 由国际版 1.21.130 的调色板生成网易的调色板。
      *
-     * @param vanillaStates 国际版的调色板，每项只有 {@code name} 与 {@code states}，按方块名的 FNV-1 64 位散列排序
-     * @return 网易的调色板，顺序即编号
+     * @param vanillaStates 国际版的调色板，每项只有 {@code name} 与 {@code states}，按方块名的 FNV-1 64 位散列排序。
+     * @return 网易的调色板，顺序即编号。
      */
     static List<NbtMap> blockStates(List<NbtMap> vanillaStates) {
         List<NbtMap> states = new ArrayList<>(vanillaStates.size());
@@ -71,7 +71,7 @@ public final class NeteasePalette {
             String name = state.getString("name");
             long hash = BlockRegistryPopulator.fnv164(name);
             if (Long.compareUnsigned(hash, previousHash) < 0) {
-                // 插入 micro_block 的位置依赖这个顺序，顺序不对时宁可启动失败，也不要让方块错位
+                // 插入 micro_block 的位置依赖这个顺序，顺序不对时宁可启动失败，也不要让方块错位。
                 throw new IllegalStateException("The block palette is not sorted by the hashes of the block names at " + name);
             }
             previousHash = hash;

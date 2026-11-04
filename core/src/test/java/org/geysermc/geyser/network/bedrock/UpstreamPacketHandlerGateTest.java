@@ -95,7 +95,7 @@ class UpstreamPacketHandlerGateTest {
                 return null;
             }).when(session).ensureInEventLoop(any());
 
-            // 只用于最后那条日志，语言文件在测试中没有加载
+            // 只用于最后那条日志，语言文件在测试中没有加载。
             try (MockedStatic<GeyserLocale> locale = mockStatic(GeyserLocale.class)) {
                 new UpstreamPacketHandler(geyser, session).handle(completed());
             }
@@ -106,7 +106,7 @@ class UpstreamPacketHandlerGateTest {
     @Test
     void withoutAGateTheJavaServerIsJoinedAtOnce() {
         run(AuthType.OFFLINE, null, session -> {
-            // 与 G0009 相同：网易玩家以 NeteaseLogin 算出的名字直接连接
+            // 与 G0009 相同：网易玩家以 NeteaseLogin 算出的名字直接连接。
             verify(session).authenticate("NE2147483648");
             verify(session, never()).setGatedLogin(any());
         });

@@ -97,12 +97,12 @@ class DirectConnectionsTest {
         assertTrue(DirectConnections.register(server, proxySessionId));
         assertSame(session, DirectConnections.get(proxySessionId));
 
-        // 会话关闭后查不到
+        // 会话关闭后查不到。
         when(session.isClosed()).thenReturn(true);
         assertNull(DirectConnections.get(proxySessionId));
         when(session.isClosed()).thenReturn(false);
 
-        // 通道关闭后移除
+        // 通道关闭后移除。
         server.close().syncUninterruptibly();
         client.close().syncUninterruptibly();
         long deadline = System.currentTimeMillis() + 5000;
@@ -114,7 +114,7 @@ class DirectConnectionsTest {
 
     @Test
     void otherLocalConnectionsAreNotRegistered() throws Exception {
-        // 进程内的其他 LocalChannel（不是 LocalSession 建立的）不带 Geyser 会话
+        // 进程内的其他 LocalChannel（不是 LocalSession 建立的）不带 Geyser 会话。
         Channel server = connect(new LocalAddress("geyser-direct-" + UUID.randomUUID()), new LocalChannel());
         assertNull(DirectConnections.sessionOf(server));
         UUID proxySessionId = UUID.randomUUID();
@@ -125,7 +125,7 @@ class DirectConnectionsTest {
 
     @Test
     void geyserConnectionWithoutASessionIsNotRegistered() throws Exception {
-        // 例如 Spigot 注入器测试连接时用的 LocalSession，没有 Geyser 会话
+        // 例如 Spigot 注入器测试连接时用的 LocalSession，没有 Geyser 会话。
         Channel server = connect(new LocalAddress("geyser-direct-" + UUID.randomUUID()), new LocalChannelWithRemoteAddress());
         assertNull(DirectConnections.sessionOf(server));
         assertFalse(DirectConnections.register(server, UUID.randomUUID()));
@@ -134,7 +134,7 @@ class DirectConnectionsTest {
 
     @Test
     void networkConnectionsAreNotRegistered() {
-        // 代表经网络连入的连接：不是 LocalChannel
+        // 代表经网络连入的连接：不是 LocalChannel。
         EmbeddedChannel network = new EmbeddedChannel();
         assertNull(DirectConnections.sessionOf(network));
         UUID proxySessionId = UUID.randomUUID();

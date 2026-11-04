@@ -80,7 +80,7 @@ public class MapItem extends Item {
     @Override
     public ItemData.Builder translateToBedrock(GeyserSession session, int count, DataComponents components, ItemMapping mapping, ItemMappings mappings) {
         ItemData.Builder builder = super.translateToBedrock(session, count, components, mapping, mappings);
-        // MINEZ：18 及以上（废弃营地、远古城市、矿井、沙漠神殿、暖水海底废墟）自 26.50 才有，1.21.130 显示为普通的已填充地图
+        // MINEZ：18 及以上（废弃营地、远古城市、矿井、沙漠神殿、暖水海底废墟）自 26.50 才有，1.21.130 显示为普通的已填充地图。
         if (explorerMetadata != -1 && (explorerMetadata < 18 || GameProtocol.is26_40orHigher(session.protocolVersion()))) {
             builder.damage(explorerMetadata);
         }

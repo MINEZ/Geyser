@@ -99,7 +99,7 @@ public class LoginPacketHandler extends LoggingPacketHandler {
 
         if (packet instanceof NeteasePacket || (packet instanceof UnknownPacket unknown && NeteasePacket.isNeteaseId(unknown.getPacketId()))) {
             // MINEZ：网易客户端在登录过程中也可能发来专有的数据包（例如 Mod SDK 的 PyRpc），丢弃即可，不必断开。
-            // 关闭 RakNet cookie 时登录前还认不出网易客户端，这些包会解成 UnknownPacket
+            // 关闭 RakNet cookie 时登录前还认不出网易客户端，这些包会解成 UnknownPacket。
             String dropped = packet instanceof UnknownPacket unknown ? "with ID " + unknown.getPacketId() : packet.toString();
             geyser.getLogger().debug("Dropped China Edition packet " + dropped + " while logging in");
             return PacketSignal.HANDLED;
@@ -205,7 +205,7 @@ public class LoginPacketHandler extends LoggingPacketHandler {
 
         if (session.isClosed()) {
             // Can happen if Xbox validation fails
-            // MINEZ：因为不是网易客户端而拒绝的登录不强制关闭，否则客户端收不到“请使用中国版客户端”的提示
+            // MINEZ：因为不是网易客户端而拒绝的登录不强制关闭，否则客户端收不到“请使用中国版客户端”的提示。
             if (!NeteaseClients.isRefused(session.getUpstream().getSession().getPeer().getChannel())) {
                 session.forciblyCloseUpstream();
             }
@@ -251,12 +251,12 @@ public class LoginPacketHandler extends LoggingPacketHandler {
             return;
         }
 
-        // MINEZ：基岩版登录已经完成，从这时起插件可以取得网易身份
+        // MINEZ：基岩版登录已经完成，从这时起插件可以取得网易身份。
         session.finishBedrockLogin();
 
         // Set the block translation based off of version
         // MINEZ：网易中国版客户端的方块调色板与物品表与同一协议的国际版不同，另行登记，见 NeteasePalette。
-        // 网易客户端的会话（包括自签名登录的开发者身份）都已换上网易的编解码器
+        // 网易客户端的会话（包括自签名登录的开发者身份）都已换上网易的编解码器。
         boolean netease = GameProtocol.isNeteaseCodec(session.getUpstream().getSession().getCodec());
         session.setBlockMappings((netease ? BlockRegistries.NETEASE_BLOCKS : BlockRegistries.BLOCKS).forVersion(loginProtocolVersion));
         session.setItemMappings((netease ? Registries.NETEASE_ITEMS : Registries.ITEMS).forVersion(loginProtocolVersion));

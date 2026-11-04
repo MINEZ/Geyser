@@ -47,8 +47,8 @@ public final class DirectConnections {
     }
 
     /**
-     * @param channel 服务端一侧的通道，即代理的初始化器收到的那个
-     * @return 这个直连所属的 Geyser 会话；不是 Geyser 的进程内直连时为 null
+     * @param channel 服务端一侧的通道，即代理的初始化器收到的那个。
+     * @return 这个直连所属的 Geyser 会话；不是 Geyser 的进程内直连时为 null。
      */
     public static @Nullable GeyserSession sessionOf(Channel channel) {
         Channel source = channel instanceof ChannelWrapper wrapper ? wrapper.source : channel;
@@ -58,9 +58,9 @@ public final class DirectConnections {
     /**
      * 登记代理为这个直连分配的会话 ID，通道关闭时自动移除。
      *
-     * @param channel        服务端一侧的通道
-     * @param proxySessionId 代理的会话 ID
-     * @return 是否登记了；不是 Geyser 的进程内直连时为 false
+     * @param channel        服务端一侧的通道。
+     * @param proxySessionId 代理的会话 ID。
+     * @return 是否登记了；不是 Geyser 的进程内直连时为 false。
      */
     public static boolean register(Channel channel, UUID proxySessionId) {
         GeyserSession session = sessionOf(channel);
@@ -68,7 +68,7 @@ public final class DirectConnections {
             return false;
         }
         if (SESSIONS.putIfAbsent(proxySessionId, session) != null) {
-            // 会话 ID 由代理随机生成，不应重复；重复时宁可都查不到
+            // 会话 ID 由代理随机生成，不应重复；重复时宁可都查不到。
             SESSIONS.remove(proxySessionId);
             session.getGeyser().getLogger().warning("The proxy gave two direct connections the same session ID " + proxySessionId);
             return false;
@@ -78,8 +78,8 @@ public final class DirectConnections {
     }
 
     /**
-     * @param proxySessionId 代理的会话 ID
-     * @return 登记了这个会话 ID、且仍未关闭的 Geyser 会话，否则为 null
+     * @param proxySessionId 代理的会话 ID。
+     * @return 登记了这个会话 ID、且仍未关闭的 Geyser 会话，否则为 null。
      */
     public static @Nullable GeyserSession get(UUID proxySessionId) {
         GeyserSession session = SESSIONS.get(proxySessionId);

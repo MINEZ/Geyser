@@ -50,8 +50,8 @@ public class NeteaseResourcePackStackSerializer extends ResourcePackStackSeriali
     @Override
     public void serialize(ByteBuf buffer, BedrockCodecHelper helper, ResourcePackStackPacket packet) {
         super.serialize(buffer, helper, packet);
-        VarInts.writeUnsignedInt(buffer, 0); // VIP 资源包
-        VarInts.writeUnsignedInt(buffer, 0); // VIP 行为包
+        VarInts.writeUnsignedInt(buffer, 0); // VIP 资源包。
+        VarInts.writeUnsignedInt(buffer, 0); // VIP 行为包。
     }
 
     @Override

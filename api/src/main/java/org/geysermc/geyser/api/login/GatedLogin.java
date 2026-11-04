@@ -44,14 +44,14 @@ import java.util.function.Consumer;
 public interface GatedLogin {
 
     /**
-     * @return 这次登录的会话
+     * @return 这次登录的会话。
      */
     @NonNull GeyserConnection connection();
 
     /**
      * 同 {@code connection().neteaseIdentity()}。
      *
-     * @return 网易身份，不是网易中国版客户端时为 null
+     * @return 网易身份，不是网易中国版客户端时为 null。
      */
     @Nullable NeteaseIdentity neteaseIdentity();
 
@@ -60,12 +60,12 @@ public interface GatedLogin {
      * 网易中国版客户端为昵称（不合 Java 版的规则时为 {@code NE} 加 UID），开发者身份为 {@code DEV} 加昵称，
      * 其余为基岩版的玩家名。
      *
-     * @return 默认的 Java 端名字
+     * @return 默认的 Java 端名字。
      */
     @NonNull String defaultUsername();
 
     /**
-     * @return 是否仍在等待闸门的结果
+     * @return 是否仍在等待闸门的结果。
      */
     boolean isPending();
 
@@ -73,14 +73,14 @@ public interface GatedLogin {
      * 向玩家显示表单。第一次显示时，Geyser 先生成一个空白的等待世界，客户端加载完毕后才显示出来。
      * 闸门已经结束时不做任何事。闸门结束（放行、断开、超时或取消）时，仍然打开着的表单会被关掉，不调用它们的处理器。
      *
-     * @param form 表单
+     * @param form 表单。
      */
     void sendForm(@NonNull Form form);
 
     /**
      * 同 {@link #sendForm(Form)}。
      *
-     * @param formBuilder 表单的构造器
+     * @param formBuilder 表单的构造器。
      */
     void sendForm(@NonNull FormBuilder<?, ?, ?> formBuilder);
 
@@ -92,8 +92,8 @@ public interface GatedLogin {
     /**
      * 从现在起重新计算等待时限。
      *
-     * @param timeout 新的等待时限，须为正数
-     * @param message 超时断开时的提示，为 null 时用 Geyser 的默认提示
+     * @param timeout 新的等待时限，须为正数。
+     * @param message 超时断开时的提示，为 null 时用 Geyser 的默认提示。
      */
     void timeout(@NonNull Duration timeout, @Nullable String message);
 
@@ -101,7 +101,7 @@ public interface GatedLogin {
      * 登记闸门没有得到结果就结束时的处理器。已经这样结束时立即调用；闸门得到了结果时不会调用。
      * 处理器在结束的那个线程上调用。
      *
-     * @param listener 处理器
+     * @param listener 处理器。
      */
     void whenCancelled(@NonNull Consumer<CancelReason> listener);
 

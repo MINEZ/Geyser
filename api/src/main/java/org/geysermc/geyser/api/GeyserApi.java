@@ -154,8 +154,8 @@ public interface GeyserApi extends GeyserApiBase {
     /**
      * MINEZ：注册登录闸门，见 {@link LoginGate}。同时至多注册一个。
      *
-     * @param gate 登录闸门
-     * @throws IllegalStateException 已经注册了别的闸门
+     * @param gate 登录闸门。
+     * @throws IllegalStateException 已经注册了别的闸门。
      */
     void registerLoginGate(LoginGate gate);
 
@@ -163,8 +163,8 @@ public interface GeyserApi extends GeyserApiBase {
      * MINEZ：注销登录闸门。仍在闸门中等待的玩家以 {@link org.geysermc.geyser.api.login.GatedLogin.CancelReason#UNREGISTERED}
      * 结束并被断开；之后登录的玩家照旧直接连接 Java 端。
      *
-     * @param gate 登录闸门
-     * @return 它是否为当前注册的闸门
+     * @param gate 登录闸门。
+     * @return 它是否为当前注册的闸门。
      */
     boolean unregisterLoginGate(LoginGate gate);
 
@@ -176,8 +176,8 @@ public interface GeyserApi extends GeyserApiBase {
      * 经网络连入的连接一律查不到，所以查得到就说明这个连接确实来自本进程中的 Geyser，而不是冒充的网络客户端。
      * 登记从 Velocity 为这个连接调用初始化器时开始，到连接关闭时结束；会话已关闭时也查不到。
      *
-     * @param proxySessionId 代理的会话 ID
-     * @return 会话，查不到时为 null
+     * @param proxySessionId 代理的会话 ID。
+     * @return 会话，查不到时为 null。
      */
     @Nullable GeyserConnection connectionByProxySessionId(UUID proxySessionId);
 

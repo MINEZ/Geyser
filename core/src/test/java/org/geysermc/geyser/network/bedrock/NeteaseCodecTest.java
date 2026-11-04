@@ -155,7 +155,7 @@ class NeteaseCodecTest {
         buffer.writeFloatLE(4).writeFloatLE(5).writeFloatLE(6);
         buffer.writeFloatLE(7).writeFloatLE(8);
         buffer.writeFloatLE(3);
-        // 第 43 位 STOP_FLYING 不变，之后的原版标志位后移两位
+        // 第 43 位 STOP_FLYING 不变，之后的原版标志位后移两位。
         BigInteger flags = BigInteger.ZERO
             .setBit(PlayerAuthInputData.JUMP_DOWN.ordinal())
             .setBit(43)
@@ -183,7 +183,7 @@ class NeteaseCodecTest {
         assertEquals(43, PlayerAuthInputData.STOP_FLYING.ordinal());
         byte[] encoded = encode(NETEASE, input());
         byte[] expected = neteaseInput(false, false);
-        // 写出时包尾的网易字段都填默认值
+        // 写出时包尾的网易字段都填默认值。
         assertArrayEquals(concat(expected, new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}), encoded);
 
         for (byte[] wire : List.of(neteaseInput(true, true), neteaseInput(false, false))) {
@@ -224,7 +224,7 @@ class NeteaseCodecTest {
         assertEquals(List.of("a", "b"), decoded.getParameters());
         assertEquals("123", decoded.getXuid());
 
-        // 系统消息与翻译消息的格式与原版相同
+        // 系统消息与翻译消息的格式与原版相同。
         TextPacket system = chat();
         system.setType(TextPacket.Type.SYSTEM);
         assertArrayEquals(encode(VANILLA, system), encode(NETEASE, system));
@@ -292,7 +292,7 @@ class NeteaseCodecTest {
         byte[] netease = encode(NETEASE, packet);
         assertArrayEquals(concat(vanilla, new byte[] {0, 0}), netease);
         assertEquals(1, decode(NETEASE, netease, ResourcePackStackPacket.class).getResourcePacks().size());
-        // 没有这两个列表时也能读
+        // 没有这两个列表时也能读。
         assertEquals(1, decode(NETEASE, vanilla, ResourcePackStackPacket.class).getResourcePacks().size());
     }
 
@@ -332,7 +332,7 @@ class NeteaseCodecTest {
             "minecraft:desert", new BiomeDefinitionData(null, 2f, 0f, 0f, 0.1f, 0.2f, new Color(0x32A598), false, List.of("desert"), null))));
         byte[] vanilla = encode(VANILLA, packet);
         byte[] netease = encode(NETEASE, packet);
-        // 每个群系多一个 int32 与一个空字符串
+        // 每个群系多一个 int32 与一个空字符串。
         assertEquals(vanilla.length + 2 * 5, netease.length);
         BiomeDefinitionData plains = decode(NETEASE, netease, BiomeDefinitionListPacket.class).getBiomes().getDefinitions().get("minecraft:plains");
         assertEquals(0.8f, plains.getTemperature());
@@ -346,7 +346,7 @@ class NeteaseCodecTest {
         packet.getOptions().add(new EnchantOptionData(3, 1, List.of(new EnchantData(9, 1)), List.of(), List.of(new EnchantData(17, 2), new EnchantData(22, 1)), "abc", 7));
         byte[] vanilla = encode(VANILLA, packet);
         byte[] netease = encode(NETEASE, packet);
-        // 每条附魔多一个空字符串，每个选项多一个空的自定义附魔列表
+        // 每条附魔多一个空字符串，每个选项多一个空的自定义附魔列表。
         assertEquals(vanilla.length + 3 + 1, netease.length);
         EnchantOptionData option = decode(NETEASE, netease, PlayerEnchantOptionsPacket.class).getOptions().get(0);
         assertEquals(packet.getOptions().get(0), option);
@@ -378,7 +378,7 @@ class NeteaseCodecTest {
             try {
                 vanilla.writeContainerSlotType(vanillaBuffer, slot);
             } catch (RuntimeException e) {
-                continue; // 898 没有的值
+                continue; // 898 没有的值。
             }
             int vanillaId = vanillaBuffer.readUnsignedByte();
             ByteBuf buffer = Unpooled.buffer();
@@ -392,7 +392,7 @@ class NeteaseCodecTest {
         netease.writeContainerSlotType(buffer, ContainerSlotType.DYNAMIC_CONTAINER);
         netease.writeContainerSlotType(buffer, ContainerSlotType.RECIPE_NATURE);
         assertArrayEquals(new byte[] {18, 64, 16}, ByteBufUtil.getBytes(buffer));
-        // 第 17 位是网易的 RECIPE_CUSTOM，协议库没有对应的值
+        // 第 17 位是网易的 RECIPE_CUSTOM，协议库没有对应的值。
         assertThrows(RuntimeException.class, () -> netease.readContainerSlotType(Unpooled.wrappedBuffer(new byte[] {17})));
     }
 
@@ -408,7 +408,7 @@ class NeteaseCodecTest {
             NeteasePacket decoded = assertInstanceOf(NeteasePacket.class, NETEASE.tryDecode(NETEASE.createHelper(), Unpooled.wrappedBuffer(payload), id));
             assertEquals(id, decoded.packetId());
         }
-        // 国际版的编解码器不认识它们
+        // 国际版的编解码器不认识它们。
         assertInstanceOf(UnknownPacket.class, VANILLA.tryDecode(VANILLA.createHelper(), Unpooled.wrappedBuffer(payload), NeteasePacket.PyRpc.ID));
         assertSame(NETEASE, GameProtocol.getNeteaseCodec(898));
     }

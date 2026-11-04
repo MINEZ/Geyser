@@ -145,7 +145,7 @@ public class JavaLoginTranslator extends PacketTranslator<ClientboundLoginPacket
         if (!needsSpawnPacket) {
             session.sendDownstreamGamePacket(ServerboundPlayerLoadedPacket.INSTANCE);
 
-            // MINEZ：登录闸门显示过表单时，客户端在等待世界中就已初始化，照常的 SessionJoinEvent 没有触发，在这里补上
+            // MINEZ：登录闸门显示过表单时，客户端在等待世界中就已初始化，照常的 SessionJoinEvent 没有触发，在这里补上。
             GatedLoginImpl gated = session.getGatedLogin();
             if (gated != null && gated.takePendingJoinEvent()) {
                 GeyserImpl.getInstance().eventBus().fire(new SessionJoinEvent(session));

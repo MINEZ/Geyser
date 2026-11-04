@@ -56,7 +56,7 @@ public class NeteasePlayerEnchantOptionsSerializer extends PlayerEnchantOptionsS
         writeEnchants(buffer, helper, option.getEnchants0());
         writeEnchants(buffer, helper, option.getEnchants1());
         writeEnchants(buffer, helper, option.getEnchants2());
-        writeEnchants(buffer, helper, List.of()); // 自定义附魔
+        writeEnchants(buffer, helper, List.of()); // 自定义附魔。
         helper.writeString(buffer, option.getEnchantName());
         VarInts.writeUnsignedInt(buffer, option.getEnchantNetId());
     }
@@ -68,7 +68,7 @@ public class NeteasePlayerEnchantOptionsSerializer extends PlayerEnchantOptionsS
         List<EnchantData> enchants0 = readEnchants(buffer, helper);
         List<EnchantData> enchants1 = readEnchants(buffer, helper);
         List<EnchantData> enchants2 = readEnchants(buffer, helper);
-        readEnchants(buffer, helper); // 自定义附魔
+        readEnchants(buffer, helper); // 自定义附魔。
         String enchantName = helper.readString(buffer);
         int enchantNetId = VarInts.readUnsignedInt(buffer);
         return new EnchantOptionData(cost, primarySlot, enchants0, enchants1, enchants2, enchantName, enchantNetId);
@@ -77,7 +77,7 @@ public class NeteasePlayerEnchantOptionsSerializer extends PlayerEnchantOptionsS
     private void writeEnchants(ByteBuf buffer, BedrockCodecHelper helper, List<EnchantData> enchants) {
         helper.writeArray(buffer, enchants, (buf, enchant) -> {
             serializeEnchant(buf, enchant);
-            helper.writeString(buf, ""); // Mod 附魔的标识
+            helper.writeString(buf, ""); // Mod 附魔的标识。
         });
     }
 

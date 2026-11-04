@@ -132,7 +132,7 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
         switch (packet.getTransactionType()) {
             case NORMAL:
                 if (packet.getActions().size() == 2) {
-                    // MINEZ：26.30 起两个动作的顺序对调了，1.21.130 仍是旧顺序（按 5da8f379 接回）
+                    // MINEZ：26.30 起两个动作的顺序对调了，1.21.130 仍是旧顺序（按 5da8f379 接回）。
                     boolean newActionOrder = GameProtocol.is26_40orHigher(session.protocolVersion());
                     InventoryActionData worldAction = newActionOrder ? packet.getActions().get(1) : packet.getActions().get(0);
                     InventoryActionData containerAction = newActionOrder ? packet.getActions().get(0) : packet.getActions().get(1);

@@ -70,7 +70,7 @@ public class LoginEncryptionUtils {
         try {
             GeyserImpl geyser = session.getGeyser();
 
-            // MINEZ：网易中国版客户端由 NeteaseLogin 验证；只接受网易客户端时，其他客户端在这里断开
+            // MINEZ：网易中国版客户端由 NeteaseLogin 验证；只接受网易客户端时，其他客户端在这里断开。
             NeteaseLogin.Outcome netease = NeteaseLogin.login(session, authPayload, jwt);
             if (netease != NeteaseLogin.Outcome.NOT_NETEASE) {
                 return netease == NeteaseLogin.Outcome.AWAITING_HANDSHAKE;
@@ -194,7 +194,7 @@ public class LoginEncryptionUtils {
      * @param refusal why the binding refused it, or null when it did not
      * @return whether the login was refused, and the session already disconnected
      */
-    // MINEZ：NeteaseLogin 也要用，由 private 改为包内可见
+    // MINEZ：NeteaseLogin 也要用，由 private 改为包内可见。
     static boolean refusedByBinding(GeyserImpl geyser, GeyserSession session, String refusal) {
         if (refusal == null) {
             return false;

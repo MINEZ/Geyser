@@ -704,7 +704,7 @@ public class LivingEntity extends Entity implements Tickable {
                         clientVehicle.getVehicleComponent().setMovementEfficiency(AttributeUtils.calculateValue(javaAttribute));
                     }
                 }
-                // MINEZ：这三个属性自 26.30 起才有，1.21.130 不发（按 5da8f379 接回）
+                // MINEZ：这三个属性自 26.30 起才有，1.21.130 不发（按 5da8f379 接回）。
                 case FRICTION_MODIFIER -> {
                     if (GameProtocol.is26_40orHigher(session.protocolVersion())) {
                         newAttributes.add(calculateAttribute(javaAttribute, GeyserAttributeType.FRICTION_MODIFIER));

@@ -126,7 +126,7 @@ public class CreativeItemRegistryPopulator {
             throw new AssertionError("Unable to load creative items", e);
         }
 
-        BlockMappings blockMappings = palette.blockMappings(); // MINEZ：网易中国版客户端用网易的调色板
+        BlockMappings blockMappings = palette.blockMappings(); // MINEZ：网易中国版客户端用网易的调色板。
         for (JsonElement itemNode : creativeItemEntries) {
             ItemData.Builder itemBuilder = createItemData((JsonObject) itemNode, items, blockMappings, definitions);
             if (itemBuilder == null) {

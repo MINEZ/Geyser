@@ -89,7 +89,7 @@ public final class GatedLoginImpl implements GatedLogin {
     /**
      * 让会话进入闸门：记到会话上，开始计时，调用闸门。
      *
-     * @param defaultUsername 没有闸门时连接 Java 端所用的名字
+     * @param defaultUsername 没有闸门时连接 Java 端所用的名字。
      */
     public static GatedLoginImpl start(GeyserSession session, LoginGate gate, String defaultUsername) {
         GatedLoginImpl login = new GatedLoginImpl(session, gate, defaultUsername);
@@ -123,7 +123,7 @@ public final class GatedLoginImpl implements GatedLogin {
         }
         this.result = stage;
         if (state.get() != State.PENDING) {
-            // 在 onLogin 期间就已结束（例如玩家断开）
+            // 在 onLogin 期间就已结束（例如玩家断开）。
             cancelStage(stage);
             return;
         }
@@ -132,7 +132,7 @@ public final class GatedLoginImpl implements GatedLogin {
 
     private void complete(@Nullable LoginGateResult result, @Nullable Throwable error) {
         if (state.get() != State.PENDING) {
-            // 已经结束，例如被我们取消
+            // 已经结束，例如被我们取消。
             return;
         }
         if (error != null) {
@@ -157,7 +157,7 @@ public final class GatedLoginImpl implements GatedLogin {
             if (session.isClosed()) {
                 return;
             }
-            // 先记下结果再连接，代理在登录事件中按会话 ID 查到的会话已带着它
+            // 先记下结果再连接，代理在登录事件中按会话 ID 查到的会话已带着它。
             session.setLoginGateResult(effective);
             session.getFormCache().discardForms();
             session.getGeyser().getLogger().info(session.bedrockUsername() + " passed the login gate and joins the Java server as " + username);
@@ -193,7 +193,7 @@ public final class GatedLoginImpl implements GatedLogin {
     /**
      * 没有结果就结束：通知插件、取消插件的结果。
      *
-     * @return 是否由这次调用结束
+     * @return 是否由这次调用结束。
      */
     private boolean cancel(CancelReason reason) {
         if (!state.compareAndSet(State.PENDING, State.CANCELLED)) {
@@ -261,7 +261,7 @@ public final class GatedLoginImpl implements GatedLogin {
         if (timeoutTask != null) {
             timeoutTask.cancel(false);
         }
-        // 在会话的事件循环中执行；会话已关闭时不执行
+        // 在会话的事件循环中执行；会话已关闭时不执行。
         timeoutTask = session.scheduleInEventLoop(this::timedOut, timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
@@ -273,7 +273,7 @@ public final class GatedLoginImpl implements GatedLogin {
     }
 
     /**
-     * @return 是否为这个闸门的登录
+     * @return 是否为这个闸门的登录。
      */
     public boolean isOf(LoginGate gate) {
         return this.gate == gate;
@@ -290,7 +290,7 @@ public final class GatedLoginImpl implements GatedLogin {
      * 闸门显示过表单时，Geyser 在连接 Java 端之前就已生成等待世界，客户端初始化时还没有登录 Java 端，
      * 照常在那时触发的 SessionJoinEvent 没有触发。第一次登录 Java 端时由 JavaLoginTranslator 补上。
      *
-     * @return 是否需要补发 SessionJoinEvent，只返回一次 true
+     * @return 是否需要补发 SessionJoinEvent，只返回一次 true。
      */
     public boolean takePendingJoinEvent() {
         return joinEventPending.compareAndSet(true, false);
@@ -323,7 +323,7 @@ public final class GatedLoginImpl implements GatedLogin {
             if (!isPending() || session.isClosed()) {
                 return;
             }
-            // 下游还不存在时，GeyserSession.sendForm 先生成等待世界
+            // 下游还不存在时，GeyserSession.sendForm 先生成等待世界。
             session.sendForm(form);
         });
     }
@@ -354,7 +354,7 @@ public final class GatedLoginImpl implements GatedLogin {
         this.timeoutMessage = message;
         scheduleTimeout(timeout);
         if (!isPending()) {
-            // 与结束同时发生
+            // 与结束同时发生。
             cancelTimeout();
         }
     }

@@ -1060,7 +1060,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         // On bedrock 26.10 and above, the client only shows the locator bar when there are
         // waypoints on it, so we're fine doing this
         // MINEZ：1.21.130 没有 LocatorBarPacket，Java 的路径点无法显示（见 WaypointCache），关掉定位栏，
-        // 以免客户端自行显示渲染距离内的玩家
+        // 以免客户端自行显示渲染距离内的玩家。
         gamerulePacket.getGameRules().add(new GameRuleData<>("locatorBar", GameProtocol.is26_40orHigher(protocolVersion())));
 
         upstream.sendPacket(gamerulePacket);
@@ -1236,7 +1236,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         ClientSession downstream;
         if (geyser.getBootstrap().getSocketAddress() != null) {
             // We're going to connect through the JVM and not through TCP
-            // MINEZ：带上这个会话，代理一端可以由直连的通道认出它（见 DirectConnections）
+            // MINEZ：带上这个会话，代理一端可以由直连的通道认出它（见 DirectConnections）。
             downstream = new LocalSession(geyser.getBootstrap().getSocketAddress(),
                 upstream.getAddress().getAddress().getHostAddress(),
                 this.protocol, this.tickEventLoop, this);
@@ -1290,7 +1290,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         if (!closed) {
             loggedIn = false;
 
-            // MINEZ：还在登录闸门中等待时，通知插件并结束等待
+            // MINEZ：还在登录闸门中等待时，通知插件并结束等待。
             GatedLoginImpl gated = this.gatedLogin;
             if (gated != null) {
                 gated.sessionClosed();
@@ -1956,7 +1956,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         if (this.downstream != null && this.downstream.isState(ProtocolState.CONFIGURATION)) {
             this.prepareForConfigurationForm();
         } else if (isWaitingInLoginGate()) {
-            // MINEZ：登录闸门中还没有下游，同样先生成等待世界，表单在客户端加载完后显示
+            // MINEZ：登录闸门中还没有下游，同样先生成等待世界，表单在客户端加载完后显示。
             if (!sentSpawnPacket) {
                 this.gatedLogin.waitingWorldShown();
             }
@@ -2064,7 +2064,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         )));
         upstream.sendPacket(jigsawStructureDataPacket);
 
-        // MINEZ：上游只对 26.20 及以上发送 VoxelShapesPacket，1.21.130 没有这个包，不发（按 5da8f379 接回）
+        // MINEZ：上游只对 26.20 及以上发送 VoxelShapesPacket，1.21.130 没有这个包，不发（按 5da8f379 接回）。
         if (GameProtocol.is26_40orHigher(protocolVersion())) {
             VoxelShapesPacket voxelShapesPacket = new VoxelShapesPacket();
             voxelShapesPacket.setNameMap(new HashMap<>());
@@ -2096,7 +2096,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         startGamePacket.setUniqueEntityId(playerEntity.geyserId());
         startGamePacket.setRuntimeEntityId(playerEntity.geyserId());
         GameType gameType = EntityUtils.toBedrockGamemode(gameMode);
-        // MINEZ：只有 26.40 及以上要这样处理，1.21.130 照常发 SURVIVAL_VIEWER（按 d515a97e 之前接回）
+        // MINEZ：只有 26.40 及以上要这样处理，1.21.130 照常发 SURVIVAL_VIEWER（按 d515a97e 之前接回）。
         if (gameType == GameType.SURVIVAL_VIEWER && GameProtocol.is26_40orHigher(this.protocolVersion())) {
             gameType = GameType.SURVIVAL;
             pendingSpectator = true;

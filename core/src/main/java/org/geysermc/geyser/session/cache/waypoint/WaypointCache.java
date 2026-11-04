@@ -87,7 +87,7 @@ public final class WaypointCache {
 
     public void handlePacket(ClientboundTrackedWaypointPacket packet) {
         // MINEZ：1.21.130 没有 26.10 起的 LocatorBarPacket，上游旧版靠玩家列表与 PlayerLocationPacket 模拟的做法已删除，
-        // 这里不跟踪路径点（定位栏也已在 GeyserSession 中关掉）
+        // 这里不跟踪路径点（定位栏也已在 GeyserSession 中关掉）。
         if (!GameProtocol.is26_40orHigher(session.protocolVersion())) {
             return;
         }

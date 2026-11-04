@@ -68,7 +68,7 @@ class NeteasePaletteTest {
         try (InputStream stream = NeteasePaletteTest.class.getClassLoader().getResourceAsStream("bedrock/block_palette.1_21_130.nbt");
              NBTInputStream nbt = new NBTInputStream(new DataInputStream(new GZIPInputStream(stream)), true, true)) {
             vanilla = new ArrayList<>();
-            // 与 BlockRegistryPopulator 一样，只留下 name 与 states
+            // 与 BlockRegistryPopulator 一样，只留下 name 与 states。
             for (NbtMap state : ((NbtMap) nbt.readTag()).getList("blocks", NbtType.COMPOUND)) {
                 vanilla.add(NbtMap.builder()
                     .putString("name", state.getString("name"))
@@ -116,7 +116,7 @@ class NeteasePaletteTest {
 
     @Test
     void ordinaryBlocksKeepTheirOrder() {
-        // 在 micro_block 之前的不变，在它与黑板之间的后移 1 位，在黑板之后的前移 15 位
+        // 在 micro_block 之前的不变，在它与黑板之间的后移 1 位，在黑板之后的前移 15 位。
         assertEquals(2532, vanillaIds.get(block("minecraft:stone")));
         assertEquals(2532, neteaseId(block("minecraft:stone")));
         assertEquals(12530, vanillaIds.get(block("minecraft:air")));
@@ -126,7 +126,7 @@ class NeteasePaletteTest {
         assertEquals(9268, vanillaIds.get(block("minecraft:water", "liquid_depth", 0)));
         assertEquals(9253, neteaseId(block("minecraft:water", "liquid_depth", 0)));
 
-        // 逐个核对：去掉 micro_block、黑板与 custom_appearance 之后，两份调色板逐项相同
+        // 逐个核对：去掉 micro_block、黑板与 custom_appearance 之后，两份调色板逐项相同。
         List<NbtMap> expected = vanilla.stream().filter(state -> !state.getString("name").equals("minecraft:chalkboard")).toList();
         List<NbtMap> actual = netease.stream()
             .filter(state -> !state.getString("name").equals("minecraft:micro_block"))
@@ -164,7 +164,7 @@ class NeteasePaletteTest {
         assertEquals(10514, vanillaIds.get(block("minecraft:crafting_table")));
         assertEquals(10499, neteaseId(block("minecraft:crafting_table")));
         assertEquals(10499, neteaseIds.get(block("minecraft:crafting_table", "custom_appearance", (byte) 0)));
-        // 网易调色板里只有带 custom_appearance 的工作台，转换时总会补上
+        // 网易调色板里只有带 custom_appearance 的工作台，转换时总会补上。
         assertNull(neteaseIds.get(block("minecraft:crafting_table")));
 
         assertEquals(14786, vanillaIds.get(block("minecraft:furnace", "minecraft:cardinal_direction", "north")));
@@ -174,7 +174,7 @@ class NeteasePaletteTest {
 
         long withCustomAppearance = netease.stream().filter(state -> state.getCompound("states").containsKey("custom_appearance")).count();
         assertEquals(9, withCustomAppearance);
-        // 其他方块不受影响，例如高炉
+        // 其他方块不受影响，例如高炉。
         NbtMap blastFurnace = block("minecraft:blast_furnace", "minecraft:cardinal_direction", "north");
         assertSame(blastFurnace, NeteasePalette.remapBlock(blastFurnace));
         assertNotNull(neteaseIds.get(blastFurnace));

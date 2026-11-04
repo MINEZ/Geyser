@@ -89,14 +89,14 @@ public final class GameProtocol {
 
     static {
         // Strict ordering
-        // MINEZ：1.21.130 与网易中国版同内核，低于 26.40 的分支见 is26_40orHigher 的调用处
+        // MINEZ：1.21.130 与网易中国版同内核，低于 26.40 的分支见 is26_40orHigher 的调用处。
         register(Bedrock_v898.CODEC, "1.21.130", "1.21.131", "1.21.132");
         register(Bedrock_v2168_hotfix4.CODEC, "26.40", "26.41", "26.42", "26.43", "26.44");
         register(Bedrock_v2169.CODEC, "26.45");
         register(Bedrock_v2193.CODEC, "26.50", "26.51", "26.52");
         register(Bedrock_v2225.CODEC, "26.60");
 
-        // MINEZ：网易中国版 3.10（内核 1.21.130）
+        // MINEZ：网易中国版 3.10（内核 1.21.130）。
         NETEASE_BEDROCK_CODECS.add(NeteaseCodec.build(getBedrockCodec(Bedrock_v898.CODEC.getProtocolVersion())));
 
         MinecraftVersion latestBedrock = SUPPORTED_BEDROCK_VERSIONS.getLast();
@@ -150,8 +150,8 @@ public final class GameProtocol {
     /**
      * MINEZ：取网易中国版客户端用的编解码器。
      *
-     * @param protocolVersion 客户端报的协议版本
-     * @return 网易的编解码器，不支持这一版本时为 null
+     * @param protocolVersion 客户端报的协议版本。
+     * @return 网易的编解码器，不支持这一版本时为 null。
      */
     public static @Nullable BedrockCodec getNeteaseCodec(int protocolVersion) {
         for (BedrockCodec packetCodec : NETEASE_BEDROCK_CODECS) {

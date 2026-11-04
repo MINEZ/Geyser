@@ -56,7 +56,7 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
     @Override
     public PacketSignal handlePacket(BedrockPacket packet) {
         if (packet instanceof NeteasePacket neteasePacket) {
-            // MINEZ：网易专有的数据包（PyRpc 等）暂不处理，记下后丢弃
+            // MINEZ：网易专有的数据包（PyRpc 等）暂不处理，记下后丢弃。
             geyser.getLogger().debug("Dropped China Edition packet " + neteasePacket + " from " + session.bedrockUsername());
             return PacketSignal.HANDLED;
         }

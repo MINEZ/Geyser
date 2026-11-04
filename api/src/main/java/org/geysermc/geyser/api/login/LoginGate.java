@@ -61,15 +61,15 @@ public interface LoginGate {
      * Geyser 记下错误并断开这名玩家。闸门因玩家断开、超时或注销而结束时，返回的结果若是
      * {@link java.util.concurrent.CompletableFuture}，Geyser 会将它取消；之后再完成它不起作用。
      *
-     * @param login 等待中的登录
-     * @return 闸门的结果
+     * @param login 等待中的登录。
+     * @return 闸门的结果。
      */
     @NonNull CompletionStage<LoginGateResult> onLogin(@NonNull GatedLogin login);
 
     /**
      * 每次登录的等待时限，从进入闸门时算起，默认 10 分钟。
      *
-     * @return 等待时限，须为正数
+     * @return 等待时限，须为正数。
      */
     default @NonNull Duration timeout() {
         return DEFAULT_TIMEOUT;

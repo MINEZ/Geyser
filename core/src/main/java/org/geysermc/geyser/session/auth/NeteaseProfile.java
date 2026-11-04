@@ -37,20 +37,20 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * 不记 uid、XUID 与会话 ID，账号方案应把它们排除在外。
  *
  * @param uid           网易用户的数字 ID，只取登录链 extraData 中的 uid，没有时为 null（MINEZ：不以 XUID 代替，见 {@link #accountId()}）；
- *                      开发者身份为 null
- * @param displayName   登录链中的玩家名，可能含中文等 Java 版不允许的字符
- * @param javaUsername  进入 Java 服时用的玩家名，见 NeteaseLogin
- * @param xuid          登录链中的 XUID，不是 Xbox 账号的 ID；开发者身份为 null
- * @param env           网易的环境标识，正式环境为 obt
- * @param platform      平台
- * @param osName        操作系统
- * @param engineVersion 引擎版本
- * @param patchVersion  补丁版本
- * @param bit           客户端位数
- * @param rootKey       签发登录链的根公钥（Base64 编码的 X.509 公钥）；开发者身份为客户端自己的公钥
- * @param sessionId     网易会话 ID（netease_sid）。可用于向网易核验身份，不要写进日志；开发者身份为 null
- * @param officialRoot  MINEZ：登录链是否由内置的网易正式环境根公钥签发（不是 trusted-root-keys 中的其他根公钥）；开发者身份为 false
- * @param developer     是否为自签名登录的隔离身份（开发者身份），见 NeteaseLogin
+ *                      开发者身份为 null。
+ * @param displayName   登录链中的玩家名，可能含中文等 Java 版不允许的字符。
+ * @param javaUsername  进入 Java 服时用的玩家名，见 NeteaseLogin。
+ * @param xuid          登录链中的 XUID，不是 Xbox 账号的 ID；开发者身份为 null。
+ * @param env           网易的环境标识，正式环境为 obt。
+ * @param platform      平台。
+ * @param osName        操作系统。
+ * @param engineVersion 引擎版本。
+ * @param patchVersion  补丁版本。
+ * @param bit           客户端位数。
+ * @param rootKey       签发登录链的根公钥（Base64 编码的 X.509 公钥）；开发者身份为客户端自己的公钥。
+ * @param sessionId     网易会话 ID（netease_sid）。可用于向网易核验身份，不要写进日志；开发者身份为 null。
+ * @param officialRoot  MINEZ：登录链是否由内置的网易正式环境根公钥签发（不是 trusted-root-keys 中的其他根公钥）；开发者身份为 false。
+ * @param developer     是否为自签名登录的隔离身份（开发者身份），见 NeteaseLogin。
  */
 public record NeteaseProfile(
     @Nullable String uid,

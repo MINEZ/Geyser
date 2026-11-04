@@ -64,7 +64,7 @@ public abstract class GeyserInjector {
             initializeLocalChannel0(bootstrap);
             bootstrap.getGeyserLogger().debug("Local injection succeeded!");
         } catch (Exception e) {
-            // MINEZ：直连接入失败时 Geyser 改经网络连接服务器，写明后果，而不只是打印异常
+            // MINEZ：直连接入失败时 Geyser 改经网络连接服务器，写明后果，而不只是打印异常。
             bootstrap.getGeyserLogger().error("Could not connect Geyser directly to the server (use-direct-connection); "
                 + "Bedrock players will join over the network instead, and a proxy plugin that only trusts Geyser's direct connections "
                 + "(see connectionByProxySessionId) will not let them in", e);

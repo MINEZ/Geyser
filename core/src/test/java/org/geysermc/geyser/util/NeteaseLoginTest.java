@@ -77,7 +77,7 @@ class NeteaseLoginTest {
     private final GeyserSession session = mock(GeyserSession.class, RETURNS_DEEP_STUBS);
 
     NeteaseLoginTest() {
-        // 代替 RakNet 的帧编解码器，加密的处理器加在它后面
+        // 代替 RakNet 的帧编解码器，加密的处理器加在它后面。
         channel.pipeline().addLast(FrameIdCodec.NAME, new ChannelInboundHandlerAdapter());
         when(session.getUpstream().getSession().getPeer().getChannel()).thenReturn(channel);
         when(session.getUpstream().getProtocolVersion()).thenReturn(898);
@@ -168,7 +168,7 @@ class NeteaseLoginTest {
         NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.chain(), AuthType.FULL), clientData());
         assertEquals(NeteaseLogin.Outcome.NOT_NETEASE, outcome);
         verify(session, never()).disconnect(anyString());
-        // 像网易客户端一样连接、登录链却不是网易签发的，换回国际版的编解码器
+        // 像网易客户端一样连接、登录链却不是网易签发的，换回国际版的编解码器。
         verify(session.getUpstream().getSession()).setCodec(GameProtocol.getBedrockCodec(898));
     }
 
@@ -229,7 +229,7 @@ class NeteaseLoginTest {
         assertTrue(profile.getValue().developer());
         assertEquals("DEVev", profile.getValue().javaUsername());
         assertEquals("ev", profile.getValue().displayName());
-        // 自报的 UID、XUID 与会话 ID 都不记
+        // 自报的 UID、XUID 与会话 ID 都不记。
         assertNull(profile.getValue().uid());
         assertNull(profile.getValue().xuid());
         assertNull(profile.getValue().sessionId());
@@ -249,7 +249,7 @@ class NeteaseLoginTest {
 
     @Test
     void selfSignedNeteaseLoginOutsideTheNeteaseConnectionIsRefused() throws Exception {
-        // 没有以 RakNet 8 连接（不像网易客户端）时，即使开启了开关也不放行
+        // 没有以 RakNet 8 连接（不像网易客户端）时，即使开启了开关也不放行。
         configure(true);
         allowSelfSigned(true);
         NeteaseLogin.Outcome outcome = NeteaseLogin.login(session, new CertificateChainPayload(chains.selfSignedChain("ev"), AuthType.SELF_SIGNED), clientData());
@@ -292,7 +292,7 @@ class NeteaseLoginTest {
 
     @Test
     void uidIsNotReplacedByTheXuid() throws Exception {
-        // MINEZ：登录链中没有 uid 时，uid 为 null，不以 XUID 代替；没有登录闸门时的名字与身份照旧由 XUID 得出
+        // MINEZ：登录链中没有 uid 时，uid 为 null，不以 XUID 代替；没有登录闸门时的名字与身份照旧由 XUID 得出。
         chains.extraData.remove("uid");
         configure(true, NeteaseTestChains.encoded(chains.root));
         NeteaseClients.markRaknet8(channel);
@@ -311,7 +311,7 @@ class NeteaseLoginTest {
 
     @Test
     void onlyTheBuiltInRootIsOfficial() throws Exception {
-        // 测试用的根公钥经 trusted-root-keys 信任，不是内置的网易根公钥
+        // 测试用的根公钥经 trusted-root-keys 信任，不是内置的网易根公钥。
         configure(true, NeteaseTestChains.encoded(chains.root));
         NeteaseClients.markRaknet8(channel);
         NeteaseLogin.login(session, new CertificateChainPayload(chains.chain(), AuthType.FULL), clientData());
@@ -319,7 +319,7 @@ class NeteaseLoginTest {
         verify(session).setNeteaseProfile(profile.capture());
         assertFalse(profile.getValue().officialRoot());
 
-        // 内置的网易根公钥签发的登录（无法以真的私钥签名，直接构造验证结果）
+        // 内置的网易根公钥签发的登录（无法以真的私钥签名，直接构造验证结果）。
         assertEquals(NeteaseLoginChain.NETEASE_ROOT_KEY, NeteaseLoginChain.canonical(NeteaseLoginChain.NETEASE_ROOT_KEY));
         NeteaseLoginChain.Verified official = new NeteaseLoginChain.Verified(
             (java.security.interfaces.ECPublicKey) chains.client.getPublic(), Map.of(), chains.extraData, NeteaseLoginChain.NETEASE_ROOT_KEY);
@@ -348,7 +348,7 @@ class NeteaseLoginTest {
         assertEquals("DEVAb_c", NeteaseLogin.developerUsername("Ab_c-测试"));
         assertEquals("DEVSeventeenChar", NeteaseLogin.developerUsername("SeventeenCharName"));
 
-        // 全是中文时用散列：同一昵称总得到同一名字，不同昵称得到不同名字
+        // 全是中文时用散列：同一昵称总得到同一名字，不同昵称得到不同名字。
         String zhangSan = NeteaseLogin.developerUsername("张三");
         assertTrue(zhangSan.matches("DEV[0-9a-f]{8}"), zhangSan);
         assertEquals(zhangSan, NeteaseLogin.developerUsername("张三"));

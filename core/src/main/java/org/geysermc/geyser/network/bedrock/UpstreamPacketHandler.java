@@ -135,12 +135,12 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
             case COMPLETED -> {
                 finishedResourcePackSending = true;
                 if (geyser.config().java().authType() != AuthType.ONLINE) {
-                    // MINEZ：网易玩家的名字可能不合 Java 版的规则，改用 NeteaseLogin 算出的名字
+                    // MINEZ：网易玩家的名字可能不合 Java 版的规则，改用 NeteaseLogin 算出的名字。
                     String username = session.getNeteaseProfile() != null
                         ? session.getNeteaseProfile().javaUsername() : session.getAuthData().name();
                     LoginGate gate = geyser.loginGate();
                     if (gate != null) {
-                        // MINEZ：有插件注册了登录闸门时，先等它放行，由它决定连接 Java 端所用的名字
+                        // MINEZ：有插件注册了登录闸门时，先等它放行，由它决定连接 Java 端所用的名字。
                         GatedLoginImpl.start(session, gate, username);
                     } else {
                         session.authenticate(username);

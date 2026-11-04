@@ -125,7 +125,7 @@ public class EnvironmentOverridesTest {
 
     @Test
     void testRemovedRaknetTransportOverride() throws Exception {
-        // MINEZ：本 Fork 保留 raknet，环境变量中的写法同样有效，大小写不限
+        // MINEZ：本 Fork 保留 raknet，环境变量中的写法同样有效，大小写不限。
         GeyserConfig config = new ConfigLoader(tempDirectory.resolve("raknet.yml").toFile(), PlatformType.STANDALONE)
             .environment(Map.of("GEYSER_BEDROCK_TRANSPORT", "RakNet"))
             .load0(GeyserRemoteConfig.class);

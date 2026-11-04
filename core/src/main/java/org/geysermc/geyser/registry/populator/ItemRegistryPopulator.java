@@ -119,7 +119,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ItemRegistryPopulator {
 
     @SuppressWarnings("unused") // kept here for convenience when updating
-    // MINEZ：新增 netease，为 true 时生成网易中国版客户端用的物品表，见 NeteasePalette
+    // MINEZ：新增 netease，为 true 时生成网易中国版客户端用的物品表，见 NeteasePalette。
     record PaletteVersion(String version, int protocolVersion, String creativeVersion, Map<Item, Item> javaOnlyItems, ItemRemapper remapper, boolean netease) {
 
         public PaletteVersion(String version, int protocolVersion) {
@@ -157,12 +157,12 @@ public class ItemRegistryPopulator {
     // TODO: ideally split the populating of the Java ITEM registry (non-vanilla items) from the populating of item mappings
     public static void populate() {
         List<PaletteVersion> paletteVersions = new ArrayList<>(4);
-        // MINEZ：1.21.130 的物品表与创造栏与上游曾用的 26.0 相同，item_components 取自上游支持 1.21.130 时的版本
+        // MINEZ：1.21.130 的物品表与创造栏与上游曾用的 26.0 相同，item_components 取自上游支持 1.21.130 时的版本。
         paletteVersions.add(new PaletteVersion("1_21_130", Bedrock_v898.CODEC.getProtocolVersion(), MountsOfMayhemConverter.itemMappings()));
         paletteVersions.add(new PaletteVersion("26_40", Bedrock_v2168.CODEC.getProtocolVersion(), WildernessBoundConverter.itemMappings()));
         paletteVersions.add(new PaletteVersion("26_50", Bedrock_v2193.CODEC.getProtocolVersion()));
         paletteVersions.add(new PaletteVersion("26_60", Bedrock_v2225.CODEC.getProtocolVersion()));
-        // MINEZ：网易中国版 1.21.130，由国际版 1.21.130 的物品表生成，方块物品按网易的调色板编号
+        // MINEZ：网易中国版 1.21.130，由国际版 1.21.130 的物品表生成，方块物品按网易的调色板编号。
         paletteVersions.add(new PaletteVersion("1_21_130", Bedrock_v898.CODEC.getProtocolVersion(), null,
             MountsOfMayhemConverter.itemMappings(), (item, mapping) -> mapping, true));
 
@@ -197,7 +197,7 @@ public class ItemRegistryPopulator {
                 throw new AssertionError("Unable to load Bedrock runtime item IDs", e);
             }
             if (palette.netease()) {
-                // MINEZ：去掉网易客户端没有的物品
+                // MINEZ：去掉网易客户端没有的物品。
                 itemEntries = NeteasePalette.items(itemEntries);
             }
 
@@ -301,7 +301,7 @@ public class ItemRegistryPopulator {
             Map<CreativeItemCategory, Integer> lastCreativeGroupIds = new Object2IntOpenHashMap<>();
             CreativeItemRegistryPopulator.readCreativeItemGroups(palette, creativeItems, creativeItemGroups, creativeGroupIds, lastCreativeGroupIds);
 
-            BlockMappings blockMappings = palette.blockMappings(); // MINEZ：网易中国版客户端用网易的调色板
+            BlockMappings blockMappings = palette.blockMappings(); // MINEZ：网易中国版客户端用网易的调色板。
 
             Set<Item> javaOnlyItems = new ObjectOpenHashSet<>();
             Collections.addAll(javaOnlyItems, Items.SPECTRAL_ARROW, Items.TIPPED_ARROW, Items.KNOWLEDGE_BOOK, Items.DEBUG_STICK);
@@ -773,7 +773,7 @@ public class ItemRegistryPopulator {
                     .customBlockItemDefinitions(customBlockItemDefinitions)
                     .build();
 
-            // MINEZ：网易中国版客户端的物品表另行登记
+            // MINEZ：网易中国版客户端的物品表另行登记。
             (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
 
             firstMappingsPass = false;

@@ -92,7 +92,7 @@ public class NeteaseTextSerializer extends TextSerializer_v898 {
                 helper.writeArray(buffer, packet.getParameters(), helper::writeString);
                 writeSuffix(buffer, helper, converter, packet);
             }
-            // 带参数的翻译、弹出提示与唱片提示，与原版相同
+            // 带参数的翻译、弹出提示与唱片提示，与原版相同。
             default -> super.serialize(buffer, helper, packet);
         }
     }
@@ -110,7 +110,7 @@ public class NeteaseTextSerializer extends TextSerializer_v898 {
         TextConverter converter = helper.getTextConverter();
         packet.setNeedsTranslation(needsTranslation);
         for (int i = 0; i < 3; i++) {
-            helper.readString(buffer); // 三个分类名
+            helper.readString(buffer); // 三个分类名。
         }
         packet.setType(TextPacket.Type.values()[buffer.readUnsignedByte()]);
         packet.setSourceName(helper.readString(buffer));

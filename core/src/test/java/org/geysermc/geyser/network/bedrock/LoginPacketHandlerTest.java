@@ -140,7 +140,7 @@ class LoginPacketHandlerTest {
         connection.handle(new ClientToServerHandshakePacket());
         connection.assertHandedOver();
 
-        // 其他未知的数据包照旧断开
+        // 其他未知的数据包照旧断开。
         UnknownPacket other = new UnknownPacket();
         other.setPacketId(201);
         new Connection(true).assertDisconnectsOn(other);

@@ -64,17 +64,17 @@ public final class LegacyPacketFilter {
     }
 
     /**
-     * @return 数据包能否按此编解码器编码；不能时调用方应丢弃它
+     * @return 数据包能否按此编解码器编码；不能时调用方应丢弃它。
      */
     public static boolean canEncode(BedrockCodec codec, BedrockPacket packet) {
         int protocolVersion = codec.getProtocolVersion();
-        // 登录前用的兼容编解码器（协议号为 0 等）不在此列
+        // 登录前用的兼容编解码器（协议号为 0 等）不在此列。
         if (protocolVersion < Bedrock_v898.CODEC.getProtocolVersion() || GameProtocol.is26_40orHigher(protocolVersion)) {
             return true;
         }
 
         if (!(packet instanceof UnknownPacket) && codec.getPacketDefinition(packet.getClass()) == null) {
-            // 26.x 新增的数据包。已知的发送处都按版本跳过了，这里只是兜底
+            // 26.x 新增的数据包。已知的发送处都按版本跳过了，这里只是兜底。
             GeyserImpl.getInstance().getLogger().debug("Dropped " + packet.getClass().getSimpleName()
                 + ", which protocol " + protocolVersion + " does not have");
             return false;

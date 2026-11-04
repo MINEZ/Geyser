@@ -110,7 +110,7 @@ public final class SoundUtils {
 
         SoundMapping soundMapping = Registries.SOUNDS.get(soundIdentifier);
         if (!GameProtocol.is26_40orHigher(session.protocolVersion())) {
-            // MINEZ：当前映射把一些放置音效改成了 1.21.130 没有的 playsound 名（例如 place.stone），沿用 Java 1.21.11 时期的映射
+            // MINEZ：当前映射把一些放置音效改成了 1.21.130 没有的 playsound 名（例如 place.stone），沿用 Java 1.21.11 时期的映射。
             soundMapping = LegacySounds.MAPPINGS.getOrDefault(soundIdentifier, soundMapping);
         }
         if (soundMapping == null) {

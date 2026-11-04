@@ -253,7 +253,7 @@ public interface GeyserConfig {
             return Collections.emptyList();
         }
 
-        // MINEZ：自签名的网易登录（例如 Mod PC 开发包）以隔离的开发者身份放行
+        // MINEZ：自签名的网易登录（例如 Mod PC 开发包）以隔离的开发者身份放行。
         @Comment("""
             Whether to let in China Edition clients that sign their login themselves instead of having NetEase sign it,
             such as the development build of NetEase's PC client ("Mod PC"). Nothing in such a login can be verified:
@@ -334,7 +334,7 @@ public interface GeyserConfig {
             Only used with the "nethernet" and "both" transports. Changes require a restart.""")
         SignalingConfig signaling();
 
-        // MINEZ：网易中国版客户端
+        // MINEZ：网易中国版客户端。
         @Comment("Settings for NetEase's Minecraft China Edition clients.")
         NeteaseConfig netease();
 
@@ -366,7 +366,7 @@ public interface GeyserConfig {
             NETHERNET,
             BOTH,
             // MINEZ：只用 RakNet。网易中国版客户端只走 RakNet；NetherNet 所需的 WebRTC 库要求 glibc 2.34 与 OpenSSL 3，
-            // 在较旧的系统上加载不了。上游已移除这一项，本 Fork 保留
+            // 在较旧的系统上加载不了。上游已移除这一项，本 Fork 保留。
             RAKNET;
 
             public boolean raknet() {

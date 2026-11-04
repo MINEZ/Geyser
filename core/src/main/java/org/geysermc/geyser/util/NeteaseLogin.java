@@ -140,7 +140,7 @@ final class NeteaseLogin {
         }
 
         if (verified == null) {
-            // MINEZ：像网易客户端一样连接、用网易的协议，登录链却是自签名的一段（例如 Mod PC 开发包）
+            // MINEZ：像网易客户端一样连接、用网易的协议，登录链却是自签名的一段（例如 Mod PC 开发包）。
             NeteaseLoginChain.SelfSigned selfSigned = raknet8 && GameProtocol.getNeteaseCodec(session.getUpstream().getProtocolVersion()) != null
                 ? NeteaseLoginChain.selfSigned(payload) : null;
             if (selfSigned != null && config.allowSelfSignedLogins()) {
@@ -162,7 +162,7 @@ final class NeteaseLogin {
                 return Outcome.REFUSED;
             }
             if (raknet8) {
-                // 像网易客户端一样连接，登录链却不是网易签发的：换回国际版的编解码器，交给上游的流程
+                // 像网易客户端一样连接，登录链却不是网易签发的：换回国际版的编解码器，交给上游的流程。
                 BedrockCodec vanilla = GameProtocol.getBedrockCodec(session.getUpstream().getProtocolVersion());
                 if (vanilla != null) {
                     session.getUpstream().getSession().setCodec(vanilla);
@@ -172,7 +172,7 @@ final class NeteaseLogin {
             return Outcome.NOT_NETEASE;
         }
 
-        // 网易客户端都应是网易的编解码器；关闭 RakNet cookie 时取不到 RakNet 版本，在这里补上
+        // 网易客户端都应是网易的编解码器；关闭 RakNet cookie 时取不到 RakNet 版本，在这里补上。
         int protocolVersion = session.getUpstream().getProtocolVersion();
         BedrockCodec neteaseCodec = GameProtocol.getNeteaseCodec(protocolVersion);
         if (neteaseCodec == null) {
@@ -196,7 +196,7 @@ final class NeteaseLogin {
         Map<String, Object> extraData = verified.extraData();
         UUID identity = parseUuid(NeteaseLoginChain.text(extraData.get("identity")));
         if (identity == null) {
-            // 暂时的做法：没有可用的 identity 时由网易 UID 生成，同一账号总得到同一个 UUID
+            // 暂时的做法：没有可用的 identity 时由网易 UID 生成，同一账号总得到同一个 UUID。
             identity = UUID.nameUUIDFromBytes(("netease:" + profile.accountId()).getBytes(StandardCharsets.UTF_8));
         }
         String xuid = profile.xuid() != null ? profile.xuid() : profile.accountId();
@@ -215,7 +215,7 @@ final class NeteaseLogin {
     /**
      * 验证并记下客户端数据，经 NetherNet 连接时再核对传输层的身份绑定。
      *
-     * @return 是否通过；不通过时已断开连接
+     * @return 是否通过；不通过时已断开连接。
      */
     private static boolean acceptClientData(GeyserSession session, AuthPayload payload, String clientJwt, PublicKey identityPublicKey) throws Exception {
         byte[] clientData = verifyClientData(clientJwt, identityPublicKey);
@@ -225,7 +225,7 @@ final class NeteaseLogin {
         BedrockClientData data = JsonUtils.fromJson(clientData, BedrockClientData.class);
         data.setOriginalString(clientJwt);
         if (data.getServerAddress() == null) {
-            // 部分网易客户端不带这一项，而上游取加入地址时默认它存在
+            // 部分网易客户端不带这一项，而上游取加入地址时默认它存在。
             data.setServerAddress("");
         }
         session.setClientData(data);
@@ -252,7 +252,7 @@ final class NeteaseLogin {
     private static Outcome loginSelfSigned(GeyserSession session, AuthPayload payload, String clientJwt,
                                            NeteaseLoginChain.SelfSigned selfSigned) throws Exception {
         GeyserLogger logger = session.getGeyser().getLogger();
-        // 调用方已确认这是网易客户端的连接与协议，编解码器理应已是网易的；以防万一再确认一次
+        // 调用方已确认这是网易客户端的连接与协议，编解码器理应已是网易的；以防万一再确认一次。
         BedrockCodec neteaseCodec = GameProtocol.getNeteaseCodec(session.getUpstream().getProtocolVersion());
         if (neteaseCodec != null && session.getUpstream().getSession().getCodec() != neteaseCodec) {
             session.getUpstream().getSession().setCodec(neteaseCodec);
@@ -330,7 +330,7 @@ final class NeteaseLogin {
         Map<String, Object> extraData = verified.extraData();
         String displayName = NeteaseLoginChain.text(extraData.get("displayName"));
         String xuid = NeteaseLoginChain.text(extraData.get("XUID"));
-        // MINEZ：uid 只取登录链中的 uid，不以 XUID 代替；没有登录闸门时的名字照旧在没有 uid 时用 XUID
+        // MINEZ：uid 只取登录链中的 uid，不以 XUID 代替；没有登录闸门时的名字照旧在没有 uid 时用 XUID。
         String uid = NeteaseLoginChain.text(extraData.get("uid"));
         return new NeteaseProfile(uid, displayName, javaUsername(displayName, uid != null ? uid : xuid), xuid,
             NeteaseLoginChain.text(extraData.get("env")),
@@ -358,10 +358,10 @@ final class NeteaseLogin {
         }
         String id = uid.replaceAll("[^A-Za-z0-9_]", "");
         if (id.isEmpty()) {
-            // 不会发生：校验时要求有 uid 或 XUID。以防万一，用名字的摘要
+            // 不会发生：校验时要求有 uid 或 XUID。以防万一，用名字的摘要。
             id = Integer.toUnsignedString(displayName.hashCode(), 36);
         }
-        // 超出 16 个字符时保留末尾，末尾的数字区分度最高
+        // 超出 16 个字符时保留末尾，末尾的数字区分度最高。
         return "NE" + (id.length() > 14 ? id.substring(id.length() - 14) : id);
     }
 
@@ -389,11 +389,11 @@ final class NeteaseLogin {
      * 与国际版相同的加密握手：服务端的临时 P-384 密钥与客户端的身份公钥做 ECDH，密钥为 SHA-256（salt ‖ 共享密钥），
      * AES-256-CTR，IV 为密钥的前 12 字节加 00 00 00 02。
      *
-     * @return 是否发出了需要客户端答复的握手
+     * @return 是否发出了需要客户端答复的握手。
      */
     private static boolean startEncryptionHandshake(GeyserSession session, PublicKey clientKey) throws Exception {
         if (session.getUpstream().getSession().getPeer() instanceof NetherNetPeer) {
-            // 与上游相同：DTLS 已经加密
+            // 与上游相同：DTLS 已经加密。
             return false;
         }
 

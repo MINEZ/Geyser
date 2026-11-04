@@ -275,7 +275,7 @@ public class ConfigMigrations {
                             && commented.comment().lines().anyMatch(line -> line.strip().startsWith("\"raknet\""))) {
                         commented.comment(null);
                     }
-                    // MINEZ：本 Fork 保留 raknet，值不迁移
+                    // MINEZ：本 Fork 保留 raknet，值不迁移。
                     return null;
                 })
                 .build()))

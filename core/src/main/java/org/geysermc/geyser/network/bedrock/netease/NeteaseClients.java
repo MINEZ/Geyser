@@ -67,7 +67,7 @@ public final class NeteaseClients {
     }
 
     /**
-     * @return 这条连接握手时是否报的是 RakNet 8，即很可能是网易客户端
+     * @return 这条连接握手时是否报的是 RakNet 8，即很可能是网易客户端。
      */
     public static boolean isRaknet8(@Nullable Channel channel) {
         return channel != null && Boolean.TRUE.equals(channel.attr(RAKNET_8).get());
@@ -81,7 +81,7 @@ public final class NeteaseClients {
     }
 
     /**
-     * @return 这条连接是否因为不是网易客户端而被拒绝
+     * @return 这条连接是否因为不是网易客户端而被拒绝。
      */
     public static boolean isRefused(@Nullable Channel channel) {
         return channel != null && Boolean.TRUE.equals(channel.attr(REFUSED).get());

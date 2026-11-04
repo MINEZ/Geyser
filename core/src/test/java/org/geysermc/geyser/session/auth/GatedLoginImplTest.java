@@ -83,7 +83,7 @@ class GatedLoginImplTest {
         when(session.getFormCache()).thenReturn(formCache);
         when(session.bedrockUsername()).thenReturn("测试玩家");
         when(session.isClosed()).thenAnswer(call -> closed.get());
-        // 会话的事件循环：在测试中立即执行
+        // 会话的事件循环：在测试中立即执行。
         doAnswer(call -> {
             ((Runnable) call.getArgument(0)).run();
             return null;
@@ -99,7 +99,7 @@ class GatedLoginImplTest {
             recorded.set(call.getArgument(0));
             return null;
         }).when(session).setLoginGateResult(any());
-        // 与 GeyserSession.disconnect 相同：先结束闸门，再关闭
+        // 与 GeyserSession.disconnect 相同：先结束闸门，再关闭。
         doAnswer(call -> {
             GatedLoginImpl gated = session.getGatedLogin();
             if (gated != null && !closed.get()) {
@@ -179,7 +179,7 @@ class GatedLoginImplTest {
         verify(session).disconnect("名字已被占用");
         verify(session, never()).authenticate(anyString());
         assertNull(recorded.get());
-        // 闸门自己给出的结果，不算取消
+        // 闸门自己给出的结果，不算取消。
         assertTrue(cancelled.isEmpty());
     }
 
@@ -201,7 +201,7 @@ class GatedLoginImplTest {
         verify(session).disconnect("等待超时");
         verify(formCache).discardForms();
 
-        // 超时之后插件再给出结果也不起作用
+        // 超时之后插件再给出结果也不起作用。
         future.get().complete(LoginGateResult.allow("张三"));
         verify(session, never()).authenticate(anyString());
     }
@@ -228,7 +228,7 @@ class GatedLoginImplTest {
         AtomicReference<GatedLogin> login = new AtomicReference<>();
         GatedLoginImpl gated = start(pendingGate(future, login));
 
-        // 玩家断开时，GeyserSession.disconnect 调用 sessionClosed
+        // 玩家断开时，GeyserSession.disconnect 调用 sessionClosed。
         session.disconnect("Bedrock client disconnected");
 
         assertFalse(gated.isPending());
@@ -236,7 +236,7 @@ class GatedLoginImplTest {
         assertTrue(future.get().isCancelled());
         verify(timeoutFutures.get(0)).cancel(false);
 
-        // 断开之后的表单与结果都不起作用
+        // 断开之后的表单与结果都不起作用。
         login.get().sendForm(mock(Form.class));
         verify(session, never()).sendForm(any(Form.class));
         future.get().obtrudeValue(LoginGateResult.allow("张三"));

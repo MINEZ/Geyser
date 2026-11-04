@@ -55,7 +55,7 @@ public final class NeteaseCompression implements BatchCompression {
 
     @Override
     public ByteBuf decode(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        // 解压失败时读取位置可能已经变了，每次都从同一位置读
+        // 解压失败时读取位置可能已经变了，每次都从同一位置读。
         try {
             return raw.decode(ctx, msg.duplicate());
         } catch (DataFormatException rawFailure) {

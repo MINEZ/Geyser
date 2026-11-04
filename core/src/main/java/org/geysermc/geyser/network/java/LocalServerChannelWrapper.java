@@ -39,7 +39,7 @@ public class LocalServerChannelWrapper extends LocalServerChannel {
         if (peer instanceof LocalChannelWithRemoteAddress) {
             LocalChannelWrapper channel = new LocalChannelWrapper(this, peer);
             channel.wrapper().remoteAddress(((LocalChannelWithRemoteAddress) peer).spoofedRemoteAddress());
-            // MINEZ：记下对端所属的 Geyser 会话；只有这种进程内的通道才带着它
+            // MINEZ：记下对端所属的 Geyser 会话；只有这种进程内的通道才带着它。
             channel.geyserSession(((LocalChannelWithRemoteAddress) peer).geyserSession());
             return channel;
         }
