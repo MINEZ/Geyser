@@ -48,6 +48,11 @@ import java.util.Map;
 public class LoggingPacketHandler implements BedrockPacketHandler {
     protected final GeyserImpl geyser;
     protected final GeyserSession session;
+    /**
+     * MINEZ：上一次响应服务器菜单按钮的时间（{@link System#nanoTime()}），用于限制频率。
+     */
+    private long lastMenuRequest;
+    private boolean hasMenuRequest;
 
     LoggingPacketHandler(GeyserImpl geyser, GeyserSession session) {
         this.geyser = geyser;
@@ -62,7 +67,7 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
     @Override
     public PacketSignal handlePacket(BedrockPacket packet) {
         if (packet instanceof NeteasePacket neteasePacket) {
-            // MINEZ：网易专有的数据包都不转发给 Java 端。其中网易商城的通知发出 NeteaseShopEvent，其余记下后丢弃。
+            // MINEZ：网易专有的数据包都不转发给 Java 端。其中网易商城的通知发出 NeteaseShopEvent，服务器菜单按钮替玩家执行 /menu，其余记下后丢弃。
             handleNetease(neteasePacket);
             return PacketSignal.HANDLED;
         }
@@ -70,7 +75,8 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
     }
 
     /**
-     * MINEZ：从网易专有的数据包中认出网易商城的“购买成功”与“催促发货”，发出 {@link NeteaseShopEvent}。
+     * MINEZ：从网易专有的数据包中认出网易商城的“购买成功”与“催促发货”，发出 {@link NeteaseShopEvent}；认出 MINEZ 客户端模组中服务器菜单按钮的事件，
+     * 替玩家打开服务器菜单。
      * <p>
      * 只处理中国版会话：只有网易的编解码器会解出这些包，这里再以编解码器核对一次。格式不符、超大或嵌套过深的 PyRpc 只记 debug 日志，
      * 不断开连接。
@@ -87,6 +93,10 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
                 message = NeteasePyRpc.decode(packet.payload());
             } catch (NeteaseMsgPack.FormatException e) {
                 geyser.getLogger().debug("Dropped malformed China Edition packet " + packet + " from " + session.bedrockUsername() + ": " + e.getMessage());
+                return;
+            }
+            if (message.isOpenMenu()) {
+                openMenu();
                 return;
             }
             NeteaseShopEvent.Kind kind = message.shopKind();
@@ -108,6 +118,38 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
             result.exceptions().values().forEach(e -> geyser.getLogger().error("A NeteaseShopEvent listener failed", e));
         }
     }
+
+    /**
+     * MINEZ 客户端模组中的服务器菜单按钮：替玩家执行 {@value #MENU_COMMAND}，与 Java 版的 Shift+F 相同。
+     * <p>
+     * 只在玩家已进入 Java 服务器的世界后响应；每 {@value #MENU_INTERVAL_MILLIS} 毫秒最多响应一次，连点时只执行第一次。
+     */
+    private void openMenu() {
+        long now = System.nanoTime();
+        if (hasMenuRequest && now - lastMenuRequest < MENU_INTERVAL_MILLIS * 1_000_000L) {
+            geyser.getLogger().debug("Ignored a repeated server menu request from " + session.bedrockUsername());
+            return;
+        }
+        hasMenuRequest = true;
+        lastMenuRequest = now;
+        session.ensureInEventLoop(() -> {
+            if (session.isClosed() || !session.isSpawned()) {
+                geyser.getLogger().debug("Ignored a server menu request from " + session.bedrockUsername() + " before spawning");
+                return;
+            }
+            geyser.getLogger().debug("Opening the server menu for " + session.bedrockUsername());
+            session.sendCommand(MENU_COMMAND);
+        });
+    }
+
+    /**
+     * MINEZ：服务器菜单按钮替玩家执行的命令，不带斜杠。
+     */
+    static final String MENU_COMMAND = "menu";
+    /**
+     * MINEZ：服务器菜单按钮的最短响应间隔（毫秒）。
+     */
+    static final long MENU_INTERVAL_MILLIS = 1000;
 
     @Override
     public void onDisconnect(CharSequence reason) {

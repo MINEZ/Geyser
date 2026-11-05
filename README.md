@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.10-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.11-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -82,6 +82,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Self-signed China Edition logins | Behaviour | Added |
 | Login gate and NetEase identities for plugins | API | Added |
 | NetEase shop notifications for plugins | API | Added |
+| Server menu button of the MINEZ client mod | Behaviour | Added |
 | `bedrock.netease` | Config | Added |
 | `bedrock.transport: raknet` | Config | Kept |
 | Packets the client cannot decode | Behaviour | Changed |
@@ -93,7 +94,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 **China Edition clients.** NetEase's clients connect over RakNet only. This fork handles them in five parts, which apply to China Edition sessions alone:
 
 - **RakNet.** They report RakNet protocol 8, yet batch and compress like 11: VarInt packet headers, and no compression before `RequestNetworkSettings`. RakNet now accepts 8 alongside 11, notes the reported version on the connection, and builds the pipeline of 11 for it. After negotiation they use raw deflate like international clients; batches that some builds send as zlib-wrapped streams are read as well.
-- **Protocol.** China Edition 1.21.130 has its own codec, built on the international one for protocol 898 with NetEase's changes to `PlayerAuthInput`, `Text`, `CommandRequest`, `Animate`, `ResourcePackStack`, `ContainerOpen`, `SetPlayerInventoryOptions`, `BiomeDefinitionList` and `PlayerEnchantOptions`, and to the IDs of container slot types and particles. The packets only NetEase has, such as `PyRpc` of its Mod SDK, are recognised and never forwarded to the Java server: the notifications of NetEase's shop are passed on to plugins, see below, and the rest are dropped with a debug message. International sessions keep their codecs unchanged.
+- **Protocol.** China Edition 1.21.130 has its own codec, built on the international one for protocol 898 with NetEase's changes to `PlayerAuthInput`, `Text`, `CommandRequest`, `Animate`, `ResourcePackStack`, `ContainerOpen`, `SetPlayerInventoryOptions`, `BiomeDefinitionList` and `PlayerEnchantOptions`, and to the IDs of container slot types and particles. The packets only NetEase has, such as `PyRpc` of its Mod SDK, are recognised and never forwarded to the Java server: the notifications of NetEase's shop are passed on to plugins, the server menu button of MINEZ's client mod opens the server menu, see below, and the rest are dropped with a debug message. International sessions keep their codecs unchanged.
 - **Login.** The login chain has to be signed by NetEase's root key, or by one listed in `bedrock.netease.trusted-root-keys`; its signatures and validity windows are checked as for Microsoft's. The login and its encryption handshake no longer go through the protocol library's `EncryptionUtils`, which contacts Microsoft's services when it loads, and while only China Edition clients may join, Geyser no longer stops at startup when it cannot reach them. With `debug-mode` on, every China Edition login logs its chain: the issuer, key fingerprints and validity of each entry, the full root key, and fields such as `env`, `engineVersion` and `patchVersion`, but never a token or the NetEase session ID.
 - **Identity.** The NetEase UID and the other identity fields are kept on the session, and plugins can read them, see the login gate below. Without a login gate, the Java side still follows `auth-type`: a player joins under the name in their login chain, or as `NE` followed by their NetEase UID when that name has characters Java does not allow. Replacing just those characters could give two players the same name, and so the same account in offline mode.
 - **Blocks and items.** China Edition numbers blocks by its own block palette, which differs from 1.21.130's: it has `micro_block` but no `chalkboard`, which shifts most block IDs, and the crafting table and furnaces carry a `custom_appearance` state. China Edition sessions get their own palette and block and item mappings, generated at startup from the 1.21.130 data by those differences rather than shipped as a data file; the item table drops `board` and `chalkboard`, which China Edition lacks. International 1.21.130 sessions keep the palette they had.
@@ -117,6 +118,8 @@ Without a registered gate, Bedrock players join exactly as before, and the Java 
 NetEase documents the two events, as `StoreBuySuccServerEvent` and `UrgeShipEvent` in its Mod SDK and as `player_buy_item_success` and `player_urge_ship` in its server plugins, but not the message the client actually sends. A message therefore counts as a shop notification when its event name is any of these four, whether it is a Mod SDK client event (`ModEventC2S`) in any namespace and system, or a message named after the event itself. Every other `PyRpc` is still dropped, and none is forwarded to the Java server. With `debug-mode` on, each dropped `PyRpc` is logged with its method and event names and the keys of its data, never the values, which helps to see what a client really sends.
 
 Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more than 4096 elements, MessagePack extension types or any malformed data drop the packet with a debug message, and the player stays connected. The event only reports what the client claims. It may be repeated or forged, so a plugin should look up the player's undelivered orders through NetEase's order API, merging bursts into one lookup, rather than deliver anything on the event alone. It is fired on Geyser's network thread, so listeners must not block, and it may come while the player is still at the login gate, before the Java server is joined. International sessions never fire it.
+
+**Server menu button of the MINEZ client mod.** Bedrock has no off-hand key, so China Edition players cannot press Shift+F, which opens MINEZ's server menu on Java. MINEZ's client mod for China Edition puts a menu button on the screen, which sends a Mod SDK client event (`ModEventC2S`) in namespace `MinezClient`, system `MenuSystem`, named `OpenServerMenu`. Geyser runs `/menu` for the player when it gets one, as if they had typed it, at most once a second, and only once they have spawned in the Java world; other requests are dropped with a debug message. Like any client event, it can be sent by anyone, and only does what the player could do by typing the command. International sessions never trigger it.
 
 **`bedrock.netease`.** A new section of the config:
 
@@ -144,9 +147,9 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.10.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.11.jar`, so builds can be told apart at a glance.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.10 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.11 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -162,28 +165,28 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.10.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.10.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.10.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.10.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.10.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.10.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.10.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.11.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.11.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.11.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.11.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.11.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.11.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.11.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.10`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.11`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
-- The trailing `.10` is this fork's revision, from `minezRevision` in the same file.
+- The trailing `.11` is this fork's revision, from `minezRevision` in the same file.
 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.10` to `2.12.1-b1280.11`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.11` to `2.12.1-b1280.12`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 
