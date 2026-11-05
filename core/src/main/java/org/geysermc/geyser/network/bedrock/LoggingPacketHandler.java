@@ -28,10 +28,16 @@ package org.geysermc.geyser.network.bedrock;
 import org.cloudburstmc.protocol.bedrock.BedrockDisconnectReasons;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.PacketSignal;
+import org.geysermc.event.FireResult;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.api.event.bedrock.NeteaseShopEvent;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseMsgPack;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.text.GeyserLocale;
+
+import java.util.Map;
 
 /**
  * Bare bones implementation of BedrockPacketHandler suitable for extension.
@@ -56,11 +62,51 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
     @Override
     public PacketSignal handlePacket(BedrockPacket packet) {
         if (packet instanceof NeteasePacket neteasePacket) {
-            // MINEZ：网易专有的数据包（PyRpc 等）暂不处理，记下后丢弃。
-            geyser.getLogger().debug("Dropped China Edition packet " + neteasePacket + " from " + session.bedrockUsername());
+            // MINEZ：网易专有的数据包都不转发给 Java 端。其中网易商城的通知发出 NeteaseShopEvent，其余记下后丢弃。
+            handleNetease(neteasePacket);
             return PacketSignal.HANDLED;
         }
         return BedrockPacketHandler.super.handlePacket(packet);
+    }
+
+    /**
+     * MINEZ：从网易专有的数据包中认出网易商城的“购买成功”与“催促发货”，发出 {@link NeteaseShopEvent}。
+     * <p>
+     * 只处理中国版会话：只有网易的编解码器会解出这些包，这里再以编解码器核对一次。格式不符、超大或嵌套过深的 PyRpc 只记 debug 日志，
+     * 不断开连接。
+     */
+    private void handleNetease(NeteasePacket packet) {
+        if (session.isClosed() || !GameProtocol.isNeteaseCodec(session.getUpstream().getSession().getCodec())) {
+            geyser.getLogger().debug("Dropped China Edition packet " + packet + " from " + session.bedrockUsername());
+            return;
+        }
+        NeteaseShopEvent event;
+        if (packet instanceof NeteasePacket.PyRpc) {
+            NeteasePyRpc.Message message;
+            try {
+                message = NeteasePyRpc.decode(packet.payload());
+            } catch (NeteaseMsgPack.FormatException e) {
+                geyser.getLogger().debug("Dropped malformed China Edition packet " + packet + " from " + session.bedrockUsername() + ": " + e.getMessage());
+                return;
+            }
+            NeteaseShopEvent.Kind kind = message.shopKind();
+            if (kind == null) {
+                geyser.getLogger().debug("Dropped China Edition PyRpc " + message.summary() + " from " + session.bedrockUsername());
+                return;
+            }
+            event = new NeteaseShopEvent(session, kind, message.eventName(), message.namespace(), message.systemName(), message.data());
+        } else if (packet instanceof NeteasePacket.StoreBuySuccess) {
+            // 网易专有的“购买成功”数据包，空包。
+            event = new NeteaseShopEvent(session, NeteaseShopEvent.Kind.BUY_SUCCESS, "StoreBuySuccess", null, null, Map.of());
+        } else {
+            geyser.getLogger().debug("Dropped China Edition packet " + packet + " from " + session.bedrockUsername());
+            return;
+        }
+        geyser.getLogger().debug("China Edition shop event " + event.kind() + " (" + event.eventName() + ") from " + session.bedrockUsername());
+        FireResult result = geyser.eventBus().fire(event);
+        if (!result.success()) {
+            result.exceptions().values().forEach(e -> geyser.getLogger().error("A NeteaseShopEvent listener failed", e));
+        }
     }
 
     @Override

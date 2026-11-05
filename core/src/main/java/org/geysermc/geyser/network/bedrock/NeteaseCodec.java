@@ -121,7 +121,7 @@ final class NeteaseCodec extends Bedrock_v898 {
             .updateSerializer(LevelEventGenericPacket.class, new LevelEventGenericSerializer_v361(LEVEL_EVENT_TYPES))
             // 网易客户端会用区块缓存，上游把这个包设为非法、收到就断开。Geyser 不启用区块缓存，忽略它即可。
             .updateSerializer(ClientCacheBlobStatusPacket.class, CodecProcessor.IGNORED_SERIALIZER)
-            // 网易专有的数据包。方向按资料应为单向的几个也接受双向，收到后一律丢弃，见 LoggingPacketHandler。
+            // 网易专有的数据包。方向按资料应为单向的几个也接受双向，收到后都不转发，其中网易商城的通知发出事件，见 LoggingPacketHandler。
             .registerPacket(NeteasePacket.PyRpc::new, raw(), NeteasePacket.PyRpc.ID, PacketRecipient.BOTH)
             .registerPacket(NeteasePacket.StoreBuySuccess::new, raw(), NeteasePacket.StoreBuySuccess.ID, PacketRecipient.BOTH)
             .registerPacket(NeteasePacket.NeteaseJson::new, raw(), NeteasePacket.NeteaseJson.ID, PacketRecipient.BOTH)

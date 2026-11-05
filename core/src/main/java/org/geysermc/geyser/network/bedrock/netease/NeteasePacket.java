@@ -38,8 +38,9 @@ import java.util.Set;
 /**
  * MINEZ：网易客户端专有的数据包。
  * <p>
- * 目前只识别出是哪一种，保留原始负载，不解析也不转发：收到后记一条 debug 日志就丢弃，见 LoggingPacketHandler。
- * 各包的用途与格式见 G0006 的说明，例如 PyRpc 是网易 Mod SDK 的通信包，负载为 MessagePack。
+ * 解码时只识别出是哪一种，保留原始负载，都不转发给 Java 端：客户端发来的 PyRpc 与 StoreBuySuccess 中网易商城的通知
+ * 由 LoggingPacketHandler 解析后发出 {@link org.geysermc.geyser.api.event.bedrock.NeteaseShopEvent}（PyRpc 的格式见 {@link NeteasePyRpc}），
+ * 其余记一条 debug 日志就丢弃。各包的用途与格式见 G0006 的说明，例如 PyRpc 是网易 Mod SDK 的通信包，负载为 MessagePack。
  */
 public abstract class NeteasePacket implements BedrockPacket {
     /**
@@ -129,7 +130,7 @@ public abstract class NeteasePacket implements BedrockPacket {
     }
 
     /**
-     * 202：商城购买成功的通知，空包，双向。
+     * 202：商城购买成功的通知，空包，双向。客户端发来时发出 {@link org.geysermc.geyser.api.event.bedrock.NeteaseShopEvent}。
      */
     public static final class StoreBuySuccess extends NeteasePacket {
         public static final int ID = 202;
