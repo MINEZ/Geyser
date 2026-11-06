@@ -263,6 +263,16 @@ public interface GeyserConfig {
             Only turn this on for test servers and NetEase's review runs, never on a server with real players' data.""")
         @DefaultBoolean
         boolean allowSelfSignedLogins();
+
+        // MINEZ：须载入 MINEZ 客户端模组才能进入。
+        @Comment("""
+            Whether China Edition players must have MINEZ's client mod loaded before they join the Java server. The mod reaches
+            them as a resource pack in Geyser's "packs" folder; once it has loaded, it tells Geyser its version. While a login gate
+            is registered, players wait in an empty world until it does, and are disconnected when it has not done so within
+            60 seconds, or when its version is lower than that of the pack being sent. Without the pack, or without a login gate,
+            nobody is checked.""")
+        @DefaultBoolean(true)
+        boolean requireClientMod();
     }
 
     @ConfigSerializable

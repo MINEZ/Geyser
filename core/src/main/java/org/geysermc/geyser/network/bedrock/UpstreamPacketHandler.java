@@ -47,6 +47,7 @@ import org.geysermc.geyser.api.pack.ResourcePack;
 import org.geysermc.geyser.api.pack.ResourcePackManifest;
 import org.geysermc.geyser.api.pack.option.ResourcePackOption;
 import org.geysermc.geyser.event.type.SessionLoadResourcePacksEventImpl;
+import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
 import org.geysermc.geyser.pack.GeyserResourcePack;
 import org.geysermc.geyser.pack.ResourcePackHolder;
 import org.geysermc.geyser.pack.url.GeyserUrlPackCodec;
@@ -141,7 +142,11 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
                     LoginGate gate = geyser.loginGate();
                     if (gate != null) {
                         // MINEZ：有插件注册了登录闸门时，先等它放行，由它决定连接 Java 端所用的名字。
-                        GatedLoginImpl.start(session, gate, username);
+                        // 中国版会话须先载入下发的 MINEZ 客户端模组，见 MinezClientMod。
+                        MinezClientMod.Version mod = session.getNeteaseProfile() != null && resourcePackLoadEvent != null
+                            && geyser.config().bedrock().netease().requireClientMod()
+                            ? MinezClientMod.required(resourcePackLoadEvent.resourcePacks()) : null;
+                        GatedLoginImpl.start(session, gate, username, mod);
                     } else {
                         session.authenticate(username);
                     }

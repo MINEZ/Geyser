@@ -81,6 +81,12 @@ class UpstreamPacketHandlerGateTest {
             GeyserConfig.JavaConfig java = mock(GeyserConfig.JavaConfig.class);
             when(config.java()).thenReturn(java);
             when(java.authType()).thenReturn(authType);
+            GeyserConfig.BedrockConfig bedrock = mock(GeyserConfig.BedrockConfig.class);
+            GeyserConfig.NeteaseConfig netease = mock(GeyserConfig.NeteaseConfig.class);
+            when(config.bedrock()).thenReturn(bedrock);
+            when(bedrock.netease()).thenReturn(netease);
+            // 默认要求载入 MINEZ 客户端模组；测试中没有下发它的包，因此不检查，与没有这项要求时相同。
+            when(netease.requireClientMod()).thenReturn(true);
             when(geyser.loginGate()).thenReturn(gate);
             when(geyser.getPendingMicrosoftAuthentication()).thenReturn(mock(PendingMicrosoftAuthentication.class));
 
@@ -131,6 +137,7 @@ class UpstreamPacketHandlerGateTest {
             assertEquals("NE2147483648", defaultName.get());
             verify(session).setGatedLogin(any(GatedLoginImpl.class));
             verify(session, never()).authenticate(anyString());
+            verify(session, never()).prepareForConfigurationForm();
 
             result.get().complete(LoginGateResult.allow("张三"));
             verify(session).authenticate("张三");

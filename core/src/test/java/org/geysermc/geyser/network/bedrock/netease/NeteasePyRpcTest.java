@@ -229,4 +229,25 @@ class NeteasePyRpcTest {
         Arrays.fill(bomb, (byte) 0x91);
         assertThrows(NeteaseMsgPack.FormatException.class, () -> NeteasePyRpc.decode(packet(bomb, 1)));
     }
+
+    @Test
+    void theEventsOfTheMinezClientMod() throws Exception {
+        // 模组的 NotifyToServer：["ModEventC2S", ["MinezClient", "MenuSystem", 事件名, 数据], nil]。
+        NeteasePyRpc.Message menu = decode(array("ModEventC2S", array("MinezClient", "MenuSystem", "OpenServerMenu", map()), null));
+        assertTrue(menu.isOpenMenu());
+        assertFalse(menu.isClientModReady());
+        assertNull(menu.shopKind());
+
+        NeteasePyRpc.Message ready = decode(array("ModEventC2S",
+            array("MinezClient", "MenuSystem", "ClientReady", map("version", "1.3.0")), null));
+        assertTrue(ready.isClientModReady());
+        assertFalse(ready.isOpenMenu());
+        assertEquals("1.3.0", ready.data().get("version"));
+
+        // 命名空间或系统名不同的、以事件名为方法名的都不认。
+        assertFalse(decode(array("ModEventC2S", array("OtherMod", "MenuSystem", "ClientReady", map()), null)).isClientModReady());
+        assertFalse(decode(array("ModEventC2S", array("MinezClient", "OtherSystem", "ClientReady", map()), null)).isClientModReady());
+        assertFalse(decode(array("ClientReady", map("version", "1.3.0"))).isClientModReady());
+        assertFalse(decode(array("OpenServerMenu")).isOpenMenu());
+    }
 }

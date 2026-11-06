@@ -35,6 +35,7 @@ import org.geysermc.geyser.network.bedrock.netease.NeteaseMsgPack;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.auth.GatedLoginImpl;
 import org.geysermc.geyser.text.GeyserLocale;
 
 import java.util.Map;
@@ -76,7 +77,7 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
 
     /**
      * MINEZ：从网易专有的数据包中认出网易商城的“购买成功”与“催促发货”，发出 {@link NeteaseShopEvent}；认出 MINEZ 客户端模组中服务器菜单按钮的事件，
-     * 替玩家打开服务器菜单。
+     * 替玩家打开服务器菜单；认出模组载入后告知版本的事件，交给登录闸门（见 {@link GatedLoginImpl#clientModReady}）。
      * <p>
      * 只处理中国版会话：只有网易的编解码器会解出这些包，这里再以编解码器核对一次。格式不符、超大或嵌套过深的 PyRpc 只记 debug 日志，
      * 不断开连接。
@@ -97,6 +98,15 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
             }
             if (message.isOpenMenu()) {
                 openMenu();
+                return;
+            }
+            if (message.isClientModReady()) {
+                Object version = message.data().get("version");
+                geyser.getLogger().debug(session.bedrockUsername() + " has MINEZ's client mod " + version + " loaded");
+                GatedLoginImpl gated = session.getGatedLogin();
+                if (gated != null) {
+                    gated.clientModReady(version instanceof String text ? text : null);
+                }
                 return;
             }
             NeteaseShopEvent.Kind kind = message.shopKind();

@@ -32,7 +32,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * MINEZ：解析客户端发来的 {@code PyRpc}（ID 200），从中认出网易商城的“购买成功”与“催促发货”，以及 MINEZ 客户端模组中服务器菜单按钮的事件。
+ * MINEZ：解析客户端发来的 {@code PyRpc}（ID 200），从中认出网易商城的“购买成功”与“催促发货”，以及 MINEZ 客户端模组中服务器菜单按钮的事件
+ * 与模组载入后告知版本的事件（见 {@link MinezClientMod}）。
  * <p>
  * 数据包的格式：先是以 VarInt 为长度前缀的字节串，即 MessagePack 编码的消息，其后是 4 个字节的小端序消息 ID。
  * 消息是一个数组 {@code [方法名, 参数, ...]}，整个数组可能再包在 {@code {"value": ...}} 中，参数同样可能这样包一层。
@@ -67,6 +68,10 @@ public final class NeteasePyRpc {
     public static final String MENU_NAMESPACE = "MinezClient";
     public static final String MENU_SYSTEM = "MenuSystem";
     public static final String MENU_EVENT = "OpenServerMenu";
+    /**
+     * MINEZ 客户端模组载入后告知版本的事件，命名空间与系统名同上，数据为 {@code {"version": "主.次.修订"}}。
+     */
+    public static final String READY_EVENT = "ClientReady";
 
     private static final Map<String, NeteaseShopEvent.Kind> SHOP_EVENTS = Map.of(
         "StoreBuySuccServerEvent", NeteaseShopEvent.Kind.BUY_SUCCESS,
@@ -102,6 +107,14 @@ public final class NeteasePyRpc {
         public boolean isOpenMenu() {
             return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
                 && MENU_EVENT.equals(eventName);
+        }
+
+        /**
+         * @return 是否为 MINEZ 客户端模组载入后告知版本的事件。只认 {@code ModEventC2S}，命名空间、系统名与事件名都须相符。
+         */
+        public boolean isClientModReady() {
+            return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
+                && READY_EVENT.equals(eventName);
         }
 
         /**

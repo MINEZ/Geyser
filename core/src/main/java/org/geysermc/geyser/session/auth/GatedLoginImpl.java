@@ -36,6 +36,7 @@ import org.geysermc.geyser.api.connection.NeteaseIdentity;
 import org.geysermc.geyser.api.login.GatedLogin;
 import org.geysermc.geyser.api.login.LoginGate;
 import org.geysermc.geyser.api.login.LoginGateResult;
+import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.text.GeyserLocale;
 
@@ -56,6 +57,9 @@ import java.util.function.Consumer;
  * <p>
  * 状态只由 {@link State#PENDING} 变为三种结束状态之一，以比较并交换完成，所以放行、断开、超时、玩家断开与注销
  * 无论在哪个线程同时发生，只有最先的那个生效。表单的发送与关闭、放行后连接 Java 端都放到会话的事件循环中执行。
+ * <p>
+ * 须载入 MINEZ 客户端模组时（见 {@link MinezClientMod}），先生成等待世界、等模组告知版本，通过后才调用闸门；
+ * 等待期间同样以闸门的时限计时，玩家断开、超时与注销照常结束。
  */
 public final class GatedLoginImpl implements GatedLogin {
     /**
@@ -71,6 +75,10 @@ public final class GatedLoginImpl implements GatedLogin {
      * 标题停留的时长（刻），进入 Java 端的世界时提前清除。
      */
     private static final int JOINING_TITLE_TICKS = 20 * 60;
+    /**
+     * 等待 MINEZ 客户端模组时在等待世界中显示的副标题，标题与放行后相同。
+     */
+    static final String CHECKING_SUBTITLE = "§7正在载入 MINEZ 客户端模组，请稍候…";
 
     private enum State {
         PENDING,
@@ -85,15 +93,25 @@ public final class GatedLoginImpl implements GatedLogin {
     private final AtomicReference<State> state = new AtomicReference<>(State.PENDING);
     private final List<Consumer<CancelReason>> cancelListeners = new CopyOnWriteArrayList<>();
     private final AtomicBoolean joinEventPending = new AtomicBoolean();
+    /**
+     * 须载入的 MINEZ 客户端模组的最低版本，不检查时为 null。
+     */
+    private final MinezClientMod.@Nullable Version requiredMod;
+    /**
+     * 是否还在等模组告知版本；只由 true 变为 false 一次，之后才调用闸门。
+     */
+    private final AtomicBoolean waitingForMod = new AtomicBoolean();
+    private @Nullable ScheduledFuture<?> modTimeoutTask;
     private volatile @Nullable CancelReason cancelReason;
     private volatile @Nullable CompletionStage<LoginGateResult> result;
     private volatile @Nullable String timeoutMessage;
     private @Nullable ScheduledFuture<?> timeoutTask;
 
-    private GatedLoginImpl(GeyserSession session, LoginGate gate, String defaultUsername) {
+    private GatedLoginImpl(GeyserSession session, LoginGate gate, String defaultUsername, MinezClientMod.@Nullable Version requiredMod) {
         this.session = session;
         this.gate = gate;
         this.defaultUsername = defaultUsername;
+        this.requiredMod = requiredMod;
     }
 
     /**
@@ -102,7 +120,18 @@ public final class GatedLoginImpl implements GatedLogin {
      * @param defaultUsername 没有闸门时连接 Java 端所用的名字。
      */
     public static GatedLoginImpl start(GeyserSession session, LoginGate gate, String defaultUsername) {
-        GatedLoginImpl login = new GatedLoginImpl(session, gate, defaultUsername);
+        return start(session, gate, defaultUsername, null);
+    }
+
+    /**
+     * 让会话进入闸门。
+     *
+     * @param defaultUsername 没有闸门时连接 Java 端所用的名字。
+     * @param requiredMod     须载入的 MINEZ 客户端模组的最低版本，为 null 时不检查，直接调用闸门。
+     */
+    public static GatedLoginImpl start(GeyserSession session, LoginGate gate, String defaultUsername,
+                                       MinezClientMod.@Nullable Version requiredMod) {
+        GatedLoginImpl login = new GatedLoginImpl(session, gate, defaultUsername, requiredMod);
         session.setGatedLogin(login);
         login.begin();
         return login;
@@ -120,6 +149,81 @@ public final class GatedLoginImpl implements GatedLogin {
         scheduleTimeout(timeout == null || timeout.isNegative() || timeout.isZero() ? LoginGate.DEFAULT_TIMEOUT : timeout);
         logger.debug(session.bedrockUsername() + " is waiting in the login gate");
 
+        if (requiredMod != null) {
+            waitForMod();
+            return;
+        }
+        callGate();
+    }
+
+    /**
+     * 生成等待世界，等 MINEZ 客户端模组告知版本（{@link #clientModReady}），{@link MinezClientMod#READY_TIMEOUT} 内没有等到时断开。
+     * 模组在客户端进入世界、界面初始化完成后才告知，所以先生成世界。
+     */
+    private void waitForMod() {
+        waitingForMod.set(true);
+        session.getGeyser().getLogger().debug("Waiting for " + session.bedrockUsername() + " to load MINEZ's client mod " + requiredMod + " or later");
+        synchronized (this) {
+            modTimeoutTask = session.scheduleInEventLoop(this::modTimedOut, MinezClientMod.READY_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        }
+        session.ensureInEventLoop(() -> {
+            if (!isPending() || session.isClosed()) {
+                return;
+            }
+            // 之后显示表单时不再生成；连接 Java 端后要补发 SessionJoinEvent，见 takePendingJoinEvent。
+            waitingWorldShown();
+            session.prepareForConfigurationForm();
+            sendTitle(SetTitlePacket.Type.TIMES, "");
+            sendTitle(SetTitlePacket.Type.SUBTITLE, CHECKING_SUBTITLE);
+            sendTitle(SetTitlePacket.Type.TITLE, JOINING_TITLE);
+            session.getWorldCache().markTitleTimesAsIncorrect();
+        });
+    }
+
+    /**
+     * 客户端发来 MINEZ 客户端模组载入后告知版本的事件时调用，可以在任意线程调用，重复的不起作用。
+     *
+     * @param version 事件中的版本，没有或格式不对时为 null。
+     */
+    public void clientModReady(@Nullable String version) {
+        if (requiredMod == null) {
+            return;
+        }
+        session.ensureInEventLoop(() -> {
+            if (!isPending() || !waitingForMod.compareAndSet(true, false)) {
+                return;
+            }
+            cancelModTimeout();
+            MinezClientMod.Version loaded = MinezClientMod.Version.parse(version);
+            if (loaded == null || loaded.compareTo(requiredMod) < 0) {
+                session.getGeyser().getLogger().info(session.bedrockUsername() + " loaded MINEZ's client mod " + version
+                    + ", older than " + requiredMod + ", and was disconnected");
+                disconnect(MinezClientMod.OUTDATED);
+                return;
+            }
+            session.getGeyser().getLogger().debug(session.bedrockUsername() + " loaded MINEZ's client mod " + loaded);
+            clearJoiningTitle(session);
+            callGate();
+        });
+    }
+
+    private void modTimedOut() {
+        if (!waitingForMod.compareAndSet(true, false) || !isPending()) {
+            return;
+        }
+        session.getGeyser().getLogger().info(session.bedrockUsername() + " did not load MINEZ's client mod within "
+            + MinezClientMod.READY_TIMEOUT.toSeconds() + " seconds and was disconnected");
+        disconnect(MinezClientMod.MISSING);
+    }
+
+    private synchronized void cancelModTimeout() {
+        if (modTimeoutTask != null) {
+            modTimeoutTask.cancel(false);
+            modTimeoutTask = null;
+        }
+    }
+
+    private void callGate() {
         CompletionStage<LoginGateResult> stage;
         try {
             stage = gate.onLogin(this);
@@ -215,6 +319,7 @@ public final class GatedLoginImpl implements GatedLogin {
         }
         cancelReason = reason;
         cancelTimeout();
+        cancelModTimeout();
         CompletionStage<LoginGateResult> stage = this.result;
         if (stage != null) {
             cancelStage(stage);

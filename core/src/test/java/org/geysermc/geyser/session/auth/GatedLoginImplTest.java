@@ -31,8 +31,10 @@ import org.geysermc.geyser.GeyserLogger;
 import org.geysermc.geyser.api.login.GatedLogin;
 import org.geysermc.geyser.api.login.LoginGate;
 import org.geysermc.geyser.api.login.LoginGateResult;
+import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.FormCache;
+import org.geysermc.geyser.session.cache.WorldCache;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -43,6 +45,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,6 +84,7 @@ class GatedLoginImplTest {
         when(geyser.getLogger()).thenReturn(logger);
         when(session.getGeyser()).thenReturn(geyser);
         when(session.getFormCache()).thenReturn(formCache);
+        when(session.getWorldCache()).thenReturn(mock(WorldCache.class));
         when(session.bedrockUsername()).thenReturn("测试玩家");
         when(session.isClosed()).thenAnswer(call -> closed.get());
         // 会话的事件循环：在测试中立即执行。
@@ -111,13 +115,17 @@ class GatedLoginImplTest {
     }
 
     private GatedLoginImpl start(LoginGate gate) {
+        return start(gate, null);
+    }
+
+    private GatedLoginImpl start(LoginGate gate, MinezClientMod.Version requiredMod) {
         AtomicReference<GatedLoginImpl> holder = new AtomicReference<>();
         doAnswer(call -> {
             holder.set(call.getArgument(0));
             return null;
         }).when(session).setGatedLogin(any());
         when(session.getGatedLogin()).thenAnswer(call -> holder.get());
-        GatedLoginImpl login = GatedLoginImpl.start(session, gate, "NE2147483648");
+        GatedLoginImpl login = GatedLoginImpl.start(session, gate, "NE2147483648", requiredMod);
         assertSame(login, holder.get());
         return login;
     }
@@ -323,5 +331,110 @@ class GatedLoginImplTest {
         AtomicReference<GatedLogin> login = new AtomicReference<>();
         start(pendingGate(future, login));
         assertThrows(IllegalArgumentException.class, () -> login.get().timeout(Duration.ZERO, null));
+    }
+
+    private static final MinezClientMod.Version MOD = new MinezClientMod.Version(1, 3, 0);
+
+    /**
+     * 记下被调用了几次、总是放行的闸门。
+     */
+    private static LoginGate countingGate(AtomicInteger calls) {
+        return gated -> {
+            calls.incrementAndGet();
+            return CompletableFuture.completedFuture(LoginGateResult.allow());
+        };
+    }
+
+    @Test
+    void waitsForTheClientModBeforeCallingTheGate() {
+        AtomicInteger calls = new AtomicInteger();
+        GatedLoginImpl gated = start(countingGate(calls), MOD);
+
+        // 先生成等待世界、开始等模组：闸门的时限与模组的时限各一个。
+        assertEquals(0, calls.get());
+        assertTrue(gated.isPending());
+        verify(session).prepareForConfigurationForm();
+        assertEquals(List.of(600_000L, MinezClientMod.READY_TIMEOUT.toMillis()), timeoutMillis);
+
+        gated.clientModReady("1.3.0");
+
+        assertEquals(1, calls.get());
+        verify(timeoutFutures.get(1)).cancel(false);
+        verify(session).authenticate("NE2147483648");
+        // 等待世界在连接 Java 端之前就已生成，进入 Java 端时要补发 SessionJoinEvent。
+        assertTrue(gated.takePendingJoinEvent());
+        verify(session, never()).disconnect(anyString());
+
+        // 重复的不起作用。
+        gated.clientModReady("1.3.0");
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void aNewerClientModPasses() {
+        AtomicInteger calls = new AtomicInteger();
+        GatedLoginImpl gated = start(countingGate(calls), MOD);
+        gated.clientModReady("1.10.0");
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void anOlderOrUnreadableClientModIsDisconnected() {
+        AtomicInteger calls = new AtomicInteger();
+        GatedLoginImpl gated = start(countingGate(calls), MOD);
+        gated.clientModReady("1.2.9");
+
+        assertFalse(gated.isPending());
+        assertEquals(0, calls.get());
+        verify(session).disconnect(MinezClientMod.OUTDATED);
+        verify(timeoutFutures.get(1)).cancel(false);
+
+        closed.set(false);
+        GatedLoginImpl other = start(countingGate(calls), MOD);
+        other.clientModReady(null);
+        assertEquals(0, calls.get());
+        verify(session, times(2)).disconnect(MinezClientMod.OUTDATED);
+    }
+
+    @Test
+    void noClientModWithinTheTimeLimitIsDisconnected() {
+        AtomicInteger calls = new AtomicInteger();
+        GatedLoginImpl gated = start(countingGate(calls), MOD);
+
+        timeouts.get(1).run();
+
+        assertFalse(gated.isPending());
+        verify(session).disconnect(MinezClientMod.MISSING);
+        verify(timeoutFutures.get(0)).cancel(false);
+        // 之后才到的不再调用闸门。
+        gated.clientModReady("1.3.0");
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void leavingWhileWaitingForTheClientModEndsTheWait() {
+        AtomicInteger calls = new AtomicInteger();
+        GatedLoginImpl gated = start(countingGate(calls), MOD);
+
+        gated.sessionClosed();
+
+        assertFalse(gated.isPending());
+        verify(timeoutFutures.get(1)).cancel(false);
+        gated.clientModReady("1.3.0");
+        assertEquals(0, calls.get());
+        // 断开已由会话处理，闸门不再断开一次。
+        verify(session, never()).disconnect(anyString());
+    }
+
+    @Test
+    void withoutARequirementTheClientModIsNotWaitedFor() {
+        AtomicInteger calls = new AtomicInteger();
+        GatedLoginImpl gated = start(countingGate(calls));
+
+        assertEquals(1, calls.get());
+        verify(session, never()).prepareForConfigurationForm();
+        gated.clientModReady("0.0.1");
+        verify(session, never()).disconnect(anyString());
+        assertEquals(1, calls.get());
     }
 }
