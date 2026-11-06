@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.15-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.16-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -86,6 +86,7 @@ git submodule update --init --recursive
 | 基岩版中的对话框 | 行为 | 修改 |
 | 点击后重新打开对话框 | 行为 | 修改 |
 | 客户端正忙、无法打开的表单 | 行为 | 修改 |
+| 基岩版无法显示的实体 | 行为 | 修改 |
 | 切换维度时的下坠 | 行为 | 修改 |
 | 文本中内联的图标与玩家头像 | 行为 | 修改 |
 | `bedrock.netease` | 配置 | 新增 |
@@ -132,7 +133,9 @@ git submodule update --init --recursive
 - 基岩版的按钮没有悬停提示，最多也只显示两行。现在把按钮提示的第一行写在按钮文字的下一行；提示有多行时，在正文之后的“按钮说明”下连同按钮文字完整写出；这些按钮都有的一行（例如各分区共同的注意事项）不逐个重复，只在最后写一次。带输入框的对话框把按钮放在下拉框中，那里仍只显示按钮文字。
 - Java 版的对话框画在变暗的游戏画面上，文字多为白色、黄色等浅色；基岩版的标题栏、按钮与下拉框却是浅灰色的，这些文字几乎看不清，正文区域则是深色的。现在按文字所在的背景替换颜色，色相尽量不变：标题、按钮与下拉框的选项中，白色与灰色换成黑色（按钮在悬停时变为绿色，深灰色在绿色上看不清），黄色与金色换成铜色（`§n`，不支持的客户端显示默认的深色），浅绿、浅蓝、浅紫换成对应的深色；正文中，黑色与深灰色换成灰色。格式代码不变。
 
-**点击后重新打开对话框。** Java 版中 `after_action` 为 `none` 的对话框，点了按钮后仍留在屏幕上，直到服务器打开别的对话框；基岩版的表单点了就已关闭，上游因此立即重新打开它。按钮交给服务器处理时（执行命令或自定义动作），服务器紧接着打开的对话框（例如“返回”通向的那个）几乎与它同时到达，客户端来不及关掉重新打开的表单，把它留在新对话框之下：看起来像是同一个对话框打开了两次，关掉新对话框后露出的旧表单点什么都没有反应。现在这样的点击之后，Geyser 先等 1 秒再重新打开，期间服务器打开或关闭了对话框就不再打开。
+**点击后重新打开对话框。** Java 版中 `after_action` 为 `none` 的对话框，点了按钮后仍留在屏幕上，直到服务器打开别的对话框；基岩版的表单点了就已关闭，上游因此立即重新打开它。按钮交给服务器处理时（执行命令或自定义动作），服务器紧接着打开的对话框（例如“返回”通向的那个）几乎与它同时到达，客户端来不及关掉重新打开的表单，把它留在新对话框之下：看起来像是同一个对话框打开了两次，关掉新对话框后露出的旧表单点什么都没有反应。现在这样的点击之后，Geyser 先等 1 秒再重新打开，期间服务器打开或关闭了对话框就不再打开。与 Java 版相同，服务器打开容器时，原先打开的对话框也随之关闭；点了会打开容器的按钮（例如“打开物品栏”）后，不会再过 1 秒重新打开对话框、把刚打开的容器关掉。
+
+**基岩版无法显示的实体。** 上游遇到没有对应基岩版实体的原版实体（例如物品展示实体与方块展示实体）时，每生成一个就记一条带堆栈的错误。现在这类实体记一条 debug 日志后跳过，基岩版玩家仍然看不到它们。
 
 **客户端正忙、无法打开的表单。** 基岩版客户端还在关闭某个界面（例如上一个表单）时，会拒绝打开表单，回复自己正忙。上游把这个回复当作玩家关闭了表单，于是服务器紧接着打开的对话框（例如“返回”按钮通向的那个）立即执行了关闭的动作，多半就直接关闭了。现在这样的表单每 250 毫秒重新发送一次，最多 20 次，之后才当作关闭。开启 `debug-mode` 时，每次重新发送都记一条日志。
 
@@ -166,9 +169,9 @@ Java 26.1~26.3 新增、而 1.21.130 没有的内容以替身显示，不会因�
 
 **1.21.130 加载界面期间的传送。** 实测中，中国版 1.21.130 的客户端在加载界面期间（进服后，以及切换维度时；Geyser 在代理后跨服也是这样切换的）不理会发给自己的 `MovePlayer`，加载界面结束时停在最后一个 `RespawnPacket` 给出的位置；国际版 1.21.130 与它协议相同，按同样的方式处理。服务端紧接着把玩家传送到同一处时（插件在进服时常这样做），上游认为客户端已经在那里，不再等它确认传送。1.21.130 的客户端其实还没到，Geyser 便把它停留的旧位置当作移动，以移动过快为由拒绝，并发出同样被客户端忽略的位置纠正：跨服之后，玩家停在世界上方的占位坐标并开始下落。现在对于低于 26.40 的协议，传送到与尚未确认的传送相同的位置时继续等待确认，客户端到达之前不理会它的移动，客户端报告加载或切换维度完成时立即重发传送。26.40 及以上的行为与上游一致。
 
-**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.15.jar`，一眼就能分清不同的构建。
+**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.16.jar`，一眼就能分清不同的构建。
 
-**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.15 (git-master-abc1234)`。
+**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.16 (git-master-abc1234)`。
 
 **启动提示与反馈链接。** 上游的启动信息请用户到它的 Discord 反馈问题。现在改为说明这是 MINEZ 的非官方 Fork，并指向[本仓库的 issue](https://github.com/MINEZ/Geyser/issues)；新写入的配置文件开头的说明与 `/geyser connectiontest` 中的链接同样改为本仓库。已有配置文件开头的说明只在配置版本变化时才会重写，需要时请手动修改。
 
@@ -184,28 +187,28 @@ Windows 上改用 `gradlew.bat build`。构建需要 JDK 21 及以上版本；Fa
 
 | 平台 | 文件 |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.15.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.15.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.15.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.15.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.15.jar` |
-| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.15.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.15.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.16.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.16.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.16.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.16.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.16.jar` |
+| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.16.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.16.jar` |
 
 同一文件夹中还有构建过程的中间产物，例如 `velocity-2.12.1-SNAPSHOT.jar`，不要安装它们。
 
 ## 版本号
 
-版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.15` 中：
+版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.16` 中：
 
 - `2.12.1` 是上游版本，来自 `gradle.properties` 中的 `version` 一行，去掉了 `-SNAPSHOT` 后缀。这一行与上游保持一致，因此只有上游修改它时才会产生冲突。
 - `b1280` 是本 Fork 所基于的上游构建号，来自同一文件中的 `upstreamBuild`，与上游为同一提交发布的官方构建一致，即上游的 `2.12.1-b1280`。
-- 末尾的 `.15` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
+- 末尾的 `.16` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
 
 上游为推送到 `master` 的每个提交编一个构建号。合并上游后，在 `https://download.geysermc.org/v2/projects/geyser/versions/<版本>/builds`（例如 `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`）的 `changes` 中找到所合并的上游提交对应的构建号，然后：
 
 - 把 `upstreamBuild` 改为该构建号，上游的 `version` 一行有变化时一并采用，并将 `minezRevision` 重新设为 `1`；
-- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.15` 到 `2.12.1-b1280.16`。
+- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.16` 到 `2.12.1-b1280.17`。
 
 同时更新两份 README 顶部的版本徽章，以及[构建](#构建)一节中的文件名。
 

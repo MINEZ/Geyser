@@ -61,7 +61,15 @@ public class JavaAddEntityTranslator extends PacketTranslator<ClientboundAddEnti
             return;
         }
 
-        EntityTypeDefinition<?> definition = type.definition();
+        EntityTypeDefinition<?> definition;
+        try {
+            definition = type.definition();
+        } catch (IllegalStateException e) {
+            // MINEZ：Geyser 没有对应的基岩版实体的原版实体（例如物品展示实体与方块展示实体），基岩版玩家看不到它们。
+            // 上游每生成一个就记一条带堆栈的错误；这里改为 debug 日志后跳过。
+            session.getGeyser().getLogger().debug("Bedrock players cannot see " + type + ", skipping entity " + packet.getEntityId());
+            return;
+        }
 
         Integer removedPlayerVehicleId = session.getPlayerEntity().getRemovedPlayerVehicleId();
         if (removedPlayerVehicleId != null && removedPlayerVehicleId == packet.getEntityId()) {

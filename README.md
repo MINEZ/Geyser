@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.15-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.16-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -86,6 +86,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Dialogs on Bedrock | Behaviour | Changed |
 | Reopening a dialog after a click | Behaviour | Changed |
 | Forms the client is too busy to open | Behaviour | Changed |
+| Entities Bedrock cannot show | Behaviour | Changed |
 | Falling while changing dimension | Behaviour | Changed |
 | Inline sprites and player heads | Behaviour | Changed |
 | `bedrock.netease` | Config | Added |
@@ -132,7 +133,9 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 - Bedrock buttons have no tooltips, and show at most two lines. The first line of a button's tooltip is now written under its label; when a tooltip has more lines, all of them are written after the body, under 按钮说明 ("About the buttons"), with the button's label; a line that every such button has, such as a warning shared by all servers, is written once at the end instead. Buttons in the dropdown of a dialog with inputs still show their label alone.
 - Java draws dialogs over the dimmed game, so their text is mostly light, such as white or yellow; on Bedrock the title bar, buttons and dropdown are light grey, where such text can hardly be read, and the body is dark. Colours are now swapped for the background they sit on, keeping the hue where possible: on the title, buttons and dropdown options, white and grey become black (a hovered button turns green, where dark grey can hardly be read), yellow and gold become copper (`§n`, which clients without it show in the default dark colour), and light green, aqua and light purple become their dark shades; in the body, black and dark grey become grey. Formatting codes are kept.
 
-**Reopening a dialog after a click.** A Java dialog whose `after_action` is `none` stays on screen after a click until the server shows another dialog, while a Bedrock form is gone once clicked, so upstream reopened the dialog at once. When the click was handled by the server (a command or a custom action), the dialog the server opened next, such as the one a Back button leads to, arrived almost together with it: the client could not close the reopened form in time and kept it under the new one, so the dialog seemed to open twice, and the stale form left after closing the new one did nothing when clicked. After such a click, Geyser now waits a second before reopening the dialog, and does not reopen it if the server has opened or closed a dialog meanwhile.
+**Reopening a dialog after a click.** A Java dialog whose `after_action` is `none` stays on screen after a click until the server shows another dialog, while a Bedrock form is gone once clicked, so upstream reopened the dialog at once. When the click was handled by the server (a command or a custom action), the dialog the server opened next, such as the one a Back button leads to, arrived almost together with it: the client could not close the reopened form in time and kept it under the new one, so the dialog seemed to open twice, and the stale form left after closing the new one did nothing when clicked. After such a click, Geyser now waits a second before reopening the dialog, and does not reopen it if the server has opened or closed a dialog meanwhile. As on Java, a container the server opens also closes the dialog that was open, so a click that opens one (such as a storage button) is not followed a second later by the dialog coming back and closing the container.
+
+**Entities Bedrock cannot show.** Upstream logs an error with a stack trace for every entity of a vanilla type it has no Bedrock counterpart for, such as item and block displays. Such entities are now skipped with a debug message; Bedrock players still do not see them.
 
 **Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again every 250 milliseconds, up to 20 times, and only then treated as closed. With `debug-mode` on, each retry is logged.
 
@@ -166,9 +169,9 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.15.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.16.jar`, so builds can be told apart at a glance.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.15 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.16 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -184,28 +187,28 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.15.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.15.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.15.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.15.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.15.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.15.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.15.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.16.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.16.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.16.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.16.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.16.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.16.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.16.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.15`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.16`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
-- The trailing `.15` is this fork's revision, from `minezRevision` in the same file.
+- The trailing `.16` is this fork's revision, from `minezRevision` in the same file.
 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.15` to `2.12.1-b1280.16`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.16` to `2.12.1-b1280.17`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 

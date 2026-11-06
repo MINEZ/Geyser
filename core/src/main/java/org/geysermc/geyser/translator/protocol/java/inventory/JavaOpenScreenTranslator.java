@@ -63,6 +63,9 @@ public class JavaOpenScreenTranslator extends PacketTranslator<ClientboundOpenSc
             newTranslator = InventoryTranslator.inventoryTranslator(packet.getType());
         }
 
+        // MINEZ：与 Java 版相同，服务器打开容器时，原先打开的对话框随之关闭。否则对话框点了按钮后（例如基地控制台的“打开物品栏”）
+        // 还在等服务器回应，过一会儿重新打开，打开表单时又关掉了刚打开的容器，玩家看到容器一闪就回到了对话框。
+        session.getDialogManager().close();
         if (session.hasFormOpen()) {
             session.closeForm();
         }
