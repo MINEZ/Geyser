@@ -36,7 +36,7 @@ class FormColorsTest {
 
     @Test
     void lightBackgroundsGetDarkColors() {
-        assertEquals("§8白§8灰§n黄§n金§2绿§3青§5紫§c红§l粗", FormColors.onLight("§f白§7灰§e黄§6金§a绿§b青§d紫§c红§l粗"));
+        assertEquals("§0白§0灰§n黄§n金§2绿§3青§5紫§c红§l粗", FormColors.onLight("§f白§7灰§e黄§6金§a绿§b青§d紫§c红§l粗"));
     }
 
     @Test

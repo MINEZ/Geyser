@@ -40,7 +40,9 @@ import org.geysermc.geyser.text.MinecraftLocale;
 import org.geysermc.geyser.translator.text.TextTranslator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Used to manage an open dialog. Handles dialog input, transferring to other dialogs, and dialog "submenus" for e.g. waiting on a new dialog or confirming a command.
@@ -107,6 +109,14 @@ public final class DialogHolder implements TextTranslator {
      */
     private boolean shouldClose = false;
     private ParsedInputs lastInputs;
+    /**
+     * MINEZ：刚执行的按钮是否交给服务器处理，见 {@link #runButton(Optional, ParsedInputs)}。
+     */
+    private boolean waitForServer = false;
+    /**
+     * MINEZ：after action 为 none 的对话框执行了交给服务器的按钮后，等待服务器打开或关闭对话框的时长，之后才重新打开这一个。
+     */
+    private static final long SERVER_RESPONSE_WAIT_MILLIS = 1000;
 
     public DialogHolder(GeyserSession session, DialogManager manager, Dialog dialog) {
         this.session = session;
@@ -141,17 +151,44 @@ public final class DialogHolder implements TextTranslator {
     }
 
     /**
-     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，有提示时以深灰色写在按钮文字的下一行，免得其中的说明（例如在线人数、注意事项）看不到。
+     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，有提示时把提示的第一行写在按钮文字的下一行，免得其中的说明（例如在线人数）看不到；
+     * 按钮最多显示两行，多行的提示另由 {@link #convertTooltipDetails(List)} 完整写在正文之后。
      */
     public String convertButton(DialogButton button) {
-        // 按钮是浅色的，颜色按 FormColors#onLight 替换，提示的灰色因此为深灰色。
+        // 按钮是浅色的，颜色按 FormColors#onLight 替换。
+        String label = convertText(button.label());
         return FormColors.onLight(button.tooltip()
-            .map(tooltip -> convertText(Component.text()
-                .append(button.label())
-                .append(Component.newline())
-                .append(tooltip.colorIfAbsent(NamedTextColor.GRAY))
-                .build()))
-            .orElseGet(() -> convertText(button.label())));
+            .map(tooltip -> label + "\n" + tooltipLines(tooltip)[0])
+            .orElse(label));
+    }
+
+    /**
+     * MINEZ：有多行提示的按钮，完整写出它们的提示，放在正文之后；没有时为空文本。
+     */
+    public String convertTooltipDetails(List<DialogButton> buttons) {
+        StringBuilder details = new StringBuilder();
+        for (DialogButton button : buttons) {
+            if (button.tooltip().isEmpty()) {
+                continue;
+            }
+            String[] lines = tooltipLines(button.tooltip().get());
+            if (lines.length < 2) {
+                continue;
+            }
+            details.append("\n§r§7• §r").append(convertText(button.label()));
+            for (String line : lines) {
+                details.append("\n    ").append(line);
+            }
+        }
+        if (details.isEmpty()) {
+            return "";
+        }
+        return FormColors.onDark("§r§l按钮说明§r" + details);
+    }
+
+    /** 提示的各行，没有颜色的文字为灰色。 */
+    private String[] tooltipLines(Component tooltip) {
+        return convertText(tooltip.colorIfAbsent(NamedTextColor.GRAY)).split("\n");
     }
 
     /**
@@ -162,9 +199,18 @@ public final class DialogHolder implements TextTranslator {
         lastInputs = inputs;
         if (stillValid()) {
             if (runAction(button, lastInputs)) {
+                // MINEZ：按钮交给服务器处理时（执行命令、自定义动作），记下来，after action 为 none 时稍后再重新打开，见 runAfterAction。
+                waitForServer = button.flatMap(DialogButton::action).map(DialogHolder::isHandledByServer).orElse(false);
                 runAfterAction();
             }
         }
+    }
+
+    /**
+     * MINEZ：按钮的动作是否交给服务器处理，服务器多半会接着打开别的对话框或关闭这一个。
+     */
+    private static boolean isHandledByServer(DialogAction action) {
+        return action instanceof DialogAction.CommandAction || action instanceof DialogAction.Custom || action instanceof DialogAction.DynamicCustom;
     }
 
     /**
@@ -234,7 +280,20 @@ public final class DialogHolder implements TextTranslator {
         switch (dialog.afterAction()) {
             case NONE -> {
                 // If no new dialog was opened, reopen this one
-                dialog.restoreForm(this, lastInputs);
+                if (waitForServer) {
+                    // MINEZ：Java 版点了按钮后对话框留在原处，直到服务器打开别的对话框；基岩版的表单点了按钮就已关闭。
+                    // 立即重新打开的话，服务器紧接着打开的对话框（例如“返回”通向的上一级）与它几乎同时到达，客户端来不及关掉它，
+                    // 它便留在新对话框之下：看起来像是同一个对话框打开了两次，关掉新对话框后露出的这一个已经失效，点什么都没有反应。
+                    // 因此先等服务器一会儿，期间服务器打开或关闭了对话框就不再打开。
+                    waitForServer = false;
+                    session.scheduleInEventLoop(() -> {
+                        if (stillValid()) {
+                            dialog.restoreForm(this, lastInputs);
+                        }
+                    }, SERVER_RESPONSE_WAIT_MILLIS, TimeUnit.MILLISECONDS);
+                } else {
+                    dialog.restoreForm(this, lastInputs);
+                }
             }
             case CLOSE -> {
                 // If no new dialog was opened, tell the manager this one is now closed
@@ -341,6 +400,7 @@ public final class DialogHolder implements TextTranslator {
                     if (shouldClose) {
                         manager.close();
                     } else {
+                        waitForServer = true;
                         runAfterAction();
                     }
                 } else {

@@ -60,9 +60,20 @@ class DialogMarkdownTest {
     }
 
     @Test
-    void tablesDropTheDelimiterRowAndSeparateCells() {
-        assertEquals("§f物品 §7|§r§f §f配方\n§e核心 §7|§r§e §f8 铁锭",
-            DialogMarkdown.render("| §f物品 | §f配方 |\n| --- | :-: |\n| §e核心 | §f8 铁锭 |"));
+    void twoColumnTablesBecomeListsOfPairs() {
+        assertEquals("§e• §e核心§7：§r§e§f8 铁锭\n§f• §f工具§7：§r§f§f2 铁锭",
+            DialogMarkdown.render("| §f物品 | §f配方 |\n| --- | :-: |\n| §e核心 | §f8 铁锭 |\n| §f工具 | §f2 铁锭 |"));
+    }
+
+    @Test
+    void widerTablesLabelEachValueWithItsHeader() {
+        assertEquals("§f• §f/back 冷却§7：无月卡 §r§f§f7 天§7，黄金月卡 §r§f§e1 小时",
+            DialogMarkdown.render("| §f权益 | §f无月卡 | §e黄金月卡 |\n| --- | --- | --- |\n| §f`/back` 冷却 | §f7 天 | §e1 小时 |"));
+    }
+
+    @Test
+    void bulletsTakeTheFirstColorOfTheirLine() {
+        assertEquals("§6§l标题§r§6\n§f• §f第一项", DialogMarkdown.render("§6## 标题\n- §f第一项"));
     }
 
     @Test

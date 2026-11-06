@@ -33,6 +33,7 @@ import org.geysermc.geyser.registry.java.JavaRegistryProvider;
 import org.geysermc.geyser.session.dialog.input.ParsedInputs;
 import org.geysermc.geyser.text.GeyserLocale;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -85,6 +86,13 @@ public abstract class DialogWithButtons extends Dialog {
                 holder.runButton(Optional.of(buttons.get(response.clickedButtonId())), ParsedInputs.EMPTY);
             }
         });
+    }
+
+    @Override
+    protected List<DialogButton> buttonsWithTooltips(DialogHolder holder) {
+        List<DialogButton> all = new ArrayList<>(buttons(holder));
+        exitAction.ifPresent(all::add);
+        return all;
     }
 
     @Override

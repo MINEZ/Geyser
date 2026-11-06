@@ -36,6 +36,7 @@ import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
+import org.cloudburstmc.protocol.bedrock.packet.MobEffectPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityMotionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UpdateAttributesPacket;
@@ -48,6 +49,7 @@ import org.geysermc.geyser.entity.type.LivingEntity;
 import org.geysermc.geyser.input.InputLocksFlag;
 import org.geysermc.geyser.inventory.GeyserItemStack;
 import org.geysermc.geyser.item.Items;
+import org.geysermc.geyser.level.EffectType;
 import org.geysermc.geyser.level.block.Blocks;
 import org.geysermc.geyser.level.block.property.Properties;
 import org.geysermc.geyser.level.block.type.BlockState;
@@ -78,6 +80,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The entity class specifically for a {@link GeyserSession}'s player.
@@ -176,6 +179,14 @@ public class SessionPlayerEntity extends PlayerEntity {
      * MINEZ：Java 服务器给出的“无重力”，定身期间暂存，结束后恢复。
      */
     private boolean javaNoGravity;
+    /**
+     * MINEZ：切换维度期间，世界还没有加载出来，看起来像是消失了、坠入了虚空。这段时间给玩家一个只在客户端的失明效果遮住画面，
+     * 位置到达后再过 {@link #SWITCH_BLINDNESS_LINGER_MILLIS} 毫秒（区块大多已经加载）移除；Java 服务器自己给了失明时不移除。
+     * 效果最长持续 {@link #SWITCH_BLINDNESS_TICKS} 刻，万一没有等到位置也会自行消失。
+     */
+    private static final int SWITCH_BLINDNESS_TICKS = 20 * 10;
+    private static final long SWITCH_BLINDNESS_LINGER_MILLIS = 1000;
+    private boolean switchBlindness;
 
     public SessionPlayerEntity(GeyserSession session) {
         super(new EntitySpawnContext(session, VanillaEntities.PLAYER, -1, null), null, null);
@@ -189,6 +200,8 @@ public class SessionPlayerEntity extends PlayerEntity {
     public void holdUntilSpawned() {
         heldUntilSpawned = true;
         updateBedrockMetadata();
+        switchBlindness = true;
+        sendSwitchBlindness(MobEffectPacket.Event.ADD);
     }
 
     /**
@@ -201,6 +214,28 @@ public class SessionPlayerEntity extends PlayerEntity {
         heldUntilSpawned = false;
         setFlag(EntityFlag.HAS_GRAVITY, !javaNoGravity);
         setFlag(EntityFlag.NO_AI, false);
+        session.scheduleInEventLoop(() -> {
+            // 期间又开始了一次切换时，留给那一次移除。
+            if (!switchBlindness || heldUntilSpawned) {
+                return;
+            }
+            switchBlindness = false;
+            if (!session.getEffectCache().getEntityEffects().contains(Effect.BLINDNESS)) {
+                sendSwitchBlindness(MobEffectPacket.Event.REMOVE);
+            }
+        }, SWITCH_BLINDNESS_LINGER_MILLIS, TimeUnit.MILLISECONDS);
+    }
+
+    private void sendSwitchBlindness(MobEffectPacket.Event event) {
+        MobEffectPacket packet = new MobEffectPacket();
+        packet.setEvent(event);
+        packet.setRuntimeEntityId(geyserId);
+        packet.setEffectId(EffectType.BLINDNESS.getBedrockId());
+        packet.setAmplifier(0);
+        packet.setDuration(SWITCH_BLINDNESS_TICKS);
+        packet.setParticles(false);
+        packet.setAmbient(false);
+        session.sendUpstreamPacket(packet);
     }
 
     @Override

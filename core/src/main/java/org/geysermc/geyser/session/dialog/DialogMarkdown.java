@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
  *     <li>标题：去掉“#”，整行加粗。</li>
  *     <li>列表：“-”“*”“+”换成“•”，有序列表保留序号，子列表按缩进加空格。</li>
  *     <li>引用：去掉“>”，行首加灰色的竖条，没有颜色的文字为灰色。</li>
- *     <li>表格：去掉对齐行，各格以灰色的“|”隔开。</li>
+ *     <li>表格：有表头时每行数据写成一个列表项，第一格之后接“：”，多列时其余各格前写上表头，表头与对齐行不输出；没有表头时各格以灰色的“|”隔开。</li>
  *     <li>分隔线：换成一行灰色的横线。</li>
  *     <li>行内：“**”加粗、“*”斜体、“~~”删除线，行内代码与代码块原样显示，链接写出文字与地址，反斜杠转义的字符原样显示。</li>
  * </ul>
@@ -90,11 +90,11 @@ public final class DialogMarkdown {
 
     private void renderLines(String[] lines) {
         boolean inFence = false;
-        boolean previousWasTable = false;
-        // 不输出的一行（代码围栏、表格的对齐行）中的颜色代码，移到下一行的开头。
+        // 不输出的一行（代码围栏）中的颜色代码，移到下一行的开头。
         StringBuilder carried = new StringBuilder();
         boolean first = true;
-        for (String line : lines) {
+        for (int index = 0; index < lines.length; index++) {
+            String line = lines[index];
             if (inFence) {
                 if (FENCE.matcher(stripCodes(line).strip()).matches()) {
                     inFence = false;
@@ -118,12 +118,6 @@ public final class DialogMarkdown {
                 inFence = true;
                 carried.append(leading.codes).append(codesOf(rest));
                 applyCodes(rest);
-                previousWasTable = false;
-                continue;
-            }
-            if (previousWasTable && plainRest.contains("|") && DELIMITER_ROW.matcher(plainRest).matches()) {
-                carried.append(leading.codes).append(codesOf(rest));
-                applyCodes(rest);
                 continue;
             }
 
@@ -132,17 +126,25 @@ public final class DialogMarkdown {
             out.append(carried);
             carried.setLength(0);
             String codes = leading.codes;
-            previousWasTable = false;
 
             if (rest.isBlank()) {
                 out.append(codes);
                 continue;
             }
             if (rest.startsWith("|")) {
-                // 表格的对齐行要跟在表头之后，因此只有在这里看到表头时才去掉下一行的对齐行。
-                previousWasTable = true;
+                // 连续的表格行作为一个表格处理。
+                int end = index + 1;
+                while (end < lines.length && stripCodes(lines[end]).strip().startsWith("|")) {
+                    end++;
+                }
+                List<String> rows = new ArrayList<>();
+                rows.add(rest);
+                for (int row = index + 1; row < end; row++) {
+                    rows.add(lines[row]);
+                }
                 out.append(codes);
-                renderTableRow(rest);
+                renderTable(rows, codes);
+                index = end - 1;
                 continue;
             }
             if (THEMATIC_BREAK.matcher(plainRest).matches() && rest.equals(plainRest)) {
@@ -170,14 +172,17 @@ public final class DialogMarkdown {
             String indent = LIST_INDENT.repeat(leading.indent / 2);
             Matcher bullet = BULLET.matcher(rest);
             if (bullet.matches()) {
-                out.append(indent).append(codes).append("• ");
-                inline(bullet.group(1) == null ? "" : bullet.group(1), "");
+                String content = bullet.group(1) == null ? "" : bullet.group(1);
+                // 与 Bridge 相同，圆点取这一行的第一个颜色：块标记之前没有颜色代码时，取内容开头的。
+                out.append(indent).append(codes.isEmpty() ? codesOf(leadingCodes(content)) : codes).append("• ");
+                inline(content, "");
                 continue;
             }
             Matcher ordered = ORDERED.matcher(rest);
             if (ordered.matches()) {
-                out.append(indent).append(codes).append(ordered.group(1)).append(". ");
-                inline(ordered.group(2) == null ? "" : ordered.group(2), "");
+                String content = ordered.group(2) == null ? "" : ordered.group(2);
+                out.append(indent).append(codes.isEmpty() ? codesOf(leadingCodes(content)) : codes).append(ordered.group(1)).append(". ");
+                inline(content, "");
                 continue;
             }
             out.append(codes);
@@ -266,6 +271,84 @@ public final class DialogMarkdown {
             }
         }
         return new Leading(codes.toString(), indent, i);
+    }
+
+    /**
+     * 输出一个表格。有表头（第二行为对齐行）时，每行数据写成一个列表项：第一格之后接“：”，两列以上时其余各格前写上表头，
+     * 例如“• /back 冷却：无月卡 7 天，黄金月卡 1 小时”，表头与对齐行本身不输出；基岩版的表单较窄，横排的多列很快就会折行得难以阅读。
+     * 没有表头时，各行的各格以灰色的“|”隔开。
+     *
+     * @param rows  表格的各行，第一行已去掉行首的颜色代码与空白（它们在 leadingCodes 中，已经输出）。
+     */
+    private void renderTable(List<String> rows, String leadingCodes) {
+        boolean hasHeader = rows.size() >= 2 && DELIMITER_ROW.matcher(stripCodes(rows.get(1)).strip()).matches()
+            && stripCodes(rows.get(1)).contains("-");
+        if (!hasHeader) {
+            for (int i = 0; i < rows.size(); i++) {
+                if (i > 0) {
+                    out.append('\n');
+                    Leading leading = leading(rows.get(i));
+                    out.append(leading.codes);
+                    renderTableRow(rows.get(i).substring(leading.end));
+                } else {
+                    renderTableRow(rows.getFirst());
+                }
+            }
+            return;
+        }
+        List<String> headers = new ArrayList<>();
+        for (String cell : splitCells(rows.getFirst())) {
+            headers.add(unescape(stripCodes(cell)).strip());
+        }
+        // 表头与对齐行中的颜色代码照常生效。
+        applyCodes(rows.getFirst());
+        applyCodes(rows.get(1));
+        // 表头与对齐行不输出；之前已经输出的行首颜色代码留给第一行数据。
+        boolean firstRow = true;
+        for (int i = 2; i < rows.size(); i++) {
+            Leading leading = leading(rows.get(i));
+            List<String> cells = splitCells(rows.get(i).substring(leading.end));
+            if (!firstRow) {
+                out.append('\n');
+            }
+            firstRow = false;
+            String firstCell = cells.getFirst().strip();
+            String bulletCodes = leading.codes.isEmpty() ? (leadingCodes.isEmpty() || i > 2 ? codesOf(leadingCodes(firstCell)) : "") : leading.codes;
+            out.append(bulletCodes).append("• ");
+            inline(firstCell, "");
+            for (int c = 1; c < cells.size(); c++) {
+                out.append(c == 1 ? "§7：" : "§7，");
+                String header = c < headers.size() ? headers.get(c) : "";
+                if (cells.size() > 2 && !header.isEmpty()) {
+                    out.append(header).append(' ');
+                }
+                restore("");
+                inline(cells.get(c).strip(), "");
+            }
+        }
+    }
+
+    /** 文字开头的颜色代码（含其间的空白之前的部分）。 */
+    private static String leadingCodes(String text) {
+        int i = 0;
+        while (i + 1 < text.length() && text.charAt(i) == SECTION) {
+            i += 2;
+        }
+        return text.substring(0, i);
+    }
+
+    /** 去掉反斜杠转义。 */
+    private static String unescape(String text) {
+        StringBuilder builder = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\\' && i + 1 < text.length() && isEscapable(text.charAt(i + 1))) {
+                builder.append(text.charAt(++i));
+            } else {
+                builder.append(c);
+            }
+        }
+        return builder.toString();
     }
 
     private void renderTableRow(String row) {

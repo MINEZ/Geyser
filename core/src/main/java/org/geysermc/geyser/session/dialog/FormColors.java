@@ -31,7 +31,7 @@ package org.geysermc.geyser.session.dialog;
  * Java 版的对话框整体画在变暗的游戏画面上，服务器的文字因此多用白色、黄色等浅色。基岩版的表单中，标题栏、按钮与下拉框是浅灰色的，
  * 浅色的文字几乎看不见；正文区域则是深色的，黑色与深灰色的文字同样看不清。这里按背景替换颜色代码，色相尽量不变：
  * <ul>
- *     <li>浅色背景（标题、按钮、下拉框中的选项）：白色与灰色换成深灰色，黄色与金色换成铜色（基岩版的 {@code §n}，不支持的客户端显示默认的深色），
+ *     <li>浅色背景（标题、按钮、下拉框中的选项）：白色与灰色换成黑色（按钮在悬停时变为绿色，深灰色在绿色上看不清），黄色与金色换成铜色（基岩版的 {@code §n}，不支持的客户端显示默认的深色），
  *     浅绿、浅蓝、浅紫换成对应的深色；红色等本来就看得清的不变。</li>
  *     <li>深色背景（正文）：黑色与深灰色换成灰色。</li>
  * </ul>
@@ -41,7 +41,7 @@ public final class FormColors {
     private static final char SECTION = '§';
     /** 浅色背景上的替换，下标与 {@link #LIGHT_FROM} 对应。 */
     private static final String LIGHT_FROM = "f7e6abd";
-    private static final String LIGHT_TO = "88nn235";
+    private static final String LIGHT_TO = "00nn235";
     private static final String DARK_FROM = "08";
     private static final String DARK_TO = "77";
 

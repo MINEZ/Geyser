@@ -117,7 +117,13 @@ public abstract class Dialog {
             SimpleForm.Builder builder = SimpleForm.builder()
                 .title(holder.convertTitle(title));
             // MINEZ：正文按 Markdown 排版。
-            builder.content(labels.stream().map(holder::convertBody).collect(Collectors.joining("\n\n")));
+            String content = labels.stream().map(holder::convertBody).collect(Collectors.joining("\n\n"));
+            // MINEZ：按钮只显示提示的第一行，多行的提示完整写在正文之后。
+            String tooltipDetails = holder.convertTooltipDetails(buttonsWithTooltips(holder));
+            if (!tooltipDetails.isEmpty()) {
+                content = content.isEmpty() ? tooltipDetails : content + "\n\n" + tooltipDetails;
+            }
+            builder.content(content);
 
             builder.closedOrInvalidResultHandler(() -> holder.closeDialog(onCancel()));
             addCustomComponents(holder, builder);
@@ -134,6 +140,13 @@ public abstract class Dialog {
             addCustomComponents(holder, builder);
             return builder;
         }
+    }
+
+    /**
+     * MINEZ：以按钮的形式显示的按钮，用于把多行的提示写进正文，见 {@link DialogHolder#convertTooltipDetails(List)}。
+     */
+    protected List<DialogButton> buttonsWithTooltips(DialogHolder holder) {
+        return List.of();
     }
 
     protected abstract void addCustomComponents(DialogHolder holder, CustomForm.Builder builder);
