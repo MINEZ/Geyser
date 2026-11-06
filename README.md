@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.11-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.12-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -83,6 +83,9 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Login gate and NetEase identities for plugins | API | Added |
 | NetEase shop notifications for plugins | API | Added |
 | Server menu button of the MINEZ client mod | Behaviour | Added |
+| Dialogs on Bedrock | Behaviour | Changed |
+| Forms the client is too busy to open | Behaviour | Changed |
+| Falling while changing dimension | Behaviour | Changed |
 | `bedrock.netease` | Config | Added |
 | `bedrock.transport: raknet` | Config | Kept |
 | Packets the client cannot decode | Behaviour | Changed |
@@ -108,7 +111,7 @@ With `-DGeyser.RakSendCookie=false` the reported RakNet version is lost, so Chin
 **Login gate and NetEase identities for plugins.** Plugins running in the same process as Geyser, such as a Velocity plugin next to Geyser-Velocity, can now take part in the login of Bedrock players. Geyser's API gains three things:
 
 - `GeyserConnection#neteaseIdentity()` gives the verified China Edition identity of a session: the NetEase UID (only the `uid` of the login chain, never replaced by the XUID), the XUID, the nickname, `env` and the platform details, whether NetEase's built-in root key signed the chain (`officialRoot`), and whether it is the developer identity of a self-signed login (`developer`). It is only there once the Bedrock login, encryption handshake included, has finished, and it never holds the NetEase session ID or any token.
-- `GeyserApi#registerLoginGate` registers a login gate, at most one at a time. Once a Bedrock player has passed Geyser's checks and received the resource packs, and before Geyser connects to the Java server, the session waits for the gate, which may show Cumulus forms meanwhile; for these, Geyser first spawns a blank waiting world, as it does for online-mode logins. The gate then lets the player in under a Java username of its choosing, up to 16 characters without whitespace (other characters, such as Chinese, are passed on as they are), optionally keeping an object of its own on the session (`GeyserConnection#loginGateResult()`), or disconnects them with a message. The wait times out after ten minutes unless the gate sets another limit, and the gate is told when the player leaves, the wait times out or the gate is unregistered. Forms still open when the gate ends are closed without calling their handlers. With `auth-type: online` the Java identity comes from the Microsoft account, and the gate is not used.
+- `GeyserApi#registerLoginGate` registers a login gate, at most one at a time. Once a Bedrock player has passed Geyser's checks and received the resource packs, and before Geyser connects to the Java server, the session waits for the gate, which may show Cumulus forms meanwhile; for these, Geyser first spawns a blank waiting world, as it does for online-mode logins. The gate then lets the player in under a Java username of its choosing, up to 16 characters without whitespace (other characters, such as Chinese, are passed on as they are), optionally keeping an object of its own on the session (`GeyserConnection#loginGateResult()`), or disconnects them with a message. The wait times out after ten minutes unless the gate sets another limit, and the gate is told when the player leaves, the wait times out or the gate is unregistered. Forms still open when the gate ends are closed without calling their handlers. When the gate lets in a player who was shown forms, the waiting world shows the title 正在进入服务器 ("Joining the server") with the subtitle 正在载入角色资料，请稍候… ("Loading your character, please wait…") until the Java world is joined, so that the time spent connecting to the Java server does not look like a hang. With `auth-type: online` the Java identity comes from the Microsoft account, and the gate is not used.
 - `GeyserApi#connectionByProxySessionId` finds the session behind a connection the proxy received over Geyser's in-process direct connection (`use-direct-connection`), by the session ID the proxy gave it. Geyser-Velocity registers Velocity's `InboundConnection#getSessionId()` (Velocity 4.3.0 and newer) for each such connection while Velocity sets it up, so a plugin can tell, for example in `PreLoginEvent`, whether a connection really comes from Geyser in the same process. Connections over the network are never found. When the direct connection cannot be set up, Geyser now logs an error saying that Bedrock players will join over the network instead.
 
 Without a registered gate, Bedrock players join exactly as before, and the Java names of China Edition players still follow the rule under Identity above.
@@ -120,6 +123,15 @@ NetEase documents the two events, as `StoreBuySuccServerEvent` and `UrgeShipEven
 Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more than 4096 elements, MessagePack extension types or any malformed data drop the packet with a debug message, and the player stays connected. The event only reports what the client claims. It may be repeated or forged, so a plugin should look up the player's undelivered orders through NetEase's order API, merging bursts into one lookup, rather than deliver anything on the event alone. It is fired on Geyser's network thread, so listeners must not block, and it may come while the player is still at the login gate, before the Java server is joined. International sessions never fire it.
 
 **Server menu button of the MINEZ client mod.** Bedrock has no off-hand key, so China Edition players cannot press Shift+F, which opens MINEZ's server menu on Java. MINEZ's client mod for China Edition puts a menu button on the screen, which sends a Mod SDK client event (`ModEventC2S`) in namespace `MinezClient`, system `MenuSystem`, named `OpenServerMenu`. Geyser runs `/menu` for the player when it gets one, as if they had typed it, at most once a second, and only once they have spawned in the Java world; other requests are dropped with a debug message. Like any client event, it can be sent by anyone, and only does what the player could do by typing the command. International sessions never trigger it.
+
+**Dialogs on Bedrock.** Geyser shows Java dialogs as Bedrock forms. Two things are now carried over that were lost:
+
+- MINEZ's Java client lays out the plain-text bodies of dialogs as Markdown, so MINEZ's dialogs are written with headings, lists, tables and quotes, which forms showed as raw marks. Bodies are now laid out for forms by the rules of that client: headings lose their `#` and are bold; `-`, `*` and `+` list items get a `•`, ordered items keep their numbers, and nested lists are indented; quotes lose their `>` and get a grey bar, with text that has no colour of its own in grey; tables lose their alignment row and separate their cells with a grey `|`; thematic breaks become a grey line; `**` is bold, `*` italic and `~~` strikethrough; inline code and code blocks are shown as they are, links show their text and address, and backslash escapes are shown as the plain character. As in that client, a line break is a line break, underscores never mean emphasis, strikethrough needs two tildes, and HTML is not parsed. Colour codes written before a block mark, such as `§6## Title` or `§7-§f item`, apply as usual, and a list's bullet or number takes the colour at the start of its line. Only plain-message bodies are laid out; titles, buttons and inputs are not.
+- Bedrock buttons have no tooltips, so a button's tooltip is now written under its label in grey. Buttons in the dropdown of a dialog with inputs still show their label alone.
+
+**Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again every 250 milliseconds, up to 20 times, and only then treated as closed. With `debug-mode` on, each retry is logged.
+
+**Falling while changing dimension.** When the player changes dimension, which is also how Geyser moves a player between servers behind a proxy, Geyser parks them at (0, 32767, 0) over empty chunks until the Java server sends their position. The client kept applying gravity meanwhile, so the player seemed to fall into the void before the new world appeared. Until that position arrives, the player now has no gravity and cannot move; both come back with the position, and a Java server's own no-gravity setting is kept.
 
 **`bedrock.netease`.** A new section of the config:
 
@@ -147,9 +159,9 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.11.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.12.jar`, so builds can be told apart at a glance.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.11 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.12 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -165,28 +177,28 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.11.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.11.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.11.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.11.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.11.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.11.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.11.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.12.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.12.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.12.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.12.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.12.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.12.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.12.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.11`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.12`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
-- The trailing `.11` is this fork's revision, from `minezRevision` in the same file.
+- The trailing `.12` is this fork's revision, from `minezRevision` in the same file.
 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.11` to `2.12.1-b1280.12`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.12` to `2.12.1-b1280.13`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 

@@ -120,6 +120,26 @@ public final class DialogHolder implements TextTranslator {
     }
 
     /**
+     * MINEZ：转换对话框的纯文本正文，按 Markdown 排版，见 {@link DialogMarkdown}。
+     */
+    public String convertBody(Component component) {
+        return MessageTranslator.convertDialogBody(component, session.locale());
+    }
+
+    /**
+     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，有提示时以灰色写在按钮文字的下一行，免得其中的说明（例如在线人数、注意事项）看不到。
+     */
+    public String convertButton(DialogButton button) {
+        return button.tooltip()
+            .map(tooltip -> convertText(Component.text()
+                .append(button.label())
+                .append(Component.newline())
+                .append(tooltip.colorIfAbsent(NamedTextColor.GRAY))
+                .build()))
+            .orElseGet(() -> convertText(button.label()));
+    }
+
+    /**
      * Checks if this dialog is still valid, and if so, runs the given button (if present) with the given inputs.
      * These inputs can be {@link ParsedInputs#EMPTY} when the dialog has no inputs, but can never be {@code null}. This method also runs the dialog's after action.
      */

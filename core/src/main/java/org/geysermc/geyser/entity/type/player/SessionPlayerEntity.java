@@ -66,6 +66,7 @@ import org.geysermc.mcprotocollib.protocol.data.game.entity.attribute.Attribute;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.attribute.AttributeType;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.GlobalPos;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.Pose;
+import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.BooleanEntityMetadata;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.ByteEntityMetadata;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.FloatEntityMetadata;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.player.GameMode;
@@ -166,10 +167,58 @@ public class SessionPlayerEntity extends PlayerEntity {
     @Getter @Setter
     private @Nullable PendingBedInteraction pendingBedInteraction = null;
 
+    /**
+     * MINEZ：切换维度（包括换服）后、Java 服务器给出位置之前，玩家停在 (0, 32767, 0) 的空区块上，客户端照常计算重力，
+     * 玩家看起来像是坠入了虚空，直到位置到达才恢复。这段时间里去掉重力并定身（{@code NO_AI}，即基岩版的 immobile 标记），见 {@link #holdUntilSpawned()}。
+     */
+    private boolean heldUntilSpawned;
+    /**
+     * MINEZ：Java 服务器给出的“无重力”，定身期间暂存，结束后恢复。
+     */
+    private boolean javaNoGravity;
+
     public SessionPlayerEntity(GeyserSession session) {
         super(new EntitySpawnContext(session, VanillaEntities.PLAYER, -1, null), null, null);
 
         valid = true;
+    }
+
+    /**
+     * MINEZ：切换维度时调用，在 Java 服务器给出位置（{@link #releaseSpawnHold()}）之前去掉重力并定身。
+     */
+    public void holdUntilSpawned() {
+        heldUntilSpawned = true;
+        updateBedrockMetadata();
+    }
+
+    /**
+     * MINEZ：Java 服务器给出位置时调用，恢复重力与行动。之后由调用者发送元数据。
+     */
+    public void releaseSpawnHold() {
+        if (!heldUntilSpawned) {
+            return;
+        }
+        heldUntilSpawned = false;
+        setFlag(EntityFlag.HAS_GRAVITY, !javaNoGravity);
+        setFlag(EntityFlag.NO_AI, false);
+    }
+
+    @Override
+    public void setGravity(BooleanEntityMetadata entityMetadata) {
+        javaNoGravity = entityMetadata.getPrimitiveValue();
+        if (!heldUntilSpawned) {
+            super.setGravity(entityMetadata);
+        }
+    }
+
+    @Override
+    public void updateBedrockMetadata() {
+        if (heldUntilSpawned) {
+            // 元数据可能在这期间被重置（例如换服时的 resetMetadata），每次发送前都重新设定。
+            setFlag(EntityFlag.HAS_GRAVITY, false);
+            setFlag(EntityFlag.NO_AI, true);
+        }
+        super.updateBedrockMetadata();
     }
 
     @Override

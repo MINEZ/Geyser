@@ -116,7 +116,8 @@ public abstract class Dialog {
         if (inputs.isEmpty()) {
             SimpleForm.Builder builder = SimpleForm.builder()
                 .title(holder.convertText(title));
-            builder.content(labels.stream().map(holder::convertText).collect(Collectors.joining("\n\n")));
+            // MINEZ：正文按 Markdown 排版。
+            builder.content(labels.stream().map(holder::convertBody).collect(Collectors.joining("\n\n")));
 
             builder.closedOrInvalidResultHandler(() -> holder.closeDialog(onCancel()));
             addCustomComponents(holder, builder);
@@ -125,7 +126,7 @@ public abstract class Dialog {
             CustomForm.Builder builder = CustomForm.builder()
                 .title(holder.convertText(title));
             for (Component label : labels) {
-                builder.label(holder.convertText(label));
+                builder.label(holder.convertBody(label));
             }
 
             restored.ifPresentOrElse(last -> last.restore(holder, builder), () -> inputs.forEach(input -> input.addComponent(builder, holder)));

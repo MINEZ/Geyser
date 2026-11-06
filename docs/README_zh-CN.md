@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.11-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.12-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -83,6 +83,9 @@ git submodule update --init --recursive
 | 供插件使用的登录闸门与网易身份 | 接口 | 新增 |
 | 供插件使用的网易商城通知 | 接口 | 新增 |
 | MINEZ 客户端模组的服务器菜单按钮 | 行为 | 新增 |
+| 基岩版中的对话框 | 行为 | 修改 |
+| 客户端正忙、无法打开的表单 | 行为 | 修改 |
+| 切换维度时的下坠 | 行为 | 修改 |
 | `bedrock.netease` | 配置 | 新增 |
 | `bedrock.transport: raknet` | 配置 | 保留 |
 | 客户端无法解码的数据包 | 行为 | 修改 |
@@ -108,7 +111,7 @@ git submodule update --init --recursive
 **供插件使用的登录闸门与网易身份。** 与 Geyser 在同一进程中运行的插件（例如与 Geyser-Velocity 装在一起的 Velocity 插件）现在可以参与基岩版玩家的登录。Geyser 的接口新增三项：
 
 - `GeyserConnection#neteaseIdentity()` 给出会话经验证的中国版身份：网易 UID（只取登录链中的 `uid`，不以 XUID 代替）、XUID、昵称、`env` 与平台信息，登录链是否由网易内置的根公钥签发（`officialRoot`），以及是否为自签名登录的开发者身份（`developer`）。只在基岩版登录（含加密握手）完成之后才有，其中不含网易会话 ID 与任何令牌。
-- `GeyserApi#registerLoginGate` 注册登录闸门，同时至多一个。基岩版玩家通过 Geyser 的验证、资源包下发完成之后，在 Geyser 连接 Java 端之前，会话等待闸门的结果，期间闸门可以显示 Cumulus 表单；为此 Geyser 先生成一个空白的等待世界，与正版模式下登录时的做法相同。闸门随后以自己选定的 Java 端名字放行玩家（1~16 个字符，不含空白；中文等其他字符原样传给 Java 端），可以在会话上附带一个自己的对象（`GeyserConnection#loginGateResult()`），或者以给定的提示断开。等待默认 10 分钟超时，闸门可以另定时限；玩家中途离开、超时或闸门被注销时会通知闸门。闸门结束时仍然打开着的表单会被关掉，不调用它们的处理器。`auth-type` 为 `online` 时 Java 端的身份来自微软账号，不使用闸门。
+- `GeyserApi#registerLoginGate` 注册登录闸门，同时至多一个。基岩版玩家通过 Geyser 的验证、资源包下发完成之后，在 Geyser 连接 Java 端之前，会话等待闸门的结果，期间闸门可以显示 Cumulus 表单；为此 Geyser 先生成一个空白的等待世界，与正版模式下登录时的做法相同。闸门随后以自己选定的 Java 端名字放行玩家（1~16 个字符，不含空白；中文等其他字符原样传给 Java 端），可以在会话上附带一个自己的对象（`GeyserConnection#loginGateResult()`），或者以给定的提示断开。等待默认 10 分钟超时，闸门可以另定时限；玩家中途离开、超时或闸门被注销时会通知闸门。闸门结束时仍然打开着的表单会被关掉，不调用它们的处理器。闸门放行一名看过表单的玩家时，等待世界中显示标题“正在进入服务器”与副标题“正在载入角色资料，请稍候…”，直到进入 Java 端的世界，免得连接 Java 服务器的这段时间看起来像是卡住了。`auth-type` 为 `online` 时 Java 端的身份来自微软账号，不使用闸门。
 - `GeyserApi#connectionByProxySessionId` 按代理分配的会话 ID，找出代理经 Geyser 的进程内直连（`use-direct-connection`）收到的连接所属的会话。Geyser-Velocity 在 Velocity 建立每个这样的连接时登记 Velocity 的 `InboundConnection#getSessionId()`（Velocity 4.3.0 起），插件由此可以判断（例如在 `PreLoginEvent` 中）一个连接是否真的来自同一进程中的 Geyser；经网络连入的连接一律查不到。直连无法建立时，Geyser 现在会记一条错误日志，说明基岩版玩家将改经网络连入。
 
 没有注册闸门时，基岩版玩家的登录与此前完全相同，中国版玩家的 Java 端名字仍按上文“身份”一条的规则。
@@ -120,6 +123,15 @@ git submodule update --init --recursive
 解析有限制：负载超过 64 KiB、嵌套超过 16 层、元素超过 4096 个、含 MessagePack 的扩展类型或格式不符时，丢弃这个包并记一条 debug 日志，玩家不会被断开。事件只表示客户端这样声称，可能重复，也可能被伪造，插件应当经网易的订单接口查询玩家未发货的订单（短时间内的多次通知合并为一次查询），不能只凭事件发货。事件在 Geyser 的网络线程上发出，监听者不能阻塞；玩家还在登录闸门中、尚未连接 Java 端时也可能收到。国际版会话不会发出这个事件。
 
 **MINEZ 客户端模组的服务器菜单按钮。** 基岩版没有副手键，中国版玩家按不了 Java 版打开 MINEZ 服务器菜单的 Shift+F。MINEZ 为中国版做的客户端模组在屏幕上放了一个菜单按钮，点击时发出一个 Mod SDK 的客户端事件（`ModEventC2S`）：命名空间 `MinezClient`，系统 `MenuSystem`，事件名 `OpenServerMenu`。Geyser 收到后替玩家执行 `/menu`，与玩家自己输入命令相同；每秒最多一次，并且只在玩家已进入 Java 服务器的世界之后，其余的记一条 debug 日志后丢弃。与其他客户端事件一样，任何人都能发出它，但它只做玩家自己输入命令也能做到的事。国际版会话不会触发。
+
+**基岩版中的对话框。** Geyser 把 Java 版的对话框显示为基岩版的表单。现在补上了原先丢失的两样内容：
+
+- MINEZ 的 Java 版客户端把对话框的纯文本正文按 Markdown 排版，MINEZ 的对话框因此写着标题、列表、表格与引用，表单中却原样显示这些标记。现在正文按那个客户端的规则为表单排版：标题去掉“#”并加粗；“-”“*”“+”开头的列表项换成“•”，有序列表保留序号，子列表按层级缩进；引用去掉“>”，行首加灰色的竖条，自身没有颜色的文字为灰色；表格去掉对齐行，各格以灰色的“|”隔开；分隔线换成一行灰色的横线；“**”为粗体，“*”为斜体，“~~”为删除线；行内代码与代码块原样显示，链接写出文字与地址，反斜杠转义的字符显示为字符本身。与那个客户端相同：换行即换行，下划线从不表示强调，删除线须用两个波浪号，不解析 HTML。写在块标记之前的颜色代码（例如 `§6## 标题`、`§7-§f 内容`）照常生效，列表的圆点或序号取所在行开头的颜色。只排版纯文本正文，标题、按钮与输入框不变。
+- 基岩版的按钮没有悬停提示，现在把按钮的提示以灰色写在按钮文字的下一行。带输入框的对话框把按钮放在下拉框中，那里仍只显示按钮文字。
+
+**客户端正忙、无法打开的表单。** 基岩版客户端还在关闭某个界面（例如上一个表单）时，会拒绝打开表单，回复自己正忙。上游把这个回复当作玩家关闭了表单，于是服务器紧接着打开的对话框（例如“返回”按钮通向的那个）立即执行了关闭的动作，多半就直接关闭了。现在这样的表单每 250 毫秒重新发送一次，最多 20 次，之后才当作关闭。开启 `debug-mode` 时，每次重新发送都记一条日志。
+
+**切换维度时的下坠。** 玩家切换维度时（Geyser 在代理后为玩家换服也是这样做的），Geyser 把玩家放在 (0, 32767, 0) 的空区块上，直到 Java 服务器给出玩家的位置。期间客户端照常计算重力，玩家看起来像是坠入了虚空，新的世界才出现。现在位置到达之前，玩家没有重力、不能移动，两者随位置一起恢复，Java 服务器自己设定的无重力照旧保留。
 
 **`bedrock.netease`。** 配置中新增的一节：
 
@@ -147,9 +159,9 @@ Java 26.1~26.3 新增、而 1.21.130 没有的内容以替身显示，不会因�
 
 **1.21.130 加载界面期间的传送。** 实测中，中国版 1.21.130 的客户端在加载界面期间（进服后，以及切换维度时；Geyser 在代理后跨服也是这样切换的）不理会发给自己的 `MovePlayer`，加载界面结束时停在最后一个 `RespawnPacket` 给出的位置；国际版 1.21.130 与它协议相同，按同样的方式处理。服务端紧接着把玩家传送到同一处时（插件在进服时常这样做），上游认为客户端已经在那里，不再等它确认传送。1.21.130 的客户端其实还没到，Geyser 便把它停留的旧位置当作移动，以移动过快为由拒绝，并发出同样被客户端忽略的位置纠正：跨服之后，玩家停在世界上方的占位坐标并开始下落。现在对于低于 26.40 的协议，传送到与尚未确认的传送相同的位置时继续等待确认，客户端到达之前不理会它的移动，客户端报告加载或切换维度完成时立即重发传送。26.40 及以上的行为与上游一致。
 
-**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.11.jar`，一眼就能分清不同的构建。
+**构建产物的文件名。** 上游的 JAR 文件名不带版本号，例如 `Geyser-Velocity.jar`。现在会带上本 Fork 的版本号，例如 `Geyser-Velocity-2.12.1-b1280.12.jar`，一眼就能分清不同的构建。
 
-**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.11 (git-master-abc1234)`。
+**版本号的显示。** `/geyser version` 与插件描述文件中显示本 Fork 的版本号，后接提交，例如 `2.12.1-b1280.12 (git-master-abc1234)`。
 
 **启动提示与反馈链接。** 上游的启动信息请用户到它的 Discord 反馈问题。现在改为说明这是 MINEZ 的非官方 Fork，并指向[本仓库的 issue](https://github.com/MINEZ/Geyser/issues)；新写入的配置文件开头的说明与 `/geyser connectiontest` 中的链接同样改为本仓库。已有配置文件开头的说明只在配置版本变化时才会重写，需要时请手动修改。
 
@@ -165,28 +177,28 @@ Windows 上改用 `gradlew.bat build`。构建需要 JDK 21 及以上版本；Fa
 
 | 平台 | 文件 |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.11.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.11.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.11.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.11.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.11.jar` |
-| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.11.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.11.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.12.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.12.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.12.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.12.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.12.jar` |
+| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.12.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.12.jar` |
 
 同一文件夹中还有构建过程的中间产物，例如 `velocity-2.12.1-SNAPSHOT.jar`，不要安装它们。
 
 ## 版本号
 
-版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.11` 中：
+版本号沿用上游正式构建的写法，并在末尾加上本 Fork 的修订号。在 `2.12.1-b1280.12` 中：
 
 - `2.12.1` 是上游版本，来自 `gradle.properties` 中的 `version` 一行，去掉了 `-SNAPSHOT` 后缀。这一行与上游保持一致，因此只有上游修改它时才会产生冲突。
 - `b1280` 是本 Fork 所基于的上游构建号，来自同一文件中的 `upstreamBuild`，与上游为同一提交发布的官方构建一致，即上游的 `2.12.1-b1280`。
-- 末尾的 `.11` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
+- 末尾的 `.12` 是本 Fork 的修订号，来自同一文件中的 `minezRevision`。
 
 上游为推送到 `master` 的每个提交编一个构建号。合并上游后，在 `https://download.geysermc.org/v2/projects/geyser/versions/<版本>/builds`（例如 `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`）的 `changes` 中找到所合并的上游提交对应的构建号，然后：
 
 - 把 `upstreamBuild` 改为该构建号，上游的 `version` 一行有变化时一并采用，并将 `minezRevision` 重新设为 `1`；
-- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.11` 到 `2.12.1-b1280.12`。
+- 本 Fork 的其他每次发布，递增 `minezRevision`，例如从 `2.12.1-b1280.12` 到 `2.12.1-b1280.13`。
 
 同时更新两份 README 顶部的版本徽章，以及[构建](#构建)一节中的文件名。
 

@@ -35,7 +35,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public record DialogButton(Component label, Optional<DialogAction> action) {
+/**
+ * @param tooltip MINEZ：按钮的悬停提示。基岩版没有悬停提示，写在按钮文字的下一行，见 {@link DialogHolder#convertButton(DialogButton)}。
+ */
+public record DialogButton(Component label, Optional<DialogAction> action, Optional<Component> tooltip) {
+
+    public DialogButton(Component label, Optional<DialogAction> action) {
+        this(label, action, Optional.empty());
+    }
 
     public static List<DialogButton> readList(JavaRegistryProvider registries, List<NbtMap> tag) {
         if (tag == null) {
@@ -52,6 +59,7 @@ public record DialogButton(Component label, Optional<DialogAction> action) {
         if (!(tag instanceof NbtMap map)) {
             return Optional.empty();
         }
-        return Optional.of(new DialogButton(MessageTranslator.componentFromNbtTag(map.get("label")), DialogAction.read(registries, map.get("action"))));
+        return Optional.of(new DialogButton(MessageTranslator.componentFromNbtTag(map.get("label")), DialogAction.read(registries, map.get("action")),
+            Optional.ofNullable(map.get("tooltip")).map(MessageTranslator::componentFromNbtTag)));
     }
 }

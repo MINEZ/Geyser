@@ -136,6 +136,8 @@ public class DimensionUtils {
         session.getPlayerEntity().setLastTickEndVelocity(Vector3f.ZERO);
         session.setSpawned(false);
         session.setLastChunkPosition(null);
+        // MINEZ：Java 服务器给出位置之前不让玩家在空区块中下坠。
+        session.getPlayerEntity().holdUntilSpawned();
     }
 
     private static void finalizeDimensionSwitch(GeyserSession session, Entity player) {

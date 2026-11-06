@@ -45,6 +45,7 @@ import org.geysermc.adventure.text.serializer.nbt.HeterogeneousNbtList;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.dialog.DialogMarkdown;
 import org.geysermc.geyser.text.ChatColor;
 import org.geysermc.geyser.text.ChatDecoration;
 import org.geysermc.geyser.text.GeyserLocale;
@@ -266,6 +267,19 @@ public class MessageTranslator {
      */
     public static String convertMessage(Component message, String locale) {
         return convertMessage(message, locale, true);
+    }
+
+    /**
+     * MINEZ：转换对话框的纯文本正文，先按 Markdown 排版，见 {@link DialogMarkdown}。
+     */
+    public static String convertDialogBody(Component message, String locale) {
+        try {
+            String legacy = LEGACY_JAVA_SERIALIZER.serialize(RENDERER.render(message, locale));
+            return convertMessage(LEGACY_JAVA_SERIALIZER.deserialize(DialogMarkdown.render(legacy)), locale);
+        } catch (Exception e) {
+            GeyserImpl.getInstance().getLogger().error("Failed to lay out a dialog body", e);
+            return convertMessage(message, locale);
+        }
     }
 
     /**

@@ -148,6 +148,8 @@ public class JavaLoginTranslator extends PacketTranslator<ClientboundLoginPacket
             // MINEZ：登录闸门显示过表单时，客户端在等待世界中就已初始化，照常的 SessionJoinEvent 没有触发，在这里补上。
             GatedLoginImpl gated = session.getGatedLogin();
             if (gated != null && gated.takePendingJoinEvent()) {
+                // 放行时在等待世界中显示的“正在进入服务器”到此为止。
+                GatedLoginImpl.clearJoiningTitle(session);
                 GeyserImpl.getInstance().eventBus().fire(new SessionJoinEvent(session));
             }
         }

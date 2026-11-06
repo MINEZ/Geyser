@@ -59,7 +59,7 @@ public class NoticeDialog extends Dialog {
 
     @Override
     protected void addCustomComponents(DialogHolder holder, SimpleForm.Builder builder) {
-        builder.button(holder.convertText(button.map(DialogButton::label).orElseGet(() -> Component.translatable("gui.ok"))))
+        builder.button(button.map(holder::convertButton).orElseGet(() -> holder.convertText(Component.translatable("gui.ok"))))
             .validResultHandler(response -> holder.runButton(button, ParsedInputs.EMPTY));
     }
 }

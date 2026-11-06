@@ -27,6 +27,7 @@ package org.geysermc.geyser.session.auth;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.cloudburstmc.protocol.bedrock.packet.SetTitlePacket;
 import org.geysermc.cumulus.form.Form;
 import org.geysermc.cumulus.form.util.FormBuilder;
 import org.geysermc.geyser.GeyserLogger;
@@ -61,6 +62,15 @@ public final class GatedLoginImpl implements GatedLogin {
      * 闸门出错或被注销时断开的提示，与上游连接失败时相同（基岩版客户端自带的翻译键）。
      */
     static final String CANNOT_CONNECT = "disconnectionScreen.internalError.cantConnect";
+    /**
+     * 放行后在等待世界中显示的标题与副标题。
+     */
+    static final String JOINING_TITLE = "§e正在进入服务器";
+    static final String JOINING_SUBTITLE = "§7正在载入角色资料，请稍候…";
+    /**
+     * 标题停留的时长（刻），进入 Java 端的世界时提前清除。
+     */
+    private static final int JOINING_TITLE_TICKS = 20 * 60;
 
     private enum State {
         PENDING,
@@ -160,6 +170,10 @@ public final class GatedLoginImpl implements GatedLogin {
             // 先记下结果再连接，代理在登录事件中按会话 ID 查到的会话已带着它。
             session.setLoginGateResult(effective);
             session.getFormCache().discardForms();
+            if (joinEventPending.get()) {
+                // 玩家看过表单（例如创建角色），停在等待世界中：连接 Java 端、进入第一台子服还要一会儿，期间写明正在进入，免得看起来像是卡住了。
+                showJoiningTitle();
+            }
             session.getGeyser().getLogger().info(session.bedrockUsername() + " passed the login gate and joins the Java server as " + username);
             session.authenticate(username);
         });
@@ -277,6 +291,41 @@ public final class GatedLoginImpl implements GatedLogin {
      */
     public boolean isOf(LoginGate gate) {
         return this.gate == gate;
+    }
+
+    /**
+     * 放行后在等待世界中显示“正在进入服务器”，进入 Java 端的世界时由 {@link #clearJoiningTitle(GeyserSession)} 清除。
+     */
+    private void showJoiningTitle() {
+        sendTitle(SetTitlePacket.Type.TIMES, "");
+        sendTitle(SetTitlePacket.Type.SUBTITLE, JOINING_SUBTITLE);
+        sendTitle(SetTitlePacket.Type.TITLE, JOINING_TITLE);
+        // 时长不是 Java 服务器设定的，之后 Java 服务器显示标题时要先恢复它设定的时长。
+        session.getWorldCache().markTitleTimesAsIncorrect();
+    }
+
+    /**
+     * 清除放行时显示的“正在进入服务器”。
+     */
+    public static void clearJoiningTitle(GeyserSession session) {
+        SetTitlePacket packet = new SetTitlePacket();
+        packet.setType(SetTitlePacket.Type.CLEAR);
+        packet.setText("");
+        packet.setXuid("");
+        packet.setPlatformOnlineId("");
+        session.sendUpstreamPacket(packet);
+    }
+
+    private void sendTitle(SetTitlePacket.Type type, String text) {
+        SetTitlePacket packet = new SetTitlePacket();
+        packet.setType(type);
+        packet.setText(text);
+        packet.setFadeInTime(0);
+        packet.setStayTime(JOINING_TITLE_TICKS);
+        packet.setFadeOutTime(10);
+        packet.setXuid("");
+        packet.setPlatformOnlineId("");
+        session.sendUpstreamPacket(packet);
     }
 
     /**

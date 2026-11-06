@@ -84,6 +84,8 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
             respawnPacket.setState(RespawnPacket.State.SERVER_READY);
             session.sendUpstreamPacket(respawnPacket);
 
+            // MINEZ：位置已到，恢复切换维度时去掉的重力与行动。
+            entity.releaseSpawnHold();
             entity.updateBedrockMetadata();
 
             MovePlayerPacket movePlayerPacket = new MovePlayerPacket();

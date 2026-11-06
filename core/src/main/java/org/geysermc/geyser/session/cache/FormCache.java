@@ -25,10 +25,13 @@
 
 package org.geysermc.geyser.session.cache;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.RequiredArgsConstructor;
 import org.cloudburstmc.protocol.bedrock.data.AttributeData;
+import org.cloudburstmc.protocol.bedrock.data.ModalFormCancelReason;
 import org.cloudburstmc.protocol.bedrock.packet.ClientboundCloseFormPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ModalFormRequestPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ModalFormResponsePacket;
@@ -60,6 +63,15 @@ public class FormCache {
     private final FormDefinitions formDefinitions = FormDefinitions.instance();
     private final AtomicInteger formIdCounter = new AtomicInteger(0);
     private final Int2ObjectMap<Form> forms = new Int2ObjectOpenHashMap<>();
+    /**
+     * MINEZ：客户端以“正忙”拒绝表单时，最多重新发送的次数与每次的间隔，共约 5 秒。
+     */
+    private static final int BUSY_RETRY_LIMIT = 20;
+    private static final long BUSY_RETRY_DELAY_MILLIS = 250;
+    /**
+     * MINEZ：各表单因客户端正忙已重新发送的次数。
+     */
+    private final Int2IntMap busyRetries = new Int2IntOpenHashMap();
     private final GeyserSession session;
     private long lastSettingsRequest;
     private long lastContainerCloseResend;
@@ -149,10 +161,29 @@ public class FormCache {
     }
 
     public void handleResponse(ModalFormResponsePacket response) {
-        Form form = forms.remove(response.getFormId());
+        int formId = response.getFormId();
+        Form form = forms.get(formId);
         if (form == null) {
             return;
         }
+        // MINEZ：客户端正忙（例如上一个表单或界面还没有关完）时拒绝打开，回复的理由为 USER_BUSY。这不是玩家关闭了表单，
+        // 照关闭处理的话，对话框会执行“关闭”的动作，例如点了“返回”，服务器打开的上一级对话框却被立即关闭。稍后重新发送，多次仍忙时才照关闭处理。
+        if (response.getCancelReason().orElse(null) == ModalFormCancelReason.USER_BUSY) {
+            int retries = busyRetries.get(formId);
+            if (retries < BUSY_RETRY_LIMIT) {
+                busyRetries.put(formId, retries + 1);
+                session.getGeyser().getLogger().debug("The client was busy and rejected form " + formId + " for " + session.bedrockUsername()
+                    + ", sending it again (" + (retries + 1) + "/" + BUSY_RETRY_LIMIT + ")");
+                session.scheduleInEventLoop(() -> {
+                    if (forms.get(formId) == form) {
+                        sendForm(formId, form);
+                    }
+                }, BUSY_RETRY_DELAY_MILLIS, TimeUnit.MILLISECONDS);
+                return;
+            }
+        }
+        forms.remove(formId);
+        busyRetries.remove(formId);
 
         try {
             formDefinitions.definitionFor(form)
@@ -166,6 +197,7 @@ public class FormCache {
      * MINEZ：关掉所有表单，但不调用它们的处理器。登录闸门结束时用，免得插件的关闭处理器（例如重新显示表单）在闸门结束后还被调用。
      */
     public void discardForms() {
+        busyRetries.clear();
         if (!this.forms.isEmpty()) {
             this.forms.clear();
             session.sendUpstreamPacket(new ClientboundCloseFormPacket());
@@ -173,6 +205,7 @@ public class FormCache {
     }
 
     public void closeForms() {
+        busyRetries.clear();
         if (!this.forms.isEmpty()) {
             // Copy them to ensure any response handler's sent form isn't instantly cleared
             Int2ObjectMap<Form> copy = new Int2ObjectOpenHashMap<>(this.forms);
