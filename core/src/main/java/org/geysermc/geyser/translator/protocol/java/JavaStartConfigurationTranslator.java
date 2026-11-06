@@ -49,6 +49,11 @@ public class JavaStartConfigurationTranslator extends PacketTranslator<Clientbou
         session.hasAcceptedCodeOfConduct(false);
 
         ChunkUtils.sendEmptyChunks(session, session.getPlayerEntity().position().toInt(), session.getServerRenderDistance(), false);
+        if (session.isSpawned()) {
+            // MINEZ：代理换服时先重新进入配置阶段，上面已清空周围的区块，玩家此时还在原来的世界中，照常下坠、看到世界消失，
+            // 直到新的服务器发来登录包、切换维度。从这里起就去掉重力、定身并加上失明，收到新服务器给出的位置后恢复。
+            session.getPlayerEntity().holdUntilSpawned();
+        }
 
         // Clear networked registries, pending new data from the server
         ((JavaRegistryTagCache) session.javaRegistries()).clear();

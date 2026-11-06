@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.14-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.15-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -128,15 +128,15 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 
 **Dialogs on Bedrock.** Geyser shows Java dialogs as Bedrock forms. Several things are now carried over that were lost:
 
-- MINEZ's Java client lays out the plain-text bodies of dialogs as Markdown, so MINEZ's dialogs are written with headings, lists, tables and quotes, which forms showed as raw marks. Bodies are now laid out for forms by the rules of that client: headings lose their `#` and are bold; `-`, `*` and `+` list items get a `•`, ordered items keep their numbers, and nested lists are indented; quotes lose their `>` and get a grey bar, with text that has no colour of its own in grey; a table with a header becomes a list, one item per row, with a full-width colon after the first cell and, when there are more than two columns, each further cell labelled with its header, such as `• /back cooldown：none 7 days，gold 1 hour`, while the header and alignment rows themselves are not shown, as forms are too narrow for columns side by side; rows of a table without a header separate their cells with a grey `|`; thematic breaks become a grey line; `**` is bold, `*` italic and `~~` strikethrough; inline code and code blocks are shown as they are, links show their text and address, and backslash escapes are shown as the plain character. As in that client, a line break is a line break, underscores never mean emphasis, strikethrough needs two tildes, and HTML is not parsed. Colour codes written before a block mark, such as `§6## Title` or `§7-§f item`, apply as usual, and a list's bullet or number takes the first colour of its line, even one written after the mark. Only plain-message bodies are laid out; titles, buttons and inputs are not.
-- Bedrock buttons have no tooltips, and show at most two lines. The first line of a button's tooltip is now written under its label; when a tooltip has more lines, all of them are written after the body, under 按钮说明 ("About the buttons"), with the button's label. Buttons in the dropdown of a dialog with inputs still show their label alone.
+- MINEZ's Java client lays out the plain-text bodies of dialogs as Markdown, so MINEZ's dialogs are written with headings, lists, tables and quotes, which forms showed as raw marks. Bodies are now laid out for forms by the rules of that client: headings lose their `#` and are bold; `-`, `*` and `+` list items get a `•`, ordered items keep their numbers, and nested lists are indented; quotes lose their `>` and get a grey bar, with text that has no colour of its own in grey; a table with a header becomes a list, one item per row, with a full-width colon after the first cell and, when there are more than two columns, each further cell labelled with its header, such as `• /back cooldown：none 7 days，gold 1 hour`, while the header and alignment rows themselves are not shown, as forms are too narrow for columns side by side; rows of a table without a header separate their cells with a grey `|`; thematic breaks become a grey line; `**` is bold, `*` italic and `~~` strikethrough; inline code and code blocks are shown as they are, links show their text and address, and backslash escapes are shown as the plain character. As in that client, a line break is a line break, underscores never mean emphasis, strikethrough needs two tildes, and HTML is not parsed. Colour codes written before a block mark, such as `§6## Title` or `§7-§f item`, apply as usual, and a list's bullet or number takes the first colour of its line, even one written after the mark; a table row's bullet takes the colour in effect at the start of the row, even when that colour was set in the header, which is not shown. Only plain-message bodies are laid out; titles, buttons and inputs are not.
+- Bedrock buttons have no tooltips, and show at most two lines. The first line of a button's tooltip is now written under its label; when a tooltip has more lines, all of them are written after the body, under 按钮说明 ("About the buttons"), with the button's label; a line that every such button has, such as a warning shared by all servers, is written once at the end instead. Buttons in the dropdown of a dialog with inputs still show their label alone.
 - Java draws dialogs over the dimmed game, so their text is mostly light, such as white or yellow; on Bedrock the title bar, buttons and dropdown are light grey, where such text can hardly be read, and the body is dark. Colours are now swapped for the background they sit on, keeping the hue where possible: on the title, buttons and dropdown options, white and grey become black (a hovered button turns green, where dark grey can hardly be read), yellow and gold become copper (`§n`, which clients without it show in the default dark colour), and light green, aqua and light purple become their dark shades; in the body, black and dark grey become grey. Formatting codes are kept.
 
 **Reopening a dialog after a click.** A Java dialog whose `after_action` is `none` stays on screen after a click until the server shows another dialog, while a Bedrock form is gone once clicked, so upstream reopened the dialog at once. When the click was handled by the server (a command or a custom action), the dialog the server opened next, such as the one a Back button leads to, arrived almost together with it: the client could not close the reopened form in time and kept it under the new one, so the dialog seemed to open twice, and the stale form left after closing the new one did nothing when clicked. After such a click, Geyser now waits a second before reopening the dialog, and does not reopen it if the server has opened or closed a dialog meanwhile.
 
 **Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again every 250 milliseconds, up to 20 times, and only then treated as closed. With `debug-mode` on, each retry is logged.
 
-**Falling while changing dimension.** When the player changes dimension, which is also how Geyser moves a player between servers behind a proxy, Geyser parks them at (0, 32767, 0) over empty chunks until the Java server sends their position. The client kept applying gravity meanwhile, so the player seemed to fall into the void before the new world appeared. Until that position arrives, the player now has no gravity and cannot move; both come back with the position, and a Java server's own no-gravity setting is kept. The new world also takes a moment to load, during which it looked empty, so the player is given a client-side blindness effect while changing dimension; it is removed a second after the position arrives, unless the Java server has given them blindness of its own, and in any case wears off after ten seconds.
+**Falling while changing dimension.** When the player changes dimension, which is also how Geyser moves a player between servers behind a proxy, Geyser parks them at (0, 32767, 0) over empty chunks until the Java server sends their position. The client kept applying gravity meanwhile, so the player seemed to fall into the void before the new world appeared. Until that position arrives, the player now has no gravity and cannot move; both come back with the position, and a Java server's own no-gravity setting is kept. Behind a proxy, a server switch starts earlier still: the client is sent back to the configuration phase, where Geyser clears the chunks around the player while they still stand in the old world, so they fell and saw the world vanish before the new server's login even arrived; the hold now starts there. The new world also takes a moment to load, during which it looked empty, so the player is also given a client-side blindness effect for the whole switch, applied again when the position arrives in case the client dropped it while changing dimension, and removed one and a half seconds later, unless the Java server has given them blindness of its own, and in any case wears off after ten seconds.
 
 **Inline sprites and player heads.** Java 1.21.9 added object components, which show an atlas sprite or a player's face inline in text, such as the face before a chat message. Bedrock cannot show them, and they came out as `[unknown player head]` or `[item/iron_ingot@items]`. Such a component now shows its fallback text when it has one; without one, a sprite of a vanilla item or block (`item/<name>` or `block/<name>` in the `minecraft` namespace) shows the name of that item or block in the player's language, and anything else, player heads included, shows nothing.
 
@@ -166,9 +166,9 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.14.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.15.jar`, so builds can be told apart at a glance.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.14 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.15 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -184,28 +184,28 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.14.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.14.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.14.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.14.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.14.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.14.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.14.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.15.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.15.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.15.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.15.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.15.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.15.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.15.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.14`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.15`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
-- The trailing `.14` is this fork's revision, from `minezRevision` in the same file.
+- The trailing `.15` is this fork's revision, from `minezRevision` in the same file.
 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.14` to `2.12.1-b1280.15`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.15` to `2.12.1-b1280.16`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 

@@ -143,7 +143,7 @@ public final class DialogMarkdown {
                     rows.add(lines[row]);
                 }
                 out.append(codes);
-                renderTable(rows, codes);
+                renderTable(rows);
                 index = end - 1;
                 continue;
             }
@@ -278,9 +278,9 @@ public final class DialogMarkdown {
      * 例如“• /back 冷却：无月卡 7 天，黄金月卡 1 小时”，表头与对齐行本身不输出；基岩版的表单较窄，横排的多列很快就会折行得难以阅读。
      * 没有表头时，各行的各格以灰色的“|”隔开。
      *
-     * @param rows  表格的各行，第一行已去掉行首的颜色代码与空白（它们在 leadingCodes 中，已经输出）。
+     * @param rows 表格的各行，第一行已去掉行首的颜色代码与空白（它们已经输出）。
      */
-    private void renderTable(List<String> rows, String leadingCodes) {
+    private void renderTable(List<String> rows) {
         boolean hasHeader = rows.size() >= 2 && DELIMITER_ROW.matcher(stripCodes(rows.get(1)).strip()).matches()
             && stripCodes(rows.get(1)).contains("-");
         if (!hasHeader) {
@@ -313,7 +313,12 @@ public final class DialogMarkdown {
             }
             firstRow = false;
             String firstCell = cells.getFirst().strip();
-            String bulletCodes = leading.codes.isEmpty() ? (leadingCodes.isEmpty() || i > 2 ? codesOf(leadingCodes(firstCell)) : "") : leading.codes;
+            String bulletCodes = leading.codes.isEmpty() ? codesOf(leadingCodes(firstCell)) : leading.codes;
+            if (bulletCodes.isEmpty()) {
+                // 表头与对齐行不输出，其中的颜色代码已经生效却没有写出；颜色没有变化时，之后的文字也不会再写颜色代码。
+                // 因此圆点按当前的样式重新写出，不沿用之前输出的（例如标题的）颜色。
+                bulletCodes = SECTION + "r" + style;
+            }
             out.append(bulletCodes).append("• ");
             inline(firstCell, "");
             for (int c = 1; c < cells.size(); c++) {

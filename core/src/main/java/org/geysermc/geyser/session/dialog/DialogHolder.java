@@ -40,6 +40,7 @@ import org.geysermc.geyser.text.MinecraftLocale;
 import org.geysermc.geyser.translator.text.TextTranslator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -164,26 +165,45 @@ public final class DialogHolder implements TextTranslator {
 
     /**
      * MINEZ：有多行提示的按钮，完整写出它们的提示，放在正文之后；没有时为空文本。
+     * 两个以上的按钮都有的一行（例如各分区共同的注意事项）不逐个重复，只在最后写一次。
      */
     public String convertTooltipDetails(List<DialogButton> buttons) {
-        StringBuilder details = new StringBuilder();
+        List<DialogButton> detailed = new ArrayList<>();
+        List<List<String>> details = new ArrayList<>();
         for (DialogButton button : buttons) {
             if (button.tooltip().isEmpty()) {
                 continue;
             }
-            String[] lines = tooltipLines(button.tooltip().get());
-            if (lines.length < 2) {
-                continue;
-            }
-            details.append("\n§r§7• §r").append(convertText(button.label()));
-            for (String line : lines) {
-                details.append("\n    ").append(line);
+            List<String> lines = List.of(tooltipLines(button.tooltip().get()));
+            if (lines.size() >= 2) {
+                detailed.add(button);
+                details.add(lines);
             }
         }
-        if (details.isEmpty()) {
+        if (detailed.isEmpty()) {
             return "";
         }
-        return FormColors.onDark("§r§l按钮说明§r" + details);
+        List<String> common = new ArrayList<>();
+        if (details.size() >= 2) {
+            for (String line : details.getFirst()) {
+                if (details.stream().allMatch(lines -> lines.contains(line)) && !common.contains(line)) {
+                    common.add(line);
+                }
+            }
+        }
+        StringBuilder text = new StringBuilder("§r§l按钮说明§r");
+        for (int i = 0; i < detailed.size(); i++) {
+            text.append("\n§r§7• §r").append(convertText(detailed.get(i).label()));
+            for (String line : details.get(i)) {
+                if (!common.contains(line)) {
+                    text.append("\n    ").append(line);
+                }
+            }
+        }
+        for (String line : common) {
+            text.append("\n\n").append(line);
+        }
+        return FormColors.onDark(text.toString());
     }
 
     /** 提示的各行，没有颜色的文字为灰色。 */

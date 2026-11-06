@@ -72,6 +72,13 @@ class DialogMarkdownTest {
     }
 
     @Test
+    void tableBulletsDoNotKeepTheHeadingColor() {
+        // 表头的颜色与数据行相同时，转换后的数据行不再写颜色代码。
+        assertEquals("§6§l通用§r§6\n\n§r§f• /menu§7：§r§f打开",
+            DialogMarkdown.render("§6### 通用\n\n| §f命令 | 说明 |\n| --- | --- |\n| `/menu` | 打开 |"));
+    }
+
+    @Test
     void bulletsTakeTheFirstColorOfTheirLine() {
         assertEquals("§6§l标题§r§6\n§f• §f第一项", DialogMarkdown.render("§6## 标题\n- §f第一项"));
     }

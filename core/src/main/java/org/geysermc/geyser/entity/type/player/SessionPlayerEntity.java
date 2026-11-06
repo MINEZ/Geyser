@@ -180,12 +180,12 @@ public class SessionPlayerEntity extends PlayerEntity {
      */
     private boolean javaNoGravity;
     /**
-     * MINEZ：切换维度期间，世界还没有加载出来，看起来像是消失了、坠入了虚空。这段时间给玩家一个只在客户端的失明效果遮住画面，
+     * MINEZ：换服（从重新进入配置阶段起）与切换维度期间，世界还没有加载出来，看起来像是消失了、坠入了虚空。这段时间给玩家一个只在客户端的失明效果遮住画面，
      * 位置到达后再过 {@link #SWITCH_BLINDNESS_LINGER_MILLIS} 毫秒（区块大多已经加载）移除；Java 服务器自己给了失明时不移除。
      * 效果最长持续 {@link #SWITCH_BLINDNESS_TICKS} 刻，万一没有等到位置也会自行消失。
      */
     private static final int SWITCH_BLINDNESS_TICKS = 20 * 10;
-    private static final long SWITCH_BLINDNESS_LINGER_MILLIS = 1000;
+    private static final long SWITCH_BLINDNESS_LINGER_MILLIS = 1500;
     private boolean switchBlindness;
 
     public SessionPlayerEntity(GeyserSession session) {
@@ -214,6 +214,10 @@ public class SessionPlayerEntity extends PlayerEntity {
         heldUntilSpawned = false;
         setFlag(EntityFlag.HAS_GRAVITY, !javaNoGravity);
         setFlag(EntityFlag.NO_AI, false);
+        if (switchBlindness) {
+            // 客户端切换维度、重生时可能清掉身上的效果，这时再加一次，遮住还在加载的区块。
+            sendSwitchBlindness(MobEffectPacket.Event.ADD);
+        }
         session.scheduleInEventLoop(() -> {
             // 期间又开始了一次切换时，留给那一次移除。
             if (!switchBlindness || heldUntilSpawned) {
