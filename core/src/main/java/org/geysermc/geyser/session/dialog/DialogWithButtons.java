@@ -54,9 +54,9 @@ public abstract class DialogWithButtons extends Dialog {
         DropdownComponent.Builder dropdown = DropdownComponent.builder();
         dropdown.text(GeyserLocale.getPlayerLocaleString("geyser.dialogs.select_action", holder.session().locale()));
         for (DialogButton button : buttons) {
-            dropdown.option(holder.convertText(button.label()));
+            dropdown.option(holder.convertOption(button));
         }
-        exitAction.ifPresent(button -> dropdown.option(holder.convertText(button.label())));
+        exitAction.ifPresent(button -> dropdown.option(holder.convertOption(button)));
         builder.dropdown(dropdown);
 
         builder.validResultHandler(response -> parseInput(holder, response).ifPresent(inputs -> {

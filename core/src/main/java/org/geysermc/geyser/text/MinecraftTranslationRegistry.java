@@ -25,6 +25,11 @@
 
 package org.geysermc.geyser.text;
 
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ObjectComponent;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.object.SpriteObjectContents;
 import net.kyori.adventure.text.renderer.TranslatableComponentRenderer;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -98,5 +103,52 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
 
         // Locale shouldn't need to be specific - dates for example will not be handled
         return new MessageFormat(sb.toString(), Locale.ROOT);
+    }
+    /**
+     * MINEZ：基岩版不能显示文本中内联的图标与玩家头像（Java 版的 object 组件），原先显示为“[unknown player head]”“[item/iron_ingot@items]”这样的文字。
+     * 现在有备用文字时显示备用文字；没有时，原版物品与方块的图标（{@code item/<名称>}、{@code block/<名称>}）显示为它的名称，其余的不显示。
+     */
+    @Override
+    protected @NonNull Component renderObject(@NonNull ObjectComponent component, @NonNull String locale) {
+        Component replacement;
+        Component fallback = component.fallback();
+        if (fallback != null) {
+            replacement = render(fallback, locale);
+        } else if (component.contents() instanceof SpriteObjectContents sprite) {
+            String name = spriteName(sprite.sprite(), locale);
+            replacement = name == null ? Component.empty() : Component.text(name);
+        } else {
+            replacement = Component.empty();
+        }
+        TextComponent.Builder builder = Component.text().style(component.style()).append(replacement);
+        for (Component child : component.children()) {
+            builder.append(render(child, locale));
+        }
+        return builder.build();
+    }
+
+    /**
+     * @return 原版物品或方块图标对应的名称，没有时为 {@code null}。
+     */
+    private static @Nullable String spriteName(Key sprite, String locale) {
+        if (!Key.MINECRAFT_NAMESPACE.equals(sprite.namespace())) {
+            return null;
+        }
+        String path = sprite.value();
+        int slash = path.indexOf('/');
+        if (slash < 0) {
+            return null;
+        }
+        String kind = path.substring(0, slash);
+        if (!kind.equals("item") && !kind.equals("block")) {
+            return null;
+        }
+        String name = path.substring(slash + 1);
+        String translated = MinecraftLocale.getLocaleStringIfPresent(kind + ".minecraft." + name, locale);
+        if (translated == null && kind.equals("item")) {
+            // 方块的物品图标在 item 目录中，名称却是 block 的。
+            translated = MinecraftLocale.getLocaleStringIfPresent("block.minecraft." + name, locale);
+        }
+        return translated;
     }
 }

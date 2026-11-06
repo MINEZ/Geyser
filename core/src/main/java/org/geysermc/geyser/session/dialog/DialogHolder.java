@@ -123,20 +123,35 @@ public final class DialogHolder implements TextTranslator {
      * MINEZ：转换对话框的纯文本正文，按 Markdown 排版，见 {@link DialogMarkdown}。
      */
     public String convertBody(Component component) {
-        return MessageTranslator.convertDialogBody(component, session.locale());
+        return FormColors.onDark(MessageTranslator.convertDialogBody(component, session.locale()));
     }
 
     /**
-     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，有提示时以灰色写在按钮文字的下一行，免得其中的说明（例如在线人数、注意事项）看不到。
+     * MINEZ：转换对话框的标题。标题栏是浅色的，颜色按 {@link FormColors#onLight(String)} 替换。
+     */
+    public String convertTitle(Component component) {
+        return FormColors.onLight(convertText(component));
+    }
+
+    /**
+     * MINEZ：转换下拉框中按钮的文字，颜色按 {@link FormColors#onLight(String)} 替换。
+     */
+    public String convertOption(DialogButton button) {
+        return FormColors.onLight(convertText(button.label()));
+    }
+
+    /**
+     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，有提示时以深灰色写在按钮文字的下一行，免得其中的说明（例如在线人数、注意事项）看不到。
      */
     public String convertButton(DialogButton button) {
-        return button.tooltip()
+        // 按钮是浅色的，颜色按 FormColors#onLight 替换，提示的灰色因此为深灰色。
+        return FormColors.onLight(button.tooltip()
             .map(tooltip -> convertText(Component.text()
                 .append(button.label())
                 .append(Component.newline())
                 .append(tooltip.colorIfAbsent(NamedTextColor.GRAY))
                 .build()))
-            .orElseGet(() -> convertText(button.label()));
+            .orElseGet(() -> convertText(button.label())));
     }
 
     /**

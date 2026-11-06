@@ -115,7 +115,7 @@ public abstract class Dialog {
     protected FormBuilder<? extends FormBuilder<?,?,?>, ? extends Form, ? extends FormResponse> createForm(DialogHolder holder, Optional<ParsedInputs> restored) {
         if (inputs.isEmpty()) {
             SimpleForm.Builder builder = SimpleForm.builder()
-                .title(holder.convertText(title));
+                .title(holder.convertTitle(title));
             // MINEZ：正文按 Markdown 排版。
             builder.content(labels.stream().map(holder::convertBody).collect(Collectors.joining("\n\n")));
 
@@ -124,7 +124,7 @@ public abstract class Dialog {
             return builder;
         } else {
             CustomForm.Builder builder = CustomForm.builder()
-                .title(holder.convertText(title));
+                .title(holder.convertTitle(title));
             for (Component label : labels) {
                 builder.label(holder.convertBody(label));
             }
