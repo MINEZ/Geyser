@@ -32,6 +32,7 @@ import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.entity.type.player.AvatarEntity;
 import org.geysermc.geyser.entity.type.player.PlayerEntity;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.text.SpriteGlyphs;
 
 import java.awt.*;
 import java.util.List;
@@ -84,12 +85,13 @@ public class PlayerListUtils {
     }
 
     /**
-     * MINEZ：基岩版玩家列表中显示的名字。Java 版服务器设了玩家列表的显示名（例如带颜色与称号）时用它，与 Java 版的 TAB 列表相同；
-     * 否则为用户名。
+     * MINEZ：基岩版玩家列表中显示的名字。Java 版服务器设了玩家列表的显示名（例如带颜色与称号）时用它，与 Java 版的 TAB 列表相同，
+     * 其中的称号换到第二行（暂停菜单中人物模型上方的名字分两行显示，见 {@link SpriteGlyphs#groupOnNewLine}；玩家列表一栏由
+     * “MINEZ 资源”包只显示第一行，称号另以动画显示在名字后面）；否则为用户名。
      */
     public static String listName(AvatarEntity entity) {
         if (entity instanceof PlayerEntity player && player.getListName() != null) {
-            return player.getListName();
+            return SpriteGlyphs.groupOnNewLine(player.getListName());
         }
         return entity.getUsername();
     }

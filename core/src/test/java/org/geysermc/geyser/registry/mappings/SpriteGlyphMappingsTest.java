@@ -52,7 +52,7 @@ class SpriteGlyphMappingsTest {
               "format_version": 2,
               "items": {},
               "sprites": {
-                "minecraft:items": {"minez:item/flare": "\\uF100", "item/diamond": "\\uF101"},
+                "minecraft:items": {"minez:item/flare": "\\uF100", "item/diamond": "\\uF101", "minez:item/title/a_1": ""},
                 "gui": {"minez:icon/airdrop": "\\uF102"}
               }
             }
@@ -64,7 +64,9 @@ class SpriteGlyphMappingsTest {
         assertEquals(Map.of(
             SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minez:item/flare")), "\uF100",
             SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minecraft:item/diamond")), "\uF101",
-            SpriteGlyphs.key(Key.key("minecraft:gui"), Key.key("minez:icon/airdrop")), "\uF102"), read);
+            SpriteGlyphs.key(Key.key("minecraft:gui"), Key.key("minez:icon/airdrop")), "\uF102",
+            // 空字符串：多块拼成的图标中第一块以外的各块，由第一块的字一并画出。
+            SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minez:item/title/a_1")), ""), read);
     }
 
     @Test

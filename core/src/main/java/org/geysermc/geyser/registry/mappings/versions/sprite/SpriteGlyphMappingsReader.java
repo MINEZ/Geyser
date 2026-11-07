@@ -39,7 +39,8 @@ import java.util.function.BiConsumer;
 
 /**
  * MINEZ：读取映射文件中的 {@code sprites}：{@code {"图集": {"精灵": "字符"}}}，见 {@link SpriteGlyphs}。
- * 字符须为非空字符串；格式不对的项记一条错误后跳过，不影响其他项。
+ * 字符须为字符串；空字符串表示这个精灵由前面的精灵一并画出（多块拼成的图标中第一块以外的各块），不输出。格式不对的项记一条错误后跳过，
+ * 不影响其他项。
  */
 public class SpriteGlyphMappingsReader implements MappingsReader<String, String> {
 
@@ -59,8 +60,8 @@ public class SpriteGlyphMappingsReader implements MappingsReader<String, String>
             }
             for (Map.Entry<String, JsonElement> spriteEntry : atlasEntry.getValue().getAsJsonObject().entrySet()) {
                 JsonElement value = spriteEntry.getValue();
-                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString() || value.getAsString().isEmpty()) {
-                    GeyserImpl.getInstance().getLogger().error("Glyph of sprite " + spriteEntry.getKey() + " in custom mappings file " + file + " is not a non-empty string");
+                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+                    GeyserImpl.getInstance().getLogger().error("Glyph of sprite " + spriteEntry.getKey() + " in custom mappings file " + file + " is not a string");
                     continue;
                 }
                 try {
