@@ -28,6 +28,7 @@ package org.geysermc.geyser.network.bedrock.netease;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.geyser.api.event.bedrock.NeteaseShopEvent;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -72,6 +73,14 @@ public final class NeteasePyRpc {
      * MINEZ 客户端模组载入后告知版本的事件，命名空间与系统名同上，数据为 {@code {"version": "主.次.修订"}}。
      */
     public static final String READY_EVENT = "ClientReady";
+    /**
+     * 服务器发给客户端模组的事件（客户端的 {@code ListenForEvent} 收到）的方法名。
+     */
+    public static final String MOD_EVENT_S2C = "ModEventS2C";
+    /**
+     * 服务器发出的消息使用的消息 ID，与网易的服务端相同。
+     */
+    public static final long SERVER_MSG_ID = 9753608L;
 
     private static final Map<String, NeteaseShopEvent.Kind> SHOP_EVENTS = Map.of(
         "StoreBuySuccServerEvent", NeteaseShopEvent.Kind.BUY_SUCCESS,
@@ -124,6 +133,31 @@ public final class NeteasePyRpc {
             String name = namespace == null ? eventName : namespace + "/" + systemName + "/" + eventName;
             return method.equals(eventName) ? method + " " + data.keySet() : method + " " + name + " " + data.keySet();
         }
+    }
+
+    /**
+     * 编码一个发给客户端模组的事件：{@code ["ModEventS2C", [命名空间, 系统名, 事件名, 数据], nil]}，与网易服务端的写法相同（字符串为 bin）。
+     *
+     * @return {@code PyRpc} 数据包的原始负载（{@link NeteasePacket#payload(byte[])}）：以 VarInt 为长度前缀的 MessagePack 与 4 个字节的小端序消息 ID。
+     */
+    public static byte[] encodeModEvent(String namespace, String systemName, String eventName, Map<String, ?> data) {
+        byte[] message = new NeteaseMsgPackWriter().arrayHeader(3)
+            .value(MOD_EVENT_S2C)
+            .value(List.of(namespace, systemName, eventName, data))
+            .value(null)
+            .toByteArray();
+        ByteArrayOutputStream out = new ByteArrayOutputStream(message.length + 9);
+        long length = message.length;
+        do {
+            int b = (int) (length & 0x7f);
+            length >>>= 7;
+            out.write(length != 0 ? b | 0x80 : b);
+        } while (length != 0);
+        out.writeBytes(message);
+        for (int shift = 0; shift < 32; shift += 8) {
+            out.write((int) (SERVER_MSG_ID >>> shift));
+        }
+        return out.toByteArray();
     }
 
     /**

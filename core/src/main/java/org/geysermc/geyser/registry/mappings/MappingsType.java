@@ -37,10 +37,12 @@ import org.geysermc.geyser.registry.mappings.versions.block.BlockMappingsReader_
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v1;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v2;
 import org.geysermc.geyser.registry.mappings.versions.skull.SkullMappingsReader_v1;
+import org.geysermc.geyser.registry.mappings.versions.sprite.AnimatedSpriteMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.sprite.SpriteGlyphMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.waypoint.WaypointStyleMappingsReader_v1;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 
 public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>> readers) {
@@ -59,6 +61,12 @@ public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>
     public static final MappingsType<String, String> SPRITES = create("sprites", builder -> builder
         .with(1, new SpriteGlyphMappingsReader())
         .with(2, new SpriteGlyphMappingsReader()));
+    /**
+     * MINEZ：动态图标的表，发给 MINEZ 客户端模组，见 {@link org.geysermc.geyser.text.SpriteGlyphs#animated()}。
+     */
+    public static final MappingsType<String, Map<String, Object>> ANIMATED_SPRITES = create("animated_sprites", builder -> builder
+        .with(1, new AnimatedSpriteMappingsReader())
+        .with(2, new AnimatedSpriteMappingsReader()));
     
     private static <K, V> MappingsType<K, V> create(String name, UnaryOperator<Builder<K, V>> builder) {
         return new MappingsType<>(name, Int2ObjectMaps.unmodifiable(builder.apply(new Builder<>()).readers));

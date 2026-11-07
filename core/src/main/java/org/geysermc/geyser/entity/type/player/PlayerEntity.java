@@ -72,6 +72,10 @@ public class PlayerEntity extends AvatarEntity implements GeyserPlayerEntity {
      * Whether this player is currently listed.
      */
     private boolean listed = false;
+    /**
+     * MINEZ：Java 版玩家列表中的显示名（基岩版格式的文字），没有时为 null，基岩版玩家列表中显示用户名。见 PlayerListUtils#listName。
+     */
+    private @Nullable String listName;
 
     public PlayerEntity(EntitySpawnContext context, GameProfile profile) {
         super(context, profile.getName());

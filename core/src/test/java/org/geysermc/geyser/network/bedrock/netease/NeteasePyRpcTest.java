@@ -250,4 +250,30 @@ class NeteasePyRpcTest {
         assertFalse(decode(array("ClientReady", map("version", "1.3.0"))).isClientModReady());
         assertFalse(decode(array("OpenServerMenu")).isOpenMenu());
     }
+
+    @Test
+    void modEventsToTheClientAreEncodedLikeNeteaseServers() throws Exception {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("text", "§a起源开发组：你好");
+        data.put("chat", 1);
+        data.put("fps", 10.0);
+        data.put("sprites", Map.of("\uF1F1\uF1F2", Map.of("frames", 8)));
+        byte[] payload = NeteasePyRpc.encodeModEvent("MinezClient", "MenuSystem", "ChatMessage", data);
+
+        // 解出来是 ["ModEventS2C", [命名空间, 系统名, 事件名, 数据], nil]，消息 ID 为 9753608。
+        NeteasePyRpc.Message message = NeteasePyRpc.decode(payload);
+        assertEquals("ModEventS2C", message.method());
+        assertEquals(9753608L, message.msgId());
+        List<?> arguments = (List<?>) message.data().get("value");
+        assertEquals(List.of("MinezClient", "MenuSystem", "ChatMessage"), arguments.subList(0, 3));
+        Map<?, ?> decoded = (Map<?, ?>) arguments.get(3);
+        assertEquals("§a起源开发组：你好", decoded.get("text"));
+        assertEquals(1L, ((Number) decoded.get("chat")).longValue());
+        assertEquals(10.0, ((Number) decoded.get("fps")).doubleValue());
+        assertEquals(8L, ((Number) ((Map<?, ?>) ((Map<?, ?>) decoded.get("sprites")).get("\uF1F1\uF1F2")).get("frames")).longValue());
+        // 字符串都写成 bin（0xc4 起），与网易服务端相同：方法名 "ModEventS2C" 紧跟在数组头 0x93 之后。
+        int start = (payload[0] & 0x80) == 0 ? 1 : 2;
+        assertEquals((byte) 0x93, payload[start]);
+        assertEquals((byte) 0xc4, payload[start + 1]);
+    }
 }

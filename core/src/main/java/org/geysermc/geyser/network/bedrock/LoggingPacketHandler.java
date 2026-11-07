@@ -107,6 +107,7 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
                 if (gated != null) {
                     gated.clientModReady(version instanceof String text ? text : null);
                 }
+                session.getMinezClientUi().clientReady(version instanceof String text ? text : null);
                 return;
             }
             NeteaseShopEvent.Kind kind = message.shopKind();

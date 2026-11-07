@@ -304,6 +304,10 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     @Setter
     private volatile @Nullable GatedLoginImpl gatedLogin;
     /**
+     * MINEZ：与 MINEZ 客户端模组配合显示动态图标，见 {@link MinezClientUi}。
+     */
+    private final MinezClientUi minezClientUi = new MinezClientUi(this);
+    /**
      * MINEZ：登录闸门放行时的结果，见 {@link #loginGateResult()}。
      */
     @Getter(AccessLevel.NONE)
@@ -1781,7 +1785,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         textPacket.setNeedsTranslation(false);
         textPacket.setMessage(message);
 
-        upstream.sendPacket(textPacket);
+        sendUpstreamPacket(textPacket);
     }
 
     @Override
@@ -2243,6 +2247,9 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      * @param packet the bedrock packet from the Cloudburst protocol lib
      */
     public void sendUpstreamPacket(BedrockPacket packet) {
+        if (minezClientUi.beforeSend(packet)) {
+            return;
+        }
         upstream.sendPacket(packet);
     }
 
@@ -2252,6 +2259,9 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      * @param packet the bedrock packet from the Cloudburst protocol lib
      */
     public void sendUpstreamPacketImmediately(BedrockPacket packet) {
+        if (minezClientUi.beforeSend(packet)) {
+            return;
+        }
         upstream.sendPacketImmediately(packet);
     }
 

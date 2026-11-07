@@ -766,6 +766,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
             Registries.WAYPOINT_STYLE_MAPPINGS.get().clear();
         }
         SpriteGlyphs.set(Map.of());
+        SpriteGlyphs.setAnimated(Map.of());
         CodeOfConductManager.trySave();
 
         this.setEnabled(false);

@@ -62,9 +62,9 @@ class SpriteGlyphMappingsTest {
 
         // 图集与精灵都按 Key 规范化，没有命名空间的补上 minecraft。
         assertEquals(Map.of(
-            SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minez:item/flare")), "",
-            SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minecraft:item/diamond")), "",
-            SpriteGlyphs.key(Key.key("minecraft:gui"), Key.key("minez:icon/airdrop")), ""), read);
+            SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minez:item/flare")), "\uF100",
+            SpriteGlyphs.key(Key.key("minecraft:items"), Key.key("minecraft:item/diamond")), "\uF101",
+            SpriteGlyphs.key(Key.key("minecraft:gui"), Key.key("minez:icon/airdrop")), "\uF102"), read);
     }
 
     @Test
@@ -74,5 +74,29 @@ class SpriteGlyphMappingsTest {
         Map<String, String> read = new HashMap<>();
         MappingsConfigReader.readCustomMappings(MappingsType.SPRITES, file, read::put);
         assertEquals(Map.of(), read);
+    }
+
+    @Test
+    void readsAnimatedSprites() throws Exception {
+        Path file = dir.resolve("minez_resources.json");
+        Files.writeString(file, """
+            {
+              "format_version": 2,
+              "animated_sprites": {
+                "\uF1F1\uF1F2": {"texture": "textures/minez/anim/item.title.builder", "frame_width": 32, "frame_height": 16,
+                                   "frames": 8, "fps": 10.0, "tiles": 2},
+                "\uF1F3": {"texture": "textures/x", "frames": 8},
+                "\uF1F4": {"texture": 1, "frame_width": 16, "frame_height": 16, "frames": 8, "fps": 6.5, "tiles": 1}
+              }
+            }
+            """);
+        Map<String, Map<String, Object>> read = new HashMap<>();
+        // 不完整或类型不对的项（\uF1F3、\uF1F4）记一条错误后跳过；记错误要用到 GeyserImpl。
+        org.geysermc.geyser.scoreboard.network.util.GeyserMockContext.mockContext(() ->
+            MappingsConfigReader.readCustomMappings(MappingsType.ANIMATED_SPRITES, file, read::put));
+
+        // 整数写成 long，其余数字保持浮点，原样发给模组。
+        assertEquals(Map.of("\uF1F1\uF1F2", Map.of("texture", "textures/minez/anim/item.title.builder", "frame_width", 32L,
+            "frame_height", 16L, "frames", 8L, "fps", 10L, "tiles", 2L)), read);
     }
 }
