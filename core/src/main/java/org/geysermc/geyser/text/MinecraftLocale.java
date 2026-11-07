@@ -290,6 +290,11 @@ public class MinecraftLocale {
                 return translated;
             }
         }
+        // MINEZ：服务器资源包中新增的翻译（例如新魔咒的名称），原版的语言文件中没有。
+        String custom = CustomTranslations.get(messageText, locale);
+        if (custom != null) {
+            return custom;
+        }
         localeStrings = LOCALE_MAPPINGS.get("en_us");
         if (localeStrings != null) {
             return localeStrings.get(messageText);

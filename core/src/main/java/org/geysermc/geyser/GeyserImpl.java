@@ -101,6 +101,7 @@ import org.geysermc.geyser.session.auth.GatedLoginImpl;
 import org.geysermc.geyser.skin.FloodgateSkinUploader;
 import org.geysermc.geyser.skin.ProvidedSkins;
 import org.geysermc.geyser.skin.SkinProvider;
+import org.geysermc.geyser.text.CustomTranslations;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.text.MinecraftLocale;
 import org.geysermc.geyser.text.SpriteGlyphs;
@@ -328,6 +329,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         Registries.RESOURCE_PACKS.load();
         Registries.WAYPOINT_STYLE_MAPPINGS.load();
         SpriteGlyphs.load();
+        CustomTranslations.load();
 
         // Warnings to users who enable options that they might not need.
         if (!config.advanced().bedrock().haproxyProtocolWhitelistedIps().isEmpty()) {
@@ -767,6 +769,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         }
         SpriteGlyphs.set(Map.of());
         SpriteGlyphs.setAnimated(Map.of());
+        CustomTranslations.set(Map.of());
         CodeOfConductManager.trySave();
 
         this.setEnabled(false);
