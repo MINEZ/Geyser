@@ -33,6 +33,7 @@ import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.text.SpriteGlyphs;
+import org.geysermc.geyser.util.PlayerListUtils;
 
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -70,6 +71,11 @@ public final class MinezClientUi {
      */
     public static final String PREVIEW_EVENT = "Preview";
     /**
+     * 自己在玩家列表中的名字：{@code text} 为基岩版格式的文字，称号在第二行（见 {@link PlayerListUtils#listName}）。模组用它在暂停菜单中
+     * 人物模型的上方显示名字与播放动画的称号，代替原版只能显示第一帧的名牌。
+     */
+    public static final String NAME_EVENT = "PlayerName";
+    /**
      * 消息中带有这个字符时（服务器以 {@code <&chr[E0FF]>} 写出）不显示在聊天栏中，改为预览框。
      */
     public static final String PREVIEW_MARKER = "\uE0FF";
@@ -106,6 +112,7 @@ public final class MinezClientUi {
         data.put("sprites", SpriteGlyphs.animated());
         send(CONFIG_EVENT, data);
         ready = true;
+        selfNameChanged();
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
     }
@@ -140,6 +147,16 @@ public final class MinezClientUi {
         }
         send(CHAT_EVENT, Map.of("text", message));
         return false;
+    }
+
+    /**
+     * 自己在玩家列表中的显示名改变后调用；模组就绪后（每次进入世界）也发一次。
+     */
+    public void selfNameChanged() {
+        String name = ready ? PlayerListUtils.listName(session.getPlayerEntity()) : null;
+        if (name != null) {
+            send(NAME_EVENT, Map.of("text", name));
+        }
     }
 
     private boolean isNetease() {

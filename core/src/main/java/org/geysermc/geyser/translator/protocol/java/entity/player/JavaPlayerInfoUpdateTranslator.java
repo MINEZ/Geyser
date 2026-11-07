@@ -97,6 +97,10 @@ public class JavaPlayerInfoUpdateTranslator extends PacketTranslator<Clientbound
                     continue;
                 }
                 entity.setListName(listName);
+                if (self) {
+                    // MINEZ：客户端模组在暂停菜单的人物模型上方显示自己的名字与称号。
+                    session.getMinezClientUi().selfNameChanged();
+                }
                 // 自己不在实体缓存中，isListed() 总是 false，但自己总在列表中。
                 if ((self || entity.isListed()) && !actions.contains(PlayerListEntryAction.UPDATE_LISTED)
                     && !PlayerListUtils.shouldLimitPlayerListEntries(session)) {

@@ -68,6 +68,10 @@ public class EnchantedBookItem extends Item {
 
         if (!bedrockEnchants.isEmpty()) {
             builder.putList("ench", NbtType.COMPOUND, bedrockEnchants);
+        } else if (enchantments != null && !enchantments.getEnchantments().isEmpty()) {
+            // MINEZ：只有基岩版没有的魔咒（写在说明中）时，remapEnchantment 放了一个空的 ench 以显示附魔光效；空的 ench 会在名称与说明之间
+            // 多出一个空行。附魔书本身总有光效，不需要它。
+            builder.getOrCreateNbt().remove("ench");
         }
     }
 

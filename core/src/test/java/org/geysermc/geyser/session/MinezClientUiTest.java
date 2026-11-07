@@ -129,6 +129,28 @@ class MinezClientUiTest {
     }
 
     @Test
+    void sendsOwnListName() throws Exception {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            SpriteGlyphs.setAnimated(Map.of("\uF800", Map.of("texture", "textures/minez/anim/item/title/builder", "tiles", 4L)));
+            when(session.getPlayerEntity().getListName()).thenReturn("§b测试 §f\uF800");
+            MinezClientUi ui = new MinezClientUi(session);
+
+            // 模组就绪之前不发；就绪时随配置发一次，称号在第二行。
+            ui.selfNameChanged();
+            assertTrue(sent.isEmpty());
+            ui.clientReady("1.5.0");
+            assertEquals(2, sent.size());
+            assertEquals("§b测试\n§f\uF800", event(sent.get(1), "PlayerName").get("text"));
+
+            // 显示名改变后再发。
+            when(session.getPlayerEntity().getListName()).thenReturn("§b测试");
+            ui.selfNameChanged();
+            assertEquals("§b测试", event(sent.get(2), "PlayerName").get("text"));
+        }
+    }
+
+    @Test
     void internationalSessionsAreUntouched() {
         try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
             protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(false);
