@@ -106,13 +106,18 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
     }
     /**
      * MINEZ：基岩版不能显示文本中内联的图标与玩家头像（Java 版的 object 组件），原先显示为“[unknown player head]”“[item/iron_ingot@items]”这样的文字。
-     * 现在有备用文字时显示备用文字；没有时，原版物品与方块的图标（{@code item/<名称>}、{@code block/<名称>}）显示为它的名称，其余的不显示。
+     * 现在依次为：资源包中有这个图标的字形时显示字形（见 {@link SpriteGlyphs}），与 Java 版相同；有备用文字时显示备用文字；
+     * 原版物品与方块的图标（{@code item/<名称>}、{@code block/<名称>}）显示为它的名称；其余的不显示。
      */
     @Override
     protected @NonNull Component renderObject(@NonNull ObjectComponent component, @NonNull String locale) {
         Component replacement;
         Component fallback = component.fallback();
-        if (fallback != null) {
+        String glyph = component.contents() instanceof SpriteObjectContents sprite ? SpriteGlyphs.glyph(sprite.atlas(), sprite.sprite()) : null;
+        if (glyph != null) {
+            // MINEZ：资源包中有这个图标的字形时显示字形，与 Java 版相同。
+            replacement = Component.text(glyph);
+        } else if (fallback != null) {
             replacement = render(fallback, locale);
         } else if (component.contents() instanceof SpriteObjectContents sprite) {
             String name = spriteName(sprite.sprite(), locale);

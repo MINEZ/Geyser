@@ -199,6 +199,12 @@ public final class ItemTranslator {
 
         Rarity rarity = Rarity.fromId(components.getOrDefault(DataComponentTypes.RARITY, 0));
         String customName = getCustomName(session, customComponents, bedrockItem, rarity.getColor(), false, false);
+        if (customName == null && CustomItemTranslator.getCustomItem(session, count, components, bedrockItem) != null) {
+            // MINEZ：换成了自定义物品（例如应用了皮肤的钻石斧）、又没有自定义名称时，基岩版会显示自定义物品注册时的名称（映射文件中的
+            // display_name，默认为基岩版物品 ID）。Java 版显示的是原版物品的名称，这里同样写出它。
+            customName = ChatColor.RESET + ChatColor.ESCAPE + rarity.getColor()
+                + MinecraftLocale.getLocaleString(javaItem.translationKey(), session.locale());
+        }
         if (customName != null) {
             PotionContents potionContents = components.get(DataComponentTypes.POTION_CONTENTS);
             // Make custom effect information visible when shown in tooltip

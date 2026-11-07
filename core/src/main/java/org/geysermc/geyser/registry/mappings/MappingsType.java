@@ -37,6 +37,7 @@ import org.geysermc.geyser.registry.mappings.versions.block.BlockMappingsReader_
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v1;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v2;
 import org.geysermc.geyser.registry.mappings.versions.skull.SkullMappingsReader_v1;
+import org.geysermc.geyser.registry.mappings.versions.sprite.SpriteGlyphMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.waypoint.WaypointStyleMappingsReader_v1;
 
 import java.util.List;
@@ -52,6 +53,12 @@ public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>
         .with(1, new SkullMappingsReader_v1()));
     public static final MappingsType<Identifier, CustomWaypointStyle> WAYPOINT_STYLES = create("waypoint_styles", builder -> builder
         .with(1, new WaypointStyleMappingsReader_v1()));
+    /**
+     * MINEZ：文字图标对应的字体字符，见 {@link org.geysermc.geyser.text.SpriteGlyphs}。与物品映射写在同一个文件中，各个格式版本都按同一种读法。
+     */
+    public static final MappingsType<String, String> SPRITES = create("sprites", builder -> builder
+        .with(1, new SpriteGlyphMappingsReader())
+        .with(2, new SpriteGlyphMappingsReader()));
     
     private static <K, V> MappingsType<K, V> create(String name, UnaryOperator<Builder<K, V>> builder) {
         return new MappingsType<>(name, Int2ObjectMaps.unmodifiable(builder.apply(new Builder<>()).readers));

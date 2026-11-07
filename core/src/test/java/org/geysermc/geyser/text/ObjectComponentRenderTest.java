@@ -28,8 +28,10 @@ package org.geysermc.geyser.text;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.object.ObjectContents;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,5 +62,27 @@ class ObjectComponentRenderTest {
     void customSpritesWithoutFallbackAreDropped() {
         Component sprite = Component.object(ObjectContents.sprite(Key.key("minez", "item/electronic_component")));
         assertEquals("×1", plain(Component.text().append(sprite).append(Component.text("×1")).build()));
+    }
+
+    @AfterEach
+    void clearGlyphs() {
+        SpriteGlyphs.set(Map.of());
+    }
+
+    @Test
+    void spritesWithAGlyphShowTheGlyph() {
+        Key items = Key.key("minecraft", "items");
+        SpriteGlyphs.set(Map.of(
+            SpriteGlyphs.key(items, Key.key("minez", "item/electronic_component")), "\uF100",
+            SpriteGlyphs.key(Key.key("minecraft", "blocks"), Key.key("minecraft", "block/iron_block")), "\uF101"));
+
+        // 有字形时优先于备用文字，与 Java 版一样显示图标。
+        Component withFallback = Component.object(builder -> builder
+            .contents(ObjectContents.sprite(items, Key.key("minez", "item/electronic_component"))).fallback(Component.text("电子零件")));
+        assertEquals("\uF100×1", plain(Component.text().append(withFallback).append(Component.text("×1")).build()));
+        // 没有写图集时为 minecraft:blocks，与 Java 版相同。
+        assertEquals("\uF101", plain(Component.object(ObjectContents.sprite(Key.key("block/iron_block")))));
+        // 图集不同的不算同一个精灵：没有字形，照旧显示名称或不显示。
+        assertEquals("", plain(Component.object(ObjectContents.sprite(Key.key("minecraft", "gui"), Key.key("minez", "item/electronic_component")))));
     }
 }

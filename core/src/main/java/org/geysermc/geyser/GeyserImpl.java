@@ -103,6 +103,7 @@ import org.geysermc.geyser.skin.ProvidedSkins;
 import org.geysermc.geyser.skin.SkinProvider;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.text.MinecraftLocale;
+import org.geysermc.geyser.text.SpriteGlyphs;
 import org.geysermc.geyser.translator.text.MessageTranslator;
 import org.geysermc.geyser.util.AssetUtils;
 import org.geysermc.geyser.util.CodeOfConductManager;
@@ -326,6 +327,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
 
         Registries.RESOURCE_PACKS.load();
         Registries.WAYPOINT_STYLE_MAPPINGS.load();
+        SpriteGlyphs.load();
 
         // Warnings to users who enable options that they might not need.
         if (!config.advanced().bedrock().haproxyProtocolWhitelistedIps().isEmpty()) {
@@ -763,6 +765,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         if (Registries.WAYPOINT_STYLE_MAPPINGS.loaded()) {
             Registries.WAYPOINT_STYLE_MAPPINGS.get().clear();
         }
+        SpriteGlyphs.set(Map.of());
         CodeOfConductManager.trySave();
 
         this.setEnabled(false);
