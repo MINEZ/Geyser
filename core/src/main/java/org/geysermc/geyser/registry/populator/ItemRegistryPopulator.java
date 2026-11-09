@@ -197,8 +197,13 @@ public class ItemRegistryPopulator {
                 throw new AssertionError("Unable to load Bedrock runtime item IDs", e);
             }
             if (palette.netease()) {
-                // MINEZ：去掉网易客户端没有的物品。
+                // MINEZ：去掉网易客户端没有的物品；读入网易客户端自己的物品，自定义物品的编号跳过它们。
                 itemEntries = NeteasePalette.items(itemEntries);
+                try (InputStream stream = bootstrap.getResourceOrThrow(NeteasePalette.NETEASE_ITEMS_FILE.formatted(palette.version()))) {
+                    NeteasePalette.setNeteaseItems(NeteasePalette.readNeteaseItems(stream));
+                } catch (Exception e) {
+                    throw new AssertionError("Unable to load China Edition's own items", e);
+                }
             }
 
             NbtMap vanillaComponents;
@@ -469,7 +474,7 @@ public class ItemRegistryPopulator {
                                         if (customBlockItemOverride != null && customBlockData != null) {
                                             // Assuming this is a valid custom block override we'll just register it now while we have the creative item
                                             if (palette.netease()) {
-                                                // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+                                                // MINEZ：跳过网易客户端自己的物品的编号，见 NeteasePalette。
                                                 nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
                                             }
                                             int customProtocolId = nextFreeBedrockId++;
@@ -533,7 +538,7 @@ public class ItemRegistryPopulator {
 
                     for (CustomItemDefinition customItem : customItemsToLoad) {
                         if (palette.netease()) {
-                            // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+                            // MINEZ：跳过网易客户端自己的物品的编号，见 NeteasePalette。
                             nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
                         }
                         int customProtocolId = nextFreeBedrockId++;
@@ -645,7 +650,7 @@ public class ItemRegistryPopulator {
 
                 if (palette.netease()) {
 
-                    // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+                    // MINEZ：跳过网易客户端自己的物品的编号，见 NeteasePalette。
 
                     nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
 
@@ -705,7 +710,7 @@ public class ItemRegistryPopulator {
 
                 if (palette.netease()) {
 
-                    // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+                    // MINEZ：跳过网易客户端自己的物品的编号，见 NeteasePalette。
 
                     nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
 

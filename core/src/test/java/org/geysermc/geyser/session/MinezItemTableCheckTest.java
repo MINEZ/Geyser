@@ -40,18 +40,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class MinezItemTableCheckTest {
 
     @Test
-    void listsEveryDifferentId() {
-        Map<Integer, String> server = Map.of(1, "minecraft:stone", 843, "minez:a.paper", 1276, "minez:basin.nether_brick",
-            1277, "minez:wallet.nether_brick");
+    void reportsOnlyRealProblems() {
+        Int2ObjectMap<String> server = new Int2ObjectOpenHashMap<>(Map.of(1, "minecraft:stone", 793, "minecraft:wool",
+            100, "minecraft:white_wool", 1277, "minez:a.paper", 1278, "minez:b.paper", 1300, "minez:c.paper"));
+        Int2ObjectMap<String> netease = new Int2ObjectOpenHashMap<>(Map.of(1276, "minecraft:debug_stick", 1290, "minecraft:mod"));
         Int2ObjectMap<String> client = new Int2ObjectOpenHashMap<>();
         client.put(1, "minecraft:stone");
-        client.put(843, "minez:a.paper");
-        // 撞号：客户端认作网易自己的物品；客户端缺了下发的物品；客户端有而下发的表中没有。
+        client.put(100, "minecraft:white_wool");
+        // 旧物品的别名：读出的名字也在下发的表中，不算问题。
+        client.put(793, "minecraft:white_wool");
+        // 记下的网易物品，不算问题。
         client.put(1276, "minecraft:debug_stick");
-        client.put(2000, "minecraft:mod");
+        client.put(1277, "minez:a.paper");
+        // 撞号：下发的物品被网易的物品占了编号。
+        client.put(1278, "minecraft:mod_ex");
+        // 没有记下的网易物品。
+        client.put(2000, "minecraft:mod_new");
         assertEquals(List.of(
-            "1276: minecraft:debug_stick / minez:basin.nether_brick",
-            "1277: - / minez:wallet.nether_brick",
-            "2000: minecraft:mod / -"), MinezItemTableCheck.differences(client, server::get));
+            "1278: minecraft:mod_ex / minez:b.paper (conflict)",
+            "1290: - / - (China Edition item not found)",
+            "1300: - / minez:c.paper (missing on client)",
+            "2000: minecraft:mod_new / - (unlisted China Edition item)"), MinezItemTableCheck.differences(client, server, netease));
     }
 }

@@ -207,11 +207,20 @@ class NeteasePaletteTest {
     }
 
     @Test
-    void skipsIdsOfNeteaseItems() {
-        // 网易客户端自己的物品占用的编号跳过，其余照常顺延。
-        assertEquals(1275, NeteasePalette.nextFreeItemId(1275));
-        assertEquals(1277, NeteasePalette.nextFreeItemId(1276));
-        assertEquals(1282, NeteasePalette.nextFreeItemId(1280));
-        assertEquals(1282, NeteasePalette.nextFreeItemId(1281));
+    void skipsIdsOfNeteaseItems() throws Exception {
+        try (java.io.InputStream stream = NeteasePalette.class.getClassLoader()
+                .getResourceAsStream(NeteasePalette.NETEASE_ITEMS_FILE.formatted("1_21_130"))) {
+            NeteasePalette.setNeteaseItems(NeteasePalette.readNeteaseItems(stream));
+        }
+        try {
+            // 网易客户端自己的物品（调试棒 1276，mod 1280，mod_ex 1281）的编号跳过，其余照常顺延。
+            assertEquals("minecraft:debug_stick", NeteasePalette.neteaseItems().get(1276));
+            assertEquals(1275, NeteasePalette.nextFreeItemId(1275));
+            assertEquals(1277, NeteasePalette.nextFreeItemId(1276));
+            assertEquals(1282, NeteasePalette.nextFreeItemId(1280));
+            assertEquals(1282, NeteasePalette.nextFreeItemId(1281));
+        } finally {
+            NeteasePalette.setNeteaseItems(it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap());
+        }
     }
 }

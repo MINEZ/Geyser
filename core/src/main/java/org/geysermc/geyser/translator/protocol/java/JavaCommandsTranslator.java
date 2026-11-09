@@ -65,7 +65,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -101,10 +103,12 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
         public boolean equals(BedrockCommandInfo a, BedrockCommandInfo b) {
             if (a == b) return true;
             if (a == null || b == null) return false;
-            if ("help".equals(a.name()) && !"help".equals(b.name())) {
+            if ("help".equals(a.name()) != "help".equals(b.name())) {
                 // Merging this causes Bedrock to fallback to its own help command
                 // Tested on Paper 1.20.4 with Essentials and Bedrock 1.21
                 // https://github.com/GeyserMC/Geyser/issues/2573
+                // MINEZ：须对称判断。fastutil 以 equals(新键, 已有键) 查找，只拦一边时，后插入的命令仍可能并进 help，
+                // help 就会同时作为别名与另补的假 help 下发，开发版客户端报“Duplicate command registration for help”。
                 return false;
             }
             if (!a.description().equals(b.description())) return false;
@@ -243,7 +247,7 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             CommandData data = new CommandData(commandName, description, flags, CommandPermission.ANY, aliases, Collections.emptyList(), entry.getKey().paramData());
             commandData.add(data);
 
-            if (commandName.equals("help")) {
+            if (entry.getValue().contains("help")) {
                 helpAdded = true;
             }
         }
@@ -252,6 +256,8 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             // https://github.com/GeyserMC/Geyser/issues/2573 if Brigadier does not send the help command.
             commandData.add(createFakeHelpCommand());
         }
+
+        assignUniqueEnumNames(commandData);
 
         if (session.getGeyser().platformType() == PlatformType.STANDALONE) {
             session.getGeyser().commandRegistry().export(session, commandData, knownAliases);
@@ -341,6 +347,64 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             case "minecraft:worldgen/biome" -> tags ? context.getBiomesWithTags() : context.getBiomes();
             default -> CommandParam.STRING;
         };
+    }
+
+    /**
+     * MINEZ：让同一个包中名字相同的硬枚举取值也相同。
+     * <p>
+     * 字面量枚举以其中第一个字面量命名，不同命令、同一命令的不同分支都可能产生同名但取值不同的枚举，
+     * 例如 {@code tag … add|remove} 的 {@code add} 与 {@code team add} 的 {@code add}。协议库只合并名字与取值都相同的枚举，
+     * 两个都会发出去；基岩版客户端以名字识别枚举，把后一个的取值并入前一个，补全中会混入别的命令的选项，
+     * 开发版客户端还会报“Found 1 duplicate entries in enum values”。
+     * <p>
+     * 这里保留最先出现的，与它取值相同的复用同一个对象，取值不同的依次改名为 {@code name_2}、{@code name_3}…。
+     * 命令的别名枚举不能改名，先登记；软枚举由客户端按名字增删取值，不处理。
+     *
+     * @param commands 将要下发的命令
+     */
+    static void assignUniqueEnumNames(List<CommandData> commands) {
+        Map<String, CommandEnumData> byName = new HashMap<>();
+        for (CommandData command : commands) {
+            CommandEnumData aliases = command.getAliases();
+            if (aliases != null) {
+                byName.putIfAbsent(aliases.getName(), aliases);
+            }
+        }
+
+        // 同一个 CommandParamData 可能被多个重载共用，按枚举对象记下结果，保证处处一致
+        Map<CommandEnumData, CommandEnumData> replaced = new IdentityHashMap<>();
+        for (CommandData command : commands) {
+            for (CommandOverloadData overload : command.getOverloads()) {
+                for (CommandParamData param : overload.getOverloads()) {
+                    CommandEnumData enumData = param.getEnumData();
+                    if (enumData == null || enumData.isSoft()) {
+                        continue;
+                    }
+                    CommandEnumData unique = replaced.computeIfAbsent(enumData, original -> {
+                        CommandEnumData existing = byName.putIfAbsent(original.getName(), original);
+                        if (existing == null) {
+                            return original;
+                        }
+                        if (existing.equals(original)) {
+                            return existing;
+                        }
+                        for (int suffix = 2; ; suffix++) {
+                            CommandEnumData renamed = new CommandEnumData(original.getName() + "_" + suffix, original.getValues(), false);
+                            CommandEnumData taken = byName.putIfAbsent(renamed.getName(), renamed);
+                            if (taken == null) {
+                                return renamed;
+                            }
+                            if (taken.equals(renamed)) {
+                                return taken;
+                            }
+                        }
+                    });
+                    if (unique != enumData) {
+                        param.setEnumData(unique);
+                    }
+                }
+            }
+        }
     }
 
     private CommandData createFakeHelpCommand() {

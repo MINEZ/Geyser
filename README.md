@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.28-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.29-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -160,7 +160,9 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 
 **3D item icons with the MINEZ client mod.** A Bedrock item icon is a single texture, so an item with a 3D model, such as one of MINEZ's wings, can only show a picture rendered beforehand. A custom mappings file may also carry a `model_icons` section, keyed by item model (`minez:dark_star_wings`, the part of the custom item's Bedrock identifier before the dot), each with the identifier of a display-only client entity in the resource pack (`entity`) and optional numbers for how MINEZ's client mod draws it (`scale`, `rot_x`, `rot_y`, `rot_z`, `offset_x`, `offset_y`); entries without an entity, or with a value that is not a number, are logged as errors and skipped. Geyser adds these entities to the entity identifiers it sends to Bedrock clients, neither summonable nor with spawn eggs, as Bedrock only knows the entities listed there, and sends the table to the mod with `ClientConfig` as `icons`. The mod draws the entity, live, over the slots holding such an item in inventories and containers, in place of the texture. International sessions are left as before.
 
-**Checking China Edition's item table.** Geyser builds China Edition's item table from the international one, and NetEase's client has items of its own that are not in it; a custom item given one of their IDs shows as that item, such as a glinting debug stick, or as nothing. Once per session, Geyser asks MINEZ's client mod, in `ClientConfig` as `item_table`, to read which item the client itself has at each ID from 0 to 6000, after checking with a known vanilla item (`minecraft:diamond`) that this works. The mod sends the result back in parts as `ItemTable` events. Geyser compares it with the table it sent that session, logs every ID where they differ, as `ID: client / Geyser`, once per run for the same result, and writes the client's whole table to `netease_item_table.json` in its folder. The result only goes to the log and that file, never into the table sent to players. Parts, entries and names are bounded. Until NetEase's own items are added to the table, custom items skip the IDs known to clash (`NeteasePalette.RESERVED_ITEM_IDS`).
+**China Edition's own items.** NetEase's client has items of its own, such as `minecraft:debug_stick`, `minecraft:mod` and `minecraft:mod_ex`, which it registers by itself: they are not in the item table Geyser sends, and must not be, as the client would then register them twice. A custom item given one of their IDs showed as that item, such as a glinting debug stick, or as nothing. Their IDs and names are now listed in `bedrock/netease_items.1_21_130.json`, and custom items in China Edition's table skip those IDs; everything else is numbered as before.
+
+The list comes from the client itself. Once per session, Geyser asks MINEZ's client mod, in `ClientConfig` as `item_table`, to read which item the client has at each ID from 0 to 6000, after checking with a known vanilla item (`minecraft:diamond`) that this works. The mod sends the result back in parts as `ItemTable` events. Geyser compares it with the table it sent that session and with the listed China Edition items, and logs only real problems, as `ID: client / Geyser (reason)`: a custom item whose ID China Edition uses (`conflict`), a China Edition item missing from the list (`unlisted China Edition item`), a sent item the client lacks (`missing on client`), or a listed item the client no longer has (`China Edition item not found`). A legacy name read back as another item that is also in the table, such as `minecraft:wool` as `minecraft:white_wool`, is not a problem. The same result is logged once per run, and the client's whole table is written to `netease_item_table.json` in Geyser's folder. When NetEase updates its client and new items show up, they go into the list. The result only goes to the log and that file, never into the table sent to players; parts, entries and names are bounded.
 
 **Display names in the player list.** Java servers can give a player a display name for the tab list, such as one with a colour and a title. Bedrock's player list, in the pause menu, now shows that name, rendered like any other text, instead of the plain username; a player without one still shows the username. Since Bedrock neither renames an entry in place nor updates one that is added again, a listed player's entry is removed and sent again, skin included, when the name changes.
 
@@ -197,11 +199,11 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.28.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.29.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.28 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.29 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -217,19 +219,19 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.28.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.28.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.28.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.28.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.28.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.28.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.28.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.29.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.29.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.29.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.29.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.29.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.29.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.29.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.28`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.29`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
@@ -238,7 +240,7 @@ The version follows upstream's own release numbering, with this fork's revision 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.28` to `2.12.1-b1280.29`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.29` to `2.12.1-b1280.30`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 

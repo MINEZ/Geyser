@@ -143,7 +143,7 @@ public class OldSmithingTableTranslator extends AbstractBlockInventoryTranslator
         InventorySlotPacket slotPacket = new InventorySlotPacket();
         slotPacket.setContainerId(ContainerId.UI);
         slotPacket.setSlot(53);
-        slotPacket.setItem(UPGRADE_TEMPLATE.apply(session.getUpstream().getProtocolVersion()));
+        slotPacket.setItem(InventoryUtils.withNetId(session, UPGRADE_TEMPLATE.apply(session.getUpstream().getProtocolVersion())));
         session.sendUpstreamPacket(slotPacket);
     }
 

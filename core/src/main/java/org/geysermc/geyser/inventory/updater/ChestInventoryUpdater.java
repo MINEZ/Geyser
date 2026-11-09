@@ -54,7 +54,7 @@ public class ChestInventoryUpdater extends InventoryUpdater {
             if (i < translator.size) {
                 bedrockItems.add(inventory.getItem(i).getItemData(session));
             } else {
-                bedrockItems.add(UNUSUABLE_SPACE_BLOCK.apply(session.getUpstream().getProtocolVersion()));
+                bedrockItems.add(InventoryUtils.withNetId(session, UNUSUABLE_SPACE_BLOCK.apply(session.getUpstream().getProtocolVersion())));
             }
         }
 

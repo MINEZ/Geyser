@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.registry.populator.NeteasePalette;
 import org.geysermc.geyser.registry.type.ItemMappings;
 
 import java.io.IOException;
@@ -38,11 +39,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.IntFunction;
 
 /**
  * MINEZ：核对网易客户端实际的物品表。
@@ -52,8 +54,10 @@ import java.util.function.IntFunction;
  * 中收到要读的编号范围与一个用来自检的原版物品，用隐藏的物品图标控件按编号读出客户端认为的物品名，以 {@code ItemTable} 事件分批发回：
  * {@code {"part": 序号, "parts": 总批数, "items": [[编号, 物品名], ...]}}；读不出时为 {@code {"unsupported": 说明}}。
  * <p>
- * 收齐后与这个会话下发的物品表逐个编号比对，不一致的写进日志（每次启动内，同样的结果只记一次），完整的结果写进 Geyser 的配置
- * 目录中的 {@value #FILE_NAME}，用来补全网易的物品表。数据来自客户端，只用于日志与这个文件，不影响下发的物品表；数量与长度都有上限。
+ * 收齐后与这个会话下发的物品表以及网易客户端自己的物品（{@link NeteasePalette#neteaseItems()}）逐个编号比对，有问题的写进日志
+ * （每次启动内，同样的结果只记一次），完整的结果写进 Geyser 的配置目录中的 {@value #FILE_NAME}。下列情况不算问题：两边的名字相同；
+ * 客户端读出的是另一个名字、而这个名字也在下发的表中（旧物品的别名，例如 {@code minecraft:wool} 读出为 {@code minecraft:white_wool}）；
+ * 下发的表中没有、而客户端读出的正是记下的网易物品。数据来自客户端，只用于日志与这个文件，不影响下发的物品表；数量与长度都有上限。
  */
 final class MinezItemTableCheck {
     /**
@@ -141,14 +145,14 @@ final class MinezItemTableCheck {
 
     private void finish() {
         ItemMappings mappings = session.getItemMappings();
-        List<String> differences = differences(table, id -> {
-            ItemDefinition definition = mappings.getDefinition(id);
-            return definition == null ? null : definition.getIdentifier();
-        });
+        Int2ObjectMap<String> server = new Int2ObjectOpenHashMap<>();
+        mappings.getItemDefinitions().forEach((id, definition) -> server.put((int) id, definition.getIdentifier()));
+        List<String> differences = differences(table, server, NeteasePalette.neteaseItems());
         StringBuilder message = new StringBuilder();
         if (differences.isEmpty()) {
             message.append("The China Edition client's item table matches Geyser's (").append(table.size())
-                .append(" items, IDs ").append(FIRST_ID).append(" to ").append(LAST_ID).append(")");
+                .append(" items, IDs ").append(FIRST_ID).append(" to ").append(LAST_ID).append(", ")
+                .append(NeteasePalette.neteaseItems().size()).append(" of them China Edition's own)");
         } else {
             message.append("The China Edition client's item table differs from Geyser's at ").append(differences.size())
                 .append(" IDs (client / Geyser), see ").append(FILE_NAME).append(" in Geyser's folder:");
@@ -162,17 +166,36 @@ final class MinezItemTableCheck {
     }
 
     /**
-     * @param client 客户端读出的物品表。
-     * @param server 下发的物品表中某个编号的物品名，没有时为 null。
-     * @return 不一致的编号，每项为“编号：客户端 / Geyser”，按编号排列；客户端或 Geyser 没有的写作“-”。
+     * @param client  客户端读出的物品表：编号 → 名字。
+     * @param server  这个会话下发的物品表：编号 → 名字。
+     * @param netease 记下的网易客户端自己的物品：编号 → 名字。
+     * @return 有问题的编号，每项为“编号: 客户端 / Geyser (原因)”，按编号排列；客户端或 Geyser 没有的写作“-”。原因为：
+     * {@code conflict}（下发的物品被网易的物品占了编号）、{@code unlisted China Edition item}（网易的物品不在
+     * {@code netease_items} 中）、{@code missing on client}（客户端没有下发的物品）、{@code China Edition item not found}
+     * （记下的网易物品客户端已没有）。
      */
-    static List<String> differences(Int2ObjectMap<String> client, IntFunction<String> server) {
+    static List<String> differences(Int2ObjectMap<String> client, Int2ObjectMap<String> server, Int2ObjectMap<String> netease) {
+        Set<String> serverNames = new HashSet<>(server.values());
         List<String> differences = new ArrayList<>();
         for (int id = FIRST_ID; id <= LAST_ID; id++) {
-            String ours = server.apply(id);
+            String ours = server.get(id);
             String theirs = client.get(id);
-            if (theirs != null && !theirs.equals(ours) || theirs == null && ours != null) {
-                differences.add(id + ": " + (theirs == null ? "-" : theirs) + " / " + (ours == null ? "-" : ours));
+            String reason = null;
+            if (theirs == null) {
+                if (ours != null) {
+                    reason = "missing on client";
+                } else if (netease.containsKey(id)) {
+                    reason = "China Edition item not found";
+                }
+            } else if (ours == null) {
+                if (!theirs.equals(netease.get(id))) {
+                    reason = "unlisted China Edition item";
+                }
+            } else if (!theirs.equals(ours) && !serverNames.contains(theirs)) {
+                reason = "conflict";
+            }
+            if (reason != null) {
+                differences.add(id + ": " + (theirs == null ? "-" : theirs) + " / " + (ours == null ? "-" : ours) + " (" + reason + ")");
             }
         }
         return differences;

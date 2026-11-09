@@ -135,7 +135,7 @@ public class PlayerInventoryTranslator extends InventoryTranslator<PlayerInvento
             slotPacket.setSlot(i + 27);
 
             if (session.getGameMode() == GameMode.CREATIVE) {
-                slotPacket.setItem(UNUSUABLE_CRAFTING_SPACE_BLOCK.apply(session.getUpstream().getProtocolVersion()));
+                slotPacket.setItem(InventoryUtils.withNetId(session, UNUSUABLE_CRAFTING_SPACE_BLOCK.apply(session.getUpstream().getProtocolVersion())));
             } else {
                 slotPacket.setItem(inventory.getItem(i).getItemData(session));
             }

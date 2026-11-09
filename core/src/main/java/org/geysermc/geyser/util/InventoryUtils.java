@@ -329,6 +329,22 @@ public class InventoryUtils {
         }
     }
 
+    /**
+     * MINEZ：给 Geyser 自己放进物品栏的占位物品（屏障、锻造模板、图腾等）分配网络 ID。
+     * <p>
+     * 基岩版客户端要求服务端发来的每个非空物品都带网络 ID，否则开发版客户端报
+     * “Failed to send item stack net id from the server”；玩家点到这样的物品时，
+     * 物品转移请求的来源 ID 也是无效的。这些槽位在 Geyser 的记录中是空的，带上新 ID 后，
+     * 客户端对它们的操作照常因 ID 对不上而被拒绝。
+     *
+     * @param session 会话
+     * @param item 占位物品
+     * @return 带网络 ID 的同一物品
+     */
+    public static ItemData withNetId(GeyserSession session, ItemData item) {
+        return item.toBuilder().usingNetId(true).netId(session.getNextItemNetId()).build();
+    }
+
     public static IntFunction<ItemData> getUpgradeTemplate() {
         return protocolVersion -> ItemData.builder()
                 .definition(Registries.ITEMS.forVersion(protocolVersion).getStoredItems().upgradeTemplate().getBedrockDefinition())

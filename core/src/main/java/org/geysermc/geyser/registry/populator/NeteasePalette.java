@@ -25,10 +25,19 @@
 
 package org.geysermc.geyser.registry.populator;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.cloudburstmc.nbt.NbtMap;
 import org.geysermc.geyser.registry.populator.conversion.BlockRemapper;
 import org.geysermc.geyser.registry.type.PaletteItem;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -46,7 +55,13 @@ import java.util.Set;
  *     只影响以状态写出方块的地方（例如被活塞推动的方块）。</li>
  * </ol>
  * 物品表少教育版的 {@code minecraft:board} 与 {@code minecraft:chalkboard}，其余与国际版相同。物品的编号由服务端在进服时下发，
- * 资料中网易与国际版互换的几个编号因此不需要处理；自定义物品的编号跳过 {@link #RESERVED_ITEM_IDS}。
+ * 资料中网易与国际版互换的几个编号因此不需要处理。
+ * <p>
+ * 网易客户端另有自己的物品（例如 {@code minecraft:debug_stick}、{@code minecraft:mod}），客户端自带，不在服务端下发的物品表中，
+ * 也不能下发（同一个物品会注册两次）。它们的编号与名字写在 {@code bedrock/netease_items.<版本>.json} 中，自定义物品分配编号时
+ * 跳过这些编号，否则会显示成网易的物品或透明。这个文件由客户端实际的物品表得出：MINEZ 客户端模组每个会话读出客户端在各编号上的
+ * 物品，Geyser 比对后写进日志与 {@code netease_item_table.json}（见 {@code MinezItemTableCheck}）；其中“客户端有、Geyser 没有”
+ * 的物品即网易自己的物品。网易更新客户端、日志中出现新的网易物品时，把它们补进这个文件。
  */
 public final class NeteasePalette {
     static final String CHALKBOARD = "minecraft:chalkboard";
@@ -55,12 +70,13 @@ public final class NeteasePalette {
     static final Set<String> CUSTOM_APPEARANCE_BLOCKS = Set.of("minecraft:crafting_table", "minecraft:furnace", "minecraft:lit_furnace");
     static final Set<String> REMOVED_ITEMS = Set.of("minecraft:board", "minecraft:chalkboard");
     /**
-     * 网易客户端自己的物品占用、自定义物品要跳过的编号。网易客户端在原版物品之外还有自己的物品，不在服务端下发的物品表中；自定义物品
-     * 的编号与它们相同时，客户端显示成网易的物品（例如带附魔光效的调试棒）或透明。下面是实测撞号的编号（1.21.130，MINEZ 的映射中
-     * 自定义物品紧接着原版物品编号时，金水盆、下界合金钱包与投名状分到的编号）；发现新的撞号时补在这里。不能把自定义物品整体挪到
-     * 更大的编号（试过从 5000 起，客户端一进服就闪退）。
+     * 网易客户端自己的物品的数据文件，{@code %s} 为调色板的版本（例如 {@code 1_21_130}）。
      */
-    static final Set<Integer> RESERVED_ITEM_IDS = Set.of(1276, 1280, 1281);
+    static final String NETEASE_ITEMS_FILE = "bedrock/netease_items.%s.json";
+    /**
+     * 网易客户端自己的物品：编号 → 名字，由 {@link #NETEASE_ITEMS_FILE} 读入。
+     */
+    private static volatile Int2ObjectMap<String> neteaseItems = Int2ObjectMaps.emptyMap();
 
     private NeteasePalette() {
     }
@@ -126,18 +142,42 @@ public final class NeteasePalette {
     }
 
     /**
-     * 由国际版 1.21.130 的物品表生成网易的物品表：去掉网易客户端没有的物品，其余的编号不变。
+     * 读入网易客户端自己的物品：{@code {"items": [{"name": "minecraft:debug_stick", "id": 1276}, ...]}}。
      */
+    static Int2ObjectMap<String> readNeteaseItems(InputStream stream) {
+        JsonObject json = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
+        Int2ObjectMap<String> items = new Int2ObjectOpenHashMap<>();
+        for (JsonElement element : json.getAsJsonArray("items")) {
+            JsonObject item = element.getAsJsonObject();
+            items.put(item.get("id").getAsInt(), item.get("name").getAsString());
+        }
+        return Int2ObjectMaps.unmodifiable(items);
+    }
+
+    static void setNeteaseItems(Int2ObjectMap<String> items) {
+        neteaseItems = items;
+    }
+
+    /**
+     * @return 网易客户端自己的物品：编号 → 名字。
+     */
+    public static Int2ObjectMap<String> neteaseItems() {
+        return neteaseItems;
+    }
+
     /**
      * @return 从 id 起第一个没有被网易客户端自己的物品占用的编号。
      */
     static int nextFreeItemId(int id) {
-        while (RESERVED_ITEM_IDS.contains(id)) {
+        while (neteaseItems.containsKey(id)) {
             id++;
         }
         return id;
     }
 
+    /**
+     * 由国际版 1.21.130 的物品表生成网易的物品表：去掉网易客户端没有的物品，其余的编号不变。
+     */
     static List<PaletteItem> items(List<PaletteItem> vanillaItems) {
         List<PaletteItem> items = new ArrayList<>(vanillaItems.size());
         for (PaletteItem item : vanillaItems) {
