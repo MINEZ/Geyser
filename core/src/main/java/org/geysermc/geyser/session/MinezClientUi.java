@@ -61,7 +61,8 @@ public final class MinezClientUi {
     public static final String SYSTEM = NeteasePyRpc.MENU_SYSTEM;
     /**
      * 模组就绪后发出的配置：{@code chat} 为 1 时模组接管聊天栏，{@code sprites} 为动态图标的表，{@code icons} 为物品栏中实时渲染的
-     * 3D 物品图标的表（见 {@link ModelIcons}）。
+     * 3D 物品图标的表（见 {@link ModelIcons}）；每个会话的第一次另有 {@code item_table}，请模组读出网易客户端的物品表（见
+     * {@link MinezItemTableCheck}）。
      */
     public static final String CONFIG_EVENT = "ClientConfig";
     /**
@@ -93,10 +94,13 @@ public final class MinezClientUi {
         TextPacket.Type.TRANSLATION, TextPacket.Type.SYSTEM, TextPacket.Type.WHISPER, TextPacket.Type.ANNOUNCEMENT);
 
     private final GeyserSession session;
+    private final MinezItemTableCheck itemTableCheck;
     private volatile boolean ready;
+    private boolean itemTableRequested;
 
     MinezClientUi(GeyserSession session) {
         this.session = session;
+        this.itemTableCheck = new MinezItemTableCheck(session);
     }
 
     /**
@@ -113,11 +117,28 @@ public final class MinezClientUi {
         data.put("chat", 1);
         data.put("sprites", SpriteGlyphs.animated());
         data.put("icons", ModelIcons.icons());
+        if (!itemTableRequested) {
+            // 每个会话只请模组读一次网易客户端的物品表（切换维度时界面会重新初始化，模组再次就绪）。
+            Map<String, Object> request = itemTableCheck.request();
+            if (request != null) {
+                itemTableRequested = true;
+                data.put("item_table", request);
+            }
+        }
         send(CONFIG_EVENT, data);
         ready = true;
         selfNameChanged();
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
+    }
+
+    /**
+     * 收到模组读出的网易客户端的物品表（一批），见 {@link MinezItemTableCheck}。
+     */
+    public void itemTable(Map<String, Object> data) {
+        if (ready && itemTableRequested) {
+            itemTableCheck.receive(data);
+        }
     }
 
     /**

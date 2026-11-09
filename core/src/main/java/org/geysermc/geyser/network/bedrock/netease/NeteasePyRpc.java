@@ -74,6 +74,10 @@ public final class NeteasePyRpc {
      */
     public static final String READY_EVENT = "ClientReady";
     /**
+     * MINEZ 客户端模组读出的网易客户端的物品表，命名空间与系统名同上，见 {@code MinezItemTableCheck}。
+     */
+    public static final String ITEM_TABLE_EVENT = "ItemTable";
+    /**
      * 服务器发给客户端模组的事件（客户端的 {@code ListenForEvent} 收到）的方法名。
      */
     public static final String MOD_EVENT_S2C = "ModEventS2C";
@@ -124,6 +128,14 @@ public final class NeteasePyRpc {
         public boolean isClientModReady() {
             return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
                 && READY_EVENT.equals(eventName);
+        }
+
+        /**
+         * @return 是否为 MINEZ 客户端模组发来的物品表（一批）。只认 {@code ModEventC2S}，命名空间、系统名与事件名都须相符。
+         */
+        public boolean isItemTable() {
+            return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
+                && ITEM_TABLE_EVENT.equals(eventName);
         }
 
         /**

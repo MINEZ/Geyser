@@ -106,6 +106,10 @@ class MinezClientUiTest {
             Map<?, ?> sprite = (Map<?, ?>) ((Map<?, ?>) config.get("sprites")).get("\uF1F1\uF1F2");
             assertEquals("textures/minez/anim/item.title.builder", sprite.get("texture"));
             assertEquals(8L, ((Number) sprite.get("frames")).longValue());
+            // 每个会话第一次就绪时请模组读出网易客户端的物品表，以下发的表中钻石的编号自检。
+            Map<?, ?> itemTable = (Map<?, ?>) config.get("item_table");
+            assertEquals(0L, ((Number) itemTable.get("from")).longValue());
+            assertEquals("minecraft:diamond", ((List<?>) itemTable.get("check")).get(1));
             // 3D 物品图标的表随配置发出。
             Map<?, ?> icon = (Map<?, ?>) ((Map<?, ?>) config.get("icons")).get("minez:dark_star_wings");
             assertEquals("minez:icon_dark_star_wings", icon.get("entity"));
