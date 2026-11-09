@@ -1,3 +1,6 @@
+# MINEZ：本 fork 的构建。服务器上只部署 Geyser-Velocity，因此只构建它（不构建其他平台、javadoc 与源码包），测试另起一个作业并行运行，
+# jar 不必等测试跑完。上游的构建、Maven 发布与预览版都依赖 GeyserMC 的私有密钥与下载站，本 fork 中已去掉。
+# 第三方 action 固定到提交：标签可以被移动，而这里构建出的 jar 会部署到服务器上。
 name: Build
 
 on:
@@ -7,135 +10,89 @@ on:
       - 'gh-readonly-queue/**'
     paths-ignore:
       - '.github/ISSUE_TEMPLATE/*.yml'
-      - '.github/workflows/build-remote.yml'
-      - '.github/workflows/preview.yml'
-      - '.github/workflows/pull-request.yml'
       - '.idea/copyright/*.xml'
       - '.gitignore'
       - 'CONTRIBUTING.md'
       - 'LICENSE'
-      - 'Jenkinsfile '
       - 'README.md'
 
+permissions:
+  contents: read
+
+# 同一分支上有新的推送时，取消还在运行的旧构建。
 concurrency:
-  group: ci-${{ github.ref }}
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  velocity:
+    name: Geyser-Velocity
+    runs-on: ubuntu-24.04
     steps:
-      # MINEZ：需要 GeyserMC 的私有密钥，只在上游的仓库中运行；本 fork 以运行编号作为构建号。
-      - name: Get Release Info
-        if: ${{ github.repository == 'GeyserMC/Geyser' }}
-        id: release-info
-        uses: GeyserMC/actions/previous-release@master
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          appID: ${{ secrets.RELEASE_APP_ID }}
-          appPrivateKey: ${{ secrets.RELEASE_APP_PK }}
+          # 语言文件与映射数据在子模块中，缺了它们 Geyser 无法启动。
+          submodules: recursive
+          persist-credentials: false
 
-      - name: Setup Gradle
-        uses: GeyserMC/actions/setup-gradle-composite@master
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
-          setup-java_java-version: 25
+          java-version: '25'
+          distribution: 'temurin'
 
-      # MINEZ：先打包、上传构建产物，再运行测试，测试失败时也能下载到 jar（运行记录仍标为失败）。
-      - name: Build Geyser
-        run: ./gradlew assemble
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Build Geyser-Velocity
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :velocity:shadowJar --stacktrace
         env:
-          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease || github.run_number }}
+          BUILD_NUMBER: ${{ github.run_number }}
 
-      # MINEZ：本 fork 的 jar 带有版本号（例如 Geyser-Velocity-2.12.1-b1280.26.jar），上游的上传步骤找不到，另行上传。
-      - name: Archive MINEZ Artifacts
-        if: ${{ success() && github.repository != 'GeyserMC/Geyser' }}
+      - name: Upload Geyser-Velocity
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Geyser-Velocity
           path: bootstrap/velocity/build/libs/Geyser-Velocity-*.jar
           if-no-files-found: error
 
-      - name: Test Geyser
-        run: ./gradlew check
-        env:
-          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease || github.run_number }}
-
-      - name: Archive Artifacts
-        uses: GeyserMC/actions/upload-multi-artifact@master
-        if: ${{ success() && github.repository == 'GeyserMC/Geyser' }}
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          artifacts: |
-            bootstrap/mod/fabric/build/libs/Geyser-Fabric.jar
-            bootstrap/mod/neoforge/build/libs/Geyser-NeoForge.jar
-            bootstrap/standalone/build/libs/Geyser-Standalone.jar
-            bootstrap/spigot/build/libs/Geyser-Spigot.jar
-            bootstrap/bungeecord/build/libs/Geyser-BungeeCord.jar
-            bootstrap/velocity/build/libs/Geyser-Velocity.jar
-            bootstrap/viaproxy/build/libs/Geyser-ViaProxy.jar
+          submodules: recursive
+          persist-credentials: false
 
-      - name: Publish to Maven Repository
-        if: ${{ success() && github.repository == 'GeyserMC/Geyser' && (github.ref_name == 'master' || startsWith(github.ref_name, 'api/') || startsWith(github.ref_name, 'feature/')) }}
-        run: ./gradlew publish
-        env:
-          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease }}
-          ORG_GRADLE_PROJECT_geysermcUsername: ${{ vars.DEPLOY_USER }}
-          ORG_GRADLE_PROJECT_geysermcPassword: ${{ secrets.DEPLOY_PASS }}
-        
-      - name: Get Version
-        if: ${{ (success() || failure()) && github.repository == 'GeyserMC/Geyser' }}
-        id: get-version
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Run tests
         run: |
-          version=$(cat gradle.properties | grep -o "version=[0-9\\.]*" | cut -d"=" -f2)
-          echo "VERSION=${version}" >> $GITHUB_OUTPUT
+          chmod +x ./gradlew
+          ./gradlew :core:test --stacktrace
 
-      - name: Get Release Metadata
-        if: ${{ (success() || failure()) && github.repository == 'GeyserMC/Geyser' }}
-        uses: GeyserMC/actions/release@master
-        id: metadata
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          appID: ${{ secrets.RELEASE_APP_ID }}
-          appPrivateKey: ${{ secrets.RELEASE_APP_PK }}
-          files: |
-            bungeecord:bootstrap/bungeecord/build/libs/Geyser-BungeeCord.jar
-            fabric:bootstrap/mod/fabric/build/libs/Geyser-Fabric.jar
-            neoforge:bootstrap/mod/neoforge/build/libs/Geyser-NeoForge.jar
-            spigot:bootstrap/spigot/build/libs/Geyser-Spigot.jar
-            standalone:bootstrap/standalone/build/libs/Geyser-Standalone.jar
-            velocity:bootstrap/velocity/build/libs/Geyser-Velocity.jar
-            viaproxy:bootstrap/viaproxy/build/libs/Geyser-ViaProxy.jar
-          releaseEnabled: false
-          saveMetadata: true
-          releaseProject: 'geyser'
-          releaseVersion: ${{ steps.get-version.outputs.VERSION }}
-
-      - name: Publish to Downloads API
-        if: ${{ success() && github.repository == 'GeyserMC/Geyser' && github.ref_name == 'master' }}
-        uses: GeyserMC/actions/upload-release@master
-        with:
-          username: ${{ vars.DOWNLOADS_USERNAME }}
-          privateKey: ${{ secrets.DOWNLOADS_PRIVATE_KEY }}
-          host: ${{ secrets.DOWNLOADS_SERVER_IP }}
-          files: |
-            bootstrap/bungeecord/build/libs/Geyser-BungeeCord.jar
-            bootstrap/mod/fabric/build/libs/Geyser-Fabric.jar
-            bootstrap/mod/neoforge/build/libs/Geyser-NeoForge.jar
-            bootstrap/spigot/build/libs/Geyser-Spigot.jar
-            bootstrap/standalone/build/libs/Geyser-Standalone.jar
-            bootstrap/velocity/build/libs/Geyser-Velocity.jar
-            bootstrap/viaproxy/build/libs/Geyser-ViaProxy.jar
-          changelog: ${{ steps.metadata.outputs.body }}
-
-      - name: Publish to Modrinth
-        if: ${{ success() && github.repository == 'GeyserMC/Geyser' && github.ref_name == 'master' }}
-        env:
-          CHANGELOG: ${{ steps.metadata.outputs.body }}
-          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease }}
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-        run: ./gradlew modrinth
-
-      - name: Notify Discord
-        if: ${{ (success() || failure()) && github.repository == 'GeyserMC/Geyser' }}
-        uses: GeyserMC/actions/notify-discord@master
-        with:
-          discordWebhook: ${{ secrets.DISCORD_WEBHOOK }}
-          status: ${{ job.status }}
-          body: ${{ steps.metadata.outputs.body }}
-          includeDownloads: ${{ github.ref_name == 'master' }}
+          name: Test-Reports
+          path: core/build/reports/tests/test
+          if-no-files-found: ignore

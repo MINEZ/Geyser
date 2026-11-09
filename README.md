@@ -102,6 +102,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Packets the client cannot decode | Behaviour | Changed |
 | Teleports during 1.21.130 loading screens | Behaviour | Changed |
 | Artifact file names | Build | Changed |
+| GitHub Actions | Build | Changed |
 | Version string | Build | Changed |
 | Startup notice and support links | Behaviour | Changed |
 
@@ -197,6 +198,8 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
 **Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.28.jar`, so builds can be told apart at a glance.
+
+**GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
 **Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.28 (git-master-abc1234)`.
 
