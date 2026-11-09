@@ -30,6 +30,7 @@ import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
+import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.text.SpriteGlyphs;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,7 @@ class MinezClientUiTest {
     @AfterEach
     void clear() {
         SpriteGlyphs.setAnimated(Map.of());
+        ModelIcons.set(Map.of());
     }
 
     private static TextPacket text(TextPacket.Type type, String message) {
@@ -86,6 +88,7 @@ class MinezClientUiTest {
         try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
             protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
             SpriteGlyphs.setAnimated(Map.of("\uF1F1\uF1F2", Map.of("texture", "textures/minez/anim/item.title.builder", "frames", 8L)));
+            ModelIcons.set(Map.of("minez:dark_star_wings", Map.of("entity", "minez:icon_dark_star_wings", "scale", 1.0)));
             MinezClientUi ui = new MinezClientUi(session);
 
             // 模组就绪之前照旧，不另发。
@@ -103,6 +106,9 @@ class MinezClientUiTest {
             Map<?, ?> sprite = (Map<?, ?>) ((Map<?, ?>) config.get("sprites")).get("\uF1F1\uF1F2");
             assertEquals("textures/minez/anim/item.title.builder", sprite.get("texture"));
             assertEquals(8L, ((Number) sprite.get("frames")).longValue());
+            // 3D 物品图标的表随配置发出。
+            Map<?, ?> icon = (Map<?, ?>) ((Map<?, ?>) config.get("icons")).get("minez:dark_star_wings");
+            assertEquals("minez:icon_dark_star_wings", icon.get("entity"));
 
             // 聊天栏消息：照常发出，另发给模组；有发送者名字的按原版写成 <名字> 消息。
             assertFalse(ui.beforeSend(text(TextPacket.Type.SYSTEM, "§a起源开发组\uF1F1\uF1F2：大家好")));

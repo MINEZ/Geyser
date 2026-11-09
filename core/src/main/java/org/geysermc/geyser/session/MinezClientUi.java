@@ -32,6 +32,7 @@ import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
+import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.text.SpriteGlyphs;
 import org.geysermc.geyser.util.PlayerListUtils;
 
@@ -59,7 +60,8 @@ public final class MinezClientUi {
     public static final String NAMESPACE = NeteasePyRpc.MENU_NAMESPACE;
     public static final String SYSTEM = NeteasePyRpc.MENU_SYSTEM;
     /**
-     * 模组就绪后发出的配置：{@code chat} 为 1 时模组接管聊天栏，{@code sprites} 为动态图标的表。
+     * 模组就绪后发出的配置：{@code chat} 为 1 时模组接管聊天栏，{@code sprites} 为动态图标的表，{@code icons} 为物品栏中实时渲染的
+     * 3D 物品图标的表（见 {@link ModelIcons}）。
      */
     public static final String CONFIG_EVENT = "ClientConfig";
     /**
@@ -110,6 +112,7 @@ public final class MinezClientUi {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("chat", 1);
         data.put("sprites", SpriteGlyphs.animated());
+        data.put("icons", ModelIcons.icons());
         send(CONFIG_EVENT, data);
         ready = true;
         selfNameChanged();
