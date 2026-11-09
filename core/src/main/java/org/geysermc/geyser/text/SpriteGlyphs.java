@@ -101,7 +101,7 @@ public final class SpriteGlyphs {
 
     /**
      * 把文字中第一个多块拼成的动态图标（例如称号）换到下一行：去掉它前面的空格，前面的颜色与格式代码移到换行之后。
-     * 用于玩家列表中的名字：暂停菜单中人物模型上方的名字因此显示为“名字”与“称号”两行。图标前面没有别的文字时原样返回。
+     * 用于发给 MINEZ 客户端模组的自己的名字：模组在暂停菜单的人物模型上方显示为“名字”与“称号”两行。图标前面没有别的文字时原样返回。
      */
     public static String groupOnNewLine(String text) {
         Set<Character> chars = groups;

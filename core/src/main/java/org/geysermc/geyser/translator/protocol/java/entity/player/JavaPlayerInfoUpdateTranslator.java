@@ -83,7 +83,7 @@ public class JavaPlayerInfoUpdateTranslator extends PacketTranslator<Clientbound
         }
 
         if (actions.contains(PlayerListEntryAction.UPDATE_DISPLAY_NAME)) {
-            // MINEZ：玩家列表的显示名（例如带颜色与称号）同样显示在基岩版的玩家列表中。已列出的玩家要重发一次条目，基岩版没有只改名字的操作；
+            // MINEZ：玩家列表的显示名（例如带颜色与称号）同样显示在基岩版的玩家列表中。已列出的玩家要移除后重发条目，基岩版没有只改名字的操作；
             // 同一个数据包中还要更新是否列出时，由下面统一发出。
             List<PlayerListPacket.Entry> toUpdate = new ArrayList<>();
             for (PlayerListEntry entry : packet.getEntries()) {
@@ -110,6 +110,12 @@ public class JavaPlayerInfoUpdateTranslator extends PacketTranslator<Clientbound
                 }
             }
             if (!toUpdate.isEmpty()) {
+                // 基岩版对已有的条目再发 ADD 不会更新名字，须先移除再加回。
+                List<PlayerListPacket.Entry> toRemove = new ArrayList<>(toUpdate.size());
+                for (PlayerListPacket.Entry entry : toUpdate) {
+                    toRemove.add(new PlayerListPacket.Entry(entry.getUuid()));
+                }
+                PlayerListUtils.batchSendPlayerList(session, toRemove, PlayerListPacket.Action.REMOVE);
                 PlayerListUtils.batchSendPlayerList(session, toUpdate, PlayerListPacket.Action.ADD);
             }
         }

@@ -71,7 +71,7 @@ public final class MinezClientUi {
      */
     public static final String PREVIEW_EVENT = "Preview";
     /**
-     * 自己在玩家列表中的名字：{@code text} 为基岩版格式的文字，称号在第二行（见 {@link PlayerListUtils#listName}）。模组用它在暂停菜单中
+     * 自己在玩家列表中的名字：{@code text} 为基岩版格式的文字，称号换到第二行（见 {@link SpriteGlyphs#groupOnNewLine}）。模组用它在暂停菜单中
      * 人物模型的上方显示名字与播放动画的称号，代替原版只能显示第一帧的名牌。
      */
     public static final String NAME_EVENT = "PlayerName";
@@ -155,7 +155,7 @@ public final class MinezClientUi {
     public void selfNameChanged() {
         String name = ready ? PlayerListUtils.listName(session.getPlayerEntity()) : null;
         if (name != null) {
-            send(NAME_EVENT, Map.of("text", name));
+            send(NAME_EVENT, Map.of("text", SpriteGlyphs.groupOnNewLine(name)));
         }
     }
 
