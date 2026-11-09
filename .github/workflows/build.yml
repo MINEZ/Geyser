@@ -24,7 +24,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # MINEZ：需要 GeyserMC 的私有密钥，只在上游的仓库中运行；本 fork 以运行编号作为构建号。
       - name: Get Release Info
+        if: ${{ github.repository == 'GeyserMC/Geyser' }}
         id: release-info
         uses: GeyserMC/actions/previous-release@master
         with:
@@ -36,14 +38,29 @@ jobs:
         with:
           setup-java_java-version: 25
 
+      # MINEZ：先打包、上传构建产物，再运行测试，测试失败时也能下载到 jar（运行记录仍标为失败）。
       - name: Build Geyser
-        run: ./gradlew build
+        run: ./gradlew assemble
         env:
-          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease }}
-          
+          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease || github.run_number }}
+
+      # MINEZ：本 fork 的 jar 带有版本号（例如 Geyser-Velocity-2.12.1-b1280.26.jar），上游的上传步骤找不到，另行上传。
+      - name: Archive MINEZ Artifacts
+        if: ${{ success() && github.repository != 'GeyserMC/Geyser' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Geyser-Velocity
+          path: bootstrap/velocity/build/libs/Geyser-Velocity-*.jar
+          if-no-files-found: error
+
+      - name: Test Geyser
+        run: ./gradlew check
+        env:
+          BUILD_NUMBER: ${{ steps.release-info.outputs.curentRelease || github.run_number }}
+
       - name: Archive Artifacts
         uses: GeyserMC/actions/upload-multi-artifact@master
-        if: success()
+        if: ${{ success() && github.repository == 'GeyserMC/Geyser' }}
         with:
           artifacts: |
             bootstrap/mod/fabric/build/libs/Geyser-Fabric.jar

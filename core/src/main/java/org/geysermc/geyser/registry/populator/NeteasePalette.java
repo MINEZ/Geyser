@@ -46,7 +46,7 @@ import java.util.Set;
  *     只影响以状态写出方块的地方（例如被活塞推动的方块）。</li>
  * </ol>
  * 物品表少教育版的 {@code minecraft:board} 与 {@code minecraft:chalkboard}，其余与国际版相同。物品的编号由服务端在进服时下发，
- * 资料中网易与国际版互换的几个编号因此不需要处理；自定义物品的编号从 {@link #CUSTOM_ITEM_ID_BASE} 起，避开网易自己的物品。
+ * 资料中网易与国际版互换的几个编号因此不需要处理。
  */
 public final class NeteasePalette {
     static final String CHALKBOARD = "minecraft:chalkboard";
@@ -54,12 +54,6 @@ public final class NeteasePalette {
     static final String CUSTOM_APPEARANCE = "custom_appearance";
     static final Set<String> CUSTOM_APPEARANCE_BLOCKS = Set.of("minecraft:crafting_table", "minecraft:furnace", "minecraft:lit_furnace");
     static final Set<String> REMOVED_ITEMS = Set.of("minecraft:board", "minecraft:chalkboard");
-    /**
-     * 网易客户端的自定义物品从这个编号起。国际版的自定义物品紧接着原版物品的编号（1.21.130 为 843 起），而网易客户端在原版物品之后
-     * 还有自己的物品，不在服务端下发的物品表中，撞号的自定义物品会显示成网易的物品（例如带附魔光效的调试棒）或透明。物品编号为
-     * 16 位有符号整数，这里留出足够的空隙。
-     */
-    static final int CUSTOM_ITEM_ID_BASE = 5000;
 
     private NeteasePalette() {
     }

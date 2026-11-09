@@ -248,11 +248,6 @@ public class ItemRegistryPopulator {
                 definitions.put(entry.getName(), definition);
                 registry.put(definition.getRuntimeId(), definition);
             }
-            if (palette.netease()) {
-                // MINEZ：网易客户端在原版物品之后还有自己的物品，自定义物品紧接着原版编号时会与它们撞号，见 NeteasePalette。
-                nextFreeBedrockId = Math.max(nextFreeBedrockId, NeteasePalette.CUSTOM_ITEM_ID_BASE);
-            }
-            int firstCustomBedrockId = nextFreeBedrockId;
 
             Object2ObjectMap<String, BlockDefinition> bedrockBlockIdOverrides = new Object2ObjectOpenHashMap<>();
             Object2IntMap<String> blacklistedIdentifiers = new Object2IntOpenHashMap<>();
@@ -779,10 +774,6 @@ public class ItemRegistryPopulator {
                     .build();
 
             // MINEZ：网易中国版客户端的物品表另行登记。
-            if (palette.netease() && nextFreeBedrockId > firstCustomBedrockId) {
-                GeyserImpl.getInstance().getLogger().debug("Custom items of the China Edition palette use IDs " + firstCustomBedrockId
-                    + " to " + (nextFreeBedrockId - 1));
-            }
             (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
 
             firstMappingsPass = false;
