@@ -46,7 +46,7 @@ import java.util.Set;
  *     只影响以状态写出方块的地方（例如被活塞推动的方块）。</li>
  * </ol>
  * 物品表少教育版的 {@code minecraft:board} 与 {@code minecraft:chalkboard}，其余与国际版相同。物品的编号由服务端在进服时下发，
- * 资料中网易与国际版互换的几个编号因此不需要处理。
+ * 资料中网易与国际版互换的几个编号因此不需要处理；自定义物品的编号跳过 {@link #RESERVED_ITEM_IDS}。
  */
 public final class NeteasePalette {
     static final String CHALKBOARD = "minecraft:chalkboard";
@@ -54,6 +54,13 @@ public final class NeteasePalette {
     static final String CUSTOM_APPEARANCE = "custom_appearance";
     static final Set<String> CUSTOM_APPEARANCE_BLOCKS = Set.of("minecraft:crafting_table", "minecraft:furnace", "minecraft:lit_furnace");
     static final Set<String> REMOVED_ITEMS = Set.of("minecraft:board", "minecraft:chalkboard");
+    /**
+     * 网易客户端自己的物品占用、自定义物品要跳过的编号。网易客户端在原版物品之外还有自己的物品，不在服务端下发的物品表中；自定义物品
+     * 的编号与它们相同时，客户端显示成网易的物品（例如带附魔光效的调试棒）或透明。下面是实测撞号的编号（1.21.130，MINEZ 的映射中
+     * 自定义物品紧接着原版物品编号时，金水盆、下界合金钱包与投名状分到的编号）；发现新的撞号时补在这里。不能把自定义物品整体挪到
+     * 更大的编号（试过从 5000 起，客户端一进服就闪退）。
+     */
+    static final Set<Integer> RESERVED_ITEM_IDS = Set.of(1276, 1280, 1281);
 
     private NeteasePalette() {
     }
@@ -121,6 +128,16 @@ public final class NeteasePalette {
     /**
      * 由国际版 1.21.130 的物品表生成网易的物品表：去掉网易客户端没有的物品，其余的编号不变。
      */
+    /**
+     * @return 从 id 起第一个没有被网易客户端自己的物品占用的编号。
+     */
+    static int nextFreeItemId(int id) {
+        while (RESERVED_ITEM_IDS.contains(id)) {
+            id++;
+        }
+        return id;
+    }
+
     static List<PaletteItem> items(List<PaletteItem> vanillaItems) {
         List<PaletteItem> items = new ArrayList<>(vanillaItems.size());
         for (PaletteItem item : vanillaItems) {

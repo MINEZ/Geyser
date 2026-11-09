@@ -205,4 +205,13 @@ class NeteasePaletteTest {
             }
         }
     }
+
+    @Test
+    void skipsIdsOfNeteaseItems() {
+        // 网易客户端自己的物品占用的编号跳过，其余照常顺延。
+        assertEquals(1275, NeteasePalette.nextFreeItemId(1275));
+        assertEquals(1277, NeteasePalette.nextFreeItemId(1276));
+        assertEquals(1282, NeteasePalette.nextFreeItemId(1280));
+        assertEquals(1282, NeteasePalette.nextFreeItemId(1281));
+    }
 }

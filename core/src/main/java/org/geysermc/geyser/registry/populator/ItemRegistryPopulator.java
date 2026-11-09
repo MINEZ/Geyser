@@ -468,6 +468,10 @@ public class ItemRegistryPopulator {
                                     if (valid) {
                                         if (customBlockItemOverride != null && customBlockData != null) {
                                             // Assuming this is a valid custom block override we'll just register it now while we have the creative item
+                                            if (palette.netease()) {
+                                                // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+                                                nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
+                                            }
                                             int customProtocolId = nextFreeBedrockId++;
                                             mappingItem = mappingItem.withBedrockData(customProtocolId);
                                             bedrockIdentifier = customBlockData.identifier();
@@ -528,6 +532,10 @@ public class ItemRegistryPopulator {
                     customItemDefinitions = MultimapBuilder.hashKeys(customItemsToLoad.size()).treeSetValues(new CustomItemDefinitionComparator()).build();
 
                     for (CustomItemDefinition customItem : customItemsToLoad) {
+                        if (palette.netease()) {
+                            // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+                            nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
+                        }
                         int customProtocolId = nextFreeBedrockId++;
 
                         Identifier customItemIdentifier = customItem.bedrockIdentifier();
@@ -635,6 +643,14 @@ public class ItemRegistryPopulator {
                     throw new IllegalStateException("Custom item java id " + customItem.javaId() + " already exists and was registered again!");
                 }
 
+                if (palette.netease()) {
+
+                    // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+
+                    nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
+
+                }
+
                 int customItemId = nextFreeBedrockId++;
                 try {
                     NonVanillaItemRegistration registration = CustomItemRegistryPopulator.registerCustomItem(customItem, customItemId, palette.protocolVersion, firstMappingsPass);
@@ -685,6 +701,14 @@ public class ItemRegistryPopulator {
                 // registry, so we don't need to do anything here.
                 if (customBlock instanceof NonVanillaCustomBlockData) {
                     continue;
+                }
+
+                if (palette.netease()) {
+
+                    // MINEZ：跳过网易客户端自己的物品占用的编号，见 NeteasePalette。
+
+                    nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
+
                 }
 
                 int customProtocolId = nextFreeBedrockId++;
@@ -773,6 +797,13 @@ public class ItemRegistryPopulator {
                     .customBlockItemDefinitions(customBlockItemDefinitions)
                     .build();
 
+            if (palette.netease()) {
+                // MINEZ：写出网易物品表中每个自定义物品的编号，用来查明哪些编号与网易客户端自己的物品撞号（显示成别的物品或透明）。
+                customIdMappings.int2ObjectEntrySet().stream()
+                    .sorted(Comparator.comparingInt(Int2ObjectMap.Entry::getIntKey))
+                    .forEach(entry -> GeyserImpl.getInstance().getLogger().debug("China Edition custom item ID "
+                        + entry.getIntKey() + ": " + entry.getValue()));
+            }
             // MINEZ：网易中国版客户端的物品表另行登记。
             (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
 
