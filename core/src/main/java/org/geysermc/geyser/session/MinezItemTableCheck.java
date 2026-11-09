@@ -54,6 +54,9 @@ import java.util.TreeMap;
  * 中收到要读的编号范围与一个用来自检的原版物品，用隐藏的物品图标控件按编号读出客户端认为的物品名，以 {@code ItemTable} 事件分批发回：
  * {@code {"part": 序号, "parts": 总批数, "items": [[编号, 物品名], ...]}}；读不出时为 {@code {"unsupported": 说明}}。
  * <p>
+ * 网易自己的物品只随客户端版本变化，Geyser 每次启动后只核对一次：在得到第一份完整的结果之前，每个会话都会请求；之后的会话不再请求，
+ * 客户端不必再花约一分钟读表。
+ * <p>
  * 收齐后与这个会话下发的物品表以及网易客户端自己的物品（{@link NeteasePalette#neteaseItems()}）逐个编号比对，有问题的写进日志
  * （每次启动内，同样的结果只记一次），完整的结果写进 Geyser 的配置目录中的 {@value #FILE_NAME}。下列情况不算问题：两边的名字相同；
  * 客户端读出的是另一个名字、而这个名字也在下发的表中（旧物品的别名，例如 {@code minecraft:wool} 读出为 {@code minecraft:white_wool}）；
@@ -75,6 +78,10 @@ final class MinezItemTableCheck {
     private static final int MAX_NAME_LENGTH = 128;
     private static final int MAX_LOGGED = 200;
     private static volatile String lastReport;
+    /**
+     * 这次启动后是否已经得到完整的结果。
+     */
+    private static volatile boolean checked;
 
     private final GeyserSession session;
     private final Int2ObjectMap<String> table = new Int2ObjectOpenHashMap<>();
@@ -88,9 +95,12 @@ final class MinezItemTableCheck {
     }
 
     /**
-     * @return 随 ClientConfig 发给模组的请求；下发的物品表中没有用来自检的物品时为 null，不核对。
+     * @return 随 ClientConfig 发给模组的请求；这次启动后已经核对过、或下发的物品表中没有用来自检的物品时为 null，不核对。
      */
     @Nullable Map<String, Object> request() {
+        if (checked) {
+            return null;
+        }
         ItemDefinition check = session.getItemMappings().getDefinition(CHECK_ITEM);
         if (check == null) {
             return null;
@@ -163,6 +173,7 @@ final class MinezItemTableCheck {
         }
         report(message.toString(), !differences.isEmpty());
         write(differences);
+        checked = true;
     }
 
     /**

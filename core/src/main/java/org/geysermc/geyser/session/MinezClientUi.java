@@ -61,7 +61,7 @@ public final class MinezClientUi {
     public static final String SYSTEM = NeteasePyRpc.MENU_SYSTEM;
     /**
      * 模组就绪后发出的配置：{@code chat} 为 1 时模组接管聊天栏，{@code sprites} 为动态图标的表，{@code icons} 为物品栏中实时渲染的
-     * 3D 物品图标的表（见 {@link ModelIcons}）；每个会话的第一次另有 {@code item_table}，请模组读出网易客户端的物品表（见
+     * 3D 物品图标的表（见 {@link ModelIcons}）；Geyser 启动后、核对完成之前，每个会话的第一次另有 {@code item_table}，请模组读出网易客户端的物品表（见
      * {@link MinezItemTableCheck}）。
      */
     public static final String CONFIG_EVENT = "ClientConfig";
@@ -118,7 +118,7 @@ public final class MinezClientUi {
         data.put("sprites", SpriteGlyphs.animated());
         data.put("icons", ModelIcons.icons());
         if (!itemTableRequested) {
-            // 每个会话只请模组读一次网易客户端的物品表（切换维度时界面会重新初始化，模组再次就绪）。
+            // 每个会话最多请模组读一次网易客户端的物品表（切换维度时界面会重新初始化，模组再次就绪）；这次启动后已经核对过时不再请求。
             Map<String, Object> request = itemTableCheck.request();
             if (request != null) {
                 itemTableRequested = true;

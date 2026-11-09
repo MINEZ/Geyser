@@ -802,13 +802,6 @@ public class ItemRegistryPopulator {
                     .customBlockItemDefinitions(customBlockItemDefinitions)
                     .build();
 
-            if (palette.netease()) {
-                // MINEZ：写出网易物品表中每个自定义物品的编号，用来查明哪些编号与网易客户端自己的物品撞号（显示成别的物品或透明）。
-                customIdMappings.int2ObjectEntrySet().stream()
-                    .sorted(Comparator.comparingInt(Int2ObjectMap.Entry::getIntKey))
-                    .forEach(entry -> GeyserImpl.getInstance().getLogger().debug("China Edition custom item ID "
-                        + entry.getIntKey() + ": " + entry.getValue()));
-            }
             // MINEZ：网易中国版客户端的物品表另行登记。
             (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
 
