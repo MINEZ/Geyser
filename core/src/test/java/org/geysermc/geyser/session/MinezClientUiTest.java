@@ -92,7 +92,7 @@ class MinezClientUiTest {
             MinezClientUi ui = new MinezClientUi(session);
 
             // 模组就绪之前照旧，不另发。
-            assertFalse(ui.beforeSend(text(TextPacket.Type.SYSTEM, "你好")));
+            ui.beforeSend(text(TextPacket.Type.SYSTEM, "你好"));
             assertTrue(sent.isEmpty());
 
             // 1.4.0 之前的模组不会画聊天栏，照旧。
@@ -115,26 +115,21 @@ class MinezClientUiTest {
             assertEquals("minez:icon_dark_star_wings", icon.get("entity"));
 
             // 聊天栏消息：照常发出，另发给模组；有发送者名字的按原版写成 <名字> 消息。
-            assertFalse(ui.beforeSend(text(TextPacket.Type.SYSTEM, "§a起源开发组\uF1F1\uF1F2：大家好")));
+            ui.beforeSend(text(TextPacket.Type.SYSTEM, "§a起源开发组\uF1F1\uF1F2：大家好"));
             assertEquals("§a起源开发组\uF1F1\uF1F2：大家好", event(sent.get(1), "ChatMessage").get("text"));
             TextPacket chat = text(TextPacket.Type.CHAT, "你好");
             chat.setSourceName("Steve");
-            assertFalse(ui.beforeSend(chat));
+            ui.beforeSend(chat);
             assertEquals("<Steve> 你好", event(sent.get(2), "ChatMessage").get("text"));
 
             // 动作栏不在聊天栏中。
-            assertFalse(ui.beforeSend(text(TextPacket.Type.TIP, "动作栏")));
-            assertFalse(ui.beforeSend(text(TextPacket.Type.JUKEBOX_POPUP, "动作栏")));
+            ui.beforeSend(text(TextPacket.Type.TIP, "动作栏"));
+            ui.beforeSend(text(TextPacket.Type.JUKEBOX_POPUP, "动作栏"));
             assertEquals(3, sent.size());
 
-            // 预览：开头（颜色代码之后）为标记的系统消息不显示在聊天栏中，改为预览框，去掉标记。
-            assertTrue(ui.beforeSend(text(TextPacket.Type.SYSTEM, "§r§f" + MinezClientUi.PREVIEW_MARKER + "§7佩戴效果：Steve\uF1F1\uF1F2")));
-            assertEquals("§r§f§7佩戴效果：Steve\uF1F1\uF1F2", event(sent.get(3), "Preview").get("text"));
-            // 标记不在开头、或不是系统消息（例如玩家在聊天中打出这个字符）时照常显示。
-            assertFalse(ui.beforeSend(text(TextPacket.Type.SYSTEM, "Steve：" + MinezClientUi.PREVIEW_MARKER)));
-            assertFalse(ui.beforeSend(text(TextPacket.Type.CHAT, MinezClientUi.PREVIEW_MARKER + "你好")));
-            assertEquals(6, sent.size());
-            assertEquals("Steve：" + MinezClientUi.PREVIEW_MARKER, event(sent.get(4), "ChatMessage").get("text"));
+            // 复制到剪贴板：1.8.0 起的模组才能复制，更早的交给调用方另想办法。
+            assertFalse(ui.copyToClipboard("邀请码 ABC"));
+            assertEquals(3, sent.size());
         }
     }
 
@@ -161,13 +156,25 @@ class MinezClientUiTest {
     }
 
     @Test
+    void copiesToClipboardWithNewMods() throws Exception {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            MinezClientUi ui = new MinezClientUi(session);
+            assertFalse(ui.copyToClipboard("邀请码 ABC"));
+            ui.clientReady("1.8.0");
+            assertTrue(ui.copyToClipboard("邀请码 ABC"));
+            assertEquals("邀请码 ABC", event(sent.get(sent.size() - 1), "Clipboard").get("text"));
+        }
+    }
+
+    @Test
     void internationalSessionsAreUntouched() {
         try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
             protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(false);
             MinezClientUi ui = new MinezClientUi(session);
             ui.clientReady("1.4.0");
             assertFalse(ui.isReady());
-            assertFalse(ui.beforeSend(text(TextPacket.Type.SYSTEM, MinezClientUi.PREVIEW_MARKER + "预览")));
+            ui.beforeSend(text(TextPacket.Type.SYSTEM, "你好"));
             assertTrue(sent.isEmpty());
         }
     }

@@ -48,9 +48,6 @@ import java.util.Set;
  * 模组隐藏原版游戏画面中的聊天栏，自己画一个，在其中把这些字符换成播放动画的图片。此后每一条显示在聊天栏中的消息，除了照常发出
  * {@link TextPacket}（打开聊天界面后的历史消息仍由原版显示），还另以 {@value #CHAT_EVENT} 事件发给模组。
  * <p>
- * 以 U+E0FF 开头（前面只有颜色与格式代码）的系统消息（服务器只发给基岩版玩家）不显示在聊天栏中，改以 {@value #PREVIEW_EVENT}
- * 事件发给模组，由模组弹出预览框，例如佩戴称号后的效果。只认系统消息的开头，玩家在聊天中打出这个字符不会被当作预览。
- * <p>
  * 只对中国版会话、且模组为 {@link #MIN_MOD_VERSION} 起时生效；更早的模组或没有就绪时一切照旧。
  */
 public final class MinezClientUi {
@@ -70,20 +67,21 @@ public final class MinezClientUi {
      */
     public static final String CHAT_EVENT = "ChatMessage";
     /**
-     * 弹出预览框：{@code text} 为预览的文字。
-     */
-    public static final String PREVIEW_EVENT = "Preview";
-    /**
      * 自己在玩家列表中的名字：{@code text} 为基岩版格式的文字，称号换到第二行（见 {@link SpriteGlyphs#groupOnNewLine}）。模组用它在暂停菜单中
      * 人物模型的上方显示名字与播放动画的称号，代替原版只能显示第一帧的名牌。
      */
     public static final String NAME_EVENT = "PlayerName";
     /**
-     * 消息中带有这个字符时（服务器以 {@code <&chr[E0FF]>} 写出）不显示在聊天栏中，改为预览框。
+     * 复制到剪贴板：{@code text} 为要复制的文字，模组以网易的 SetClipboardContent 写入系统剪贴板。对话框中“复制到剪贴板”的按钮
+     * （Java 版的 copy_to_clipboard 动作）在基岩版中由此实现，见 {@link #copyToClipboard}。
      */
-    public static final String PREVIEW_MARKER = "\uE0FF";
+    public static final String CLIPBOARD_EVENT = "Clipboard";
     /**
-     * 能显示动态图标与预览框的模组的最低版本。
+     * 能复制到剪贴板的模组的最低版本。
+     */
+    public static final MinezClientMod.Version CLIPBOARD_MOD_VERSION = new MinezClientMod.Version(1, 8, 0);
+    /**
+     * 能显示动态图标的模组的最低版本。
      */
     public static final MinezClientMod.Version MIN_MOD_VERSION = new MinezClientMod.Version(1, 4, 0);
 
@@ -96,6 +94,7 @@ public final class MinezClientUi {
     private final GeyserSession session;
     private final MinezItemTableCheck itemTableCheck;
     private volatile boolean ready;
+    private volatile MinezClientMod.@Nullable Version version;
     private boolean itemTableRequested;
 
     MinezClientUi(GeyserSession session) {
@@ -126,6 +125,7 @@ public final class MinezClientUi {
             }
         }
         send(CONFIG_EVENT, data);
+        this.version = loaded;
         ready = true;
         selfNameChanged();
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
@@ -142,27 +142,15 @@ public final class MinezClientUi {
     }
 
     /**
-     * 发给客户端之前调用。
-     *
-     * @return 是否不要照常发出这个数据包（预览框的消息）。
+     * 发给客户端之前调用：聊天栏中的消息另发给模组。
      */
-    boolean beforeSend(BedrockPacket packet) {
+    void beforeSend(BedrockPacket packet) {
         if (!ready || !(packet instanceof TextPacket text) || !CHAT_TYPES.contains(text.getType())) {
-            return false;
+            return;
         }
         String message = text.getMessage();
         if (message == null) {
-            return false;
-        }
-        if (text.getType() == TextPacket.Type.SYSTEM) {
-            int start = 0;
-            while (start + 1 < message.length() && message.charAt(start) == '\u00a7') {
-                start += 2;
-            }
-            if (message.startsWith(PREVIEW_MARKER, start)) {
-                send(PREVIEW_EVENT, Map.of("text", message.substring(0, start) + message.substring(start + PREVIEW_MARKER.length())));
-                return true;
-            }
+            return;
         }
         String source = text.getSourceName();
         if (text.getType() == TextPacket.Type.CHAT && source != null && !source.isEmpty()) {
@@ -170,7 +158,6 @@ public final class MinezClientUi {
             message = "<" + source + "> " + message;
         }
         send(CHAT_EVENT, Map.of("text", message));
-        return false;
     }
 
     /**
@@ -181,6 +168,20 @@ public final class MinezClientUi {
         if (name != null) {
             send(NAME_EVENT, Map.of("text", SpriteGlyphs.groupOnNewLine(name)));
         }
+    }
+
+    /**
+     * 请模组把文字复制到系统剪贴板。
+     *
+     * @return 是否已交给模组；模组没有就绪或版本太旧时为 false，由调用方另想办法（例如显示文字让玩家自己复制）。
+     */
+    public boolean copyToClipboard(String text) {
+        MinezClientMod.Version loaded = version;
+        if (!ready || loaded == null || loaded.compareTo(CLIPBOARD_MOD_VERSION) < 0) {
+            return false;
+        }
+        send(CLIPBOARD_EVENT, Map.of("text", text));
+        return true;
     }
 
     private boolean isNetease() {

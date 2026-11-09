@@ -64,6 +64,7 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.Clientbound
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -257,11 +258,20 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             commandData.add(createFakeHelpCommand());
         }
 
+        // MINEZ：按名字排序，同样的命令每次得到同样的包（枚举改名的结果也相同），以便认出重复的命令表。
+        commandData.sort(Comparator.comparing(CommandData::getName));
         assignUniqueEnumNames(commandData);
 
         if (session.getGeyser().platformType() == PlatformType.STANDALONE) {
             session.getGeyser().commandRegistry().export(session, commandData, knownAliases);
         }
+
+        if (commandData.equals(session.getSentCommands())) {
+            // MINEZ：与上次发出的完全相同（Java 服务器常在进服时连发两次），不再重发，见 GeyserSession#getSentCommands。
+            session.getGeyser().getLogger().debug("Skipping a command packet identical to the last one");
+            return;
+        }
+        session.setSentCommands(commandData);
 
         // Add our commands to the AvailableCommandsPacket for the bedrock client
         AvailableCommandsPacket availableCommandsPacket = new AvailableCommandsPacket();

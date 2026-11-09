@@ -62,10 +62,12 @@ public interface DialogAction {
             return Optional.of(DynamicRunCommand.read(map.getString("template")));
         } else if (type.equals(DynamicCustom.TYPE)) {
             return Optional.of(new DynamicCustom(MinecraftKey.key(map.getString("id")), map.getCompound("additions")));
+        } else if (type.equals(CopyToClipboard.TYPE)) {
+            return Optional.of(new CopyToClipboard(map.getString("value")));
         }
 
         // Unknown or unsupported type
-        // Currently unsupported types are: suggest_command, change_page, copy_to_clipboard
+        // Currently unsupported types are: suggest_command, change_page
         // open_file is not supported by Java in dialogs
         return Optional.empty();
     }
@@ -87,6 +89,19 @@ public interface DialogAction {
         @Override
         default void run(GeyserSession session, ParsedInputs inputs) {
             throw new IllegalCallerException("Should be implemented elsewhere to run with a confirmation form");
+        }
+    }
+
+    /**
+     * MINEZ：复制到剪贴板。基岩版的表单不能直接复制，交给 MINEZ 客户端模组写入剪贴板，没有模组时显示文字让玩家自己复制，见 DialogHolder。
+     */
+    record CopyToClipboard(String value) implements DialogAction {
+
+        public static final Key TYPE = MinecraftKey.key("copy_to_clipboard");
+
+        @Override
+        public void run(GeyserSession session, ParsedInputs inputs) {
+            throw new IllegalCallerException("Should be implemented elsewhere to open a form when the client mod cannot copy");
         }
     }
 

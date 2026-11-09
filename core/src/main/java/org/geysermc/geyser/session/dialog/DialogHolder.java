@@ -30,6 +30,7 @@ import lombok.experimental.Accessors;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.cumulus.form.CustomForm;
 import org.geysermc.cumulus.form.ModalForm;
 import org.geysermc.cumulus.form.SimpleForm;
 import org.geysermc.geyser.session.GeyserSession;
@@ -385,6 +386,13 @@ public final class DialogHolder implements TextTranslator {
             } else if (action instanceof DialogAction.OpenUrl(String url)) {
                 showUrl(url);
                 return false;
+            } else if (action instanceof DialogAction.CopyToClipboard(String value)) {
+                // MINEZ：由客户端模组复制；不能时显示文字，让玩家自己选中复制。
+                if (session.getMinezClientUi().copyToClipboard(value)) {
+                    return true;
+                }
+                showCopyText(value);
+                return false;
             } else {
                 action.run(session, inputs);
                 return !(action instanceof DialogAction.ShowDialog);
@@ -449,6 +457,26 @@ public final class DialogHolder implements TextTranslator {
                 .title("chat.link.open")
                 .content(content)
                 .button("gui.ok")
+                .resultHandler((form, result) -> {
+                    if (stillValid()) {
+                        if (shouldClose) {
+                            manager.close();
+                        } else {
+                            runAfterAction();
+                        }
+                    }
+                })
+                .build());
+    }
+
+    /**
+     * MINEZ：不能直接复制到剪贴板时，在输入框中显示要复制的文字，玩家可以自己选中复制。关闭后照常执行 after action。
+     */
+    private void showCopyText(String value) {
+        session.sendDialogForm(CustomForm.builder()
+                .translator(MinecraftLocale::getLocaleString, session.locale())
+                .title("chat.copy")
+                .input("", "", value)
                 .resultHandler((form, result) -> {
                     if (stillValid()) {
                         if (shouldClose) {

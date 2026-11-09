@@ -73,6 +73,7 @@ import org.cloudburstmc.protocol.bedrock.data.PlayerPermission;
 import org.cloudburstmc.protocol.bedrock.data.ServerConfigurationJoinInfo;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
 import org.cloudburstmc.protocol.bedrock.data.SpawnBiomeType;
+import org.cloudburstmc.protocol.bedrock.data.command.CommandData;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandEnumData;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandPermission;
 import org.cloudburstmc.protocol.bedrock.data.command.SoftEnumUpdateType;
@@ -404,6 +405,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      */
     @Setter
     private List<String> restrictedCommands = List.of();
+    /**
+     * MINEZ：上一次发给客户端的命令（AvailableCommandsPacket 的内容）。Java 服务器常在进服时连发两次相同的命令表；客户端把后一次的
+     * 命令并进已有的命令表，开发版客户端会报 help 重复注册、重载交错与枚举重复。相同的命令表不再重发，见 JavaCommandsTranslator。
+     */
+    @Setter
+    private List<CommandData> sentCommands = List.of();
 
     /**
      * Whether the client is currently closing an inventory.
@@ -2247,9 +2254,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      * @param packet the bedrock packet from the Cloudburst protocol lib
      */
     public void sendUpstreamPacket(BedrockPacket packet) {
-        if (minezClientUi.beforeSend(packet)) {
-            return;
-        }
+        minezClientUi.beforeSend(packet);
         upstream.sendPacket(packet);
     }
 
@@ -2259,9 +2264,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      * @param packet the bedrock packet from the Cloudburst protocol lib
      */
     public void sendUpstreamPacketImmediately(BedrockPacket packet) {
-        if (minezClientUi.beforeSend(packet)) {
-            return;
-        }
+        minezClientUi.beforeSend(packet);
         upstream.sendPacketImmediately(packet);
     }
 
