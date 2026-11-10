@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.34-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.35-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -199,19 +199,19 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Teleports during 1.21.130 loading screens.** A China Edition 1.21.130 client was seen to ignore the `MovePlayer` packets sent to it while a loading screen is up, after joining and while changing dimension (which is also how Geyser moves a player between servers behind a proxy), and to stand where the last `RespawnPacket` put it when the screen closes; international 1.21.130 shares its protocol and is handled the same way. Upstream stops waiting for the client to confirm a teleport when the server teleports the player again to the same spot, as plugins often do on join, assuming the client is already there. On 1.21.130 the client was not, so Geyser took its stale position as movement, rejected it as moving too quickly, and sent corrections that the client also ignored: after a server switch the player was left at the placeholder position high above the world, and fell. For protocols below 26.40, a teleport to the same spot as one still unconfirmed now keeps waiting, the player's movement is ignored until the client arrives, and the teleport is sent again as soon as the client reports that it finished loading or changing dimension. 26.40 and newer behave as upstream.
 
-**Assertions in China Edition's development client.** NetEase's development client stops on debug assertions that release clients compile out, and several were hit by upstream's own logic. Java servers often send the command tree twice in a row when a player joins, and the client adds the second `AvailableCommands` packet to the commands it already has, reporting `help` as registered twice, overloads added interleaved and duplicate enum values; Geyser now sorts the commands by name and skips a packet identical to the last one sent in that session. Bedrock clients have a `help` of their own, which handles `/help` on the client; upstream sends `help` anyway so that `/help` reaches the server, and NetEase's development client then reports `help` as registered twice, overloads added interleaved and a duplicate enum value. Development clients (Mod PC and the like) log in to NetEase's test environment, whose `env` is not `obt`, or with a self-signed chain, so Geyser leaves out `help` and `?` for them, and players on the release client keep `/help`. Commands are no longer merged into `help` (the check was one-sided), the fake `help` is added only when no command uses that name, and hard enums sharing a name but not their values, such as `add` in `tag` and in `team`, are renamed `add_2` and so on, since the client merges enums by name. The placeholder items Geyser puts into inventories, the barriers in padded chests, the upgrade template of the old smithing table and the totem shown during its animation, now carry an item network ID. The creative crafting grid is left empty instead of filled with barriers: on closing the inventory, the client moves what is in the crafting grid back into the inventory, and its requests to move the barriers were all rejected.
+**Assertions in China Edition's development client.** NetEase's development client stops on debug assertions that release clients compile out, and several were hit by upstream's own logic. Java servers often send the command tree twice in a row when a player joins, and the client adds the second `AvailableCommands` packet to the commands it already has, reporting `help` as registered twice, overloads added interleaved and duplicate enum values; Geyser now sorts the commands by name and skips a packet identical to the last one sent in that session. Bedrock clients have a `help` of their own, which handles `/help` on the client; upstream sends `help` anyway so that `/help` reaches the server, and NetEase's development client then reports `help` as registered twice, overloads added interleaved and a duplicate enum value. Development clients (Mod PC and the like) log in to NetEase's test environment, whose `env` is not `obt`, or with a self-signed chain, so Geyser leaves out `help` and `?` for them, and players on the release client keep `/help`. The China Edition client also adds a new `AvailableCommands` packet to the commands it already has, for example after a server switch or on becoming an operator, instead of replacing them, so Geyser sends China Edition clients only the commands they do not have yet, renaming any hard enum whose name was already sent (`add_2` and so on). Commands are no longer merged into `help` (the check was one-sided), the fake `help` is added only when no command uses that name, and hard enums sharing a name but not their values, such as `add` in `tag` and in `team`, are renamed `add_2` and so on, since the client merges enums by name. The placeholder items Geyser puts into inventories, the barriers in padded chests, the upgrade template of the old smithing table and the totem shown during its animation, now carry an item network ID. The creative crafting grid is left empty instead of filled with barriers: on closing the inventory, the client moves what is in the crafting grid back into the inventory, and its requests to move the barriers were all rejected.
 
 **Copying to the clipboard.** Bedrock forms cannot copy text, so a dialog button with a `copy_to_clipboard` action used to do nothing. With MINEZ's client mod from version 1.8.0, Geyser sends the text to the mod as a `Clipboard` event and the mod writes it to the system clipboard with NetEase's `SetClipboardContent`; the dialog's after action then runs as on Java. Without the mod, Geyser opens a form with the text in an input box, which players can select and copy themselves.
 
-**Text display movement.** Java moves a display entity smoothly over its `teleport_duration` ticks, while the Bedrock client interpolates a move for about three ticks, so a text display moved every four ticks, such as a waypoint, stuttered. Geyser now sends one intermediate position per tick over the display's teleport duration.
+**Text display movement.** Java moves a display entity smoothly over its `teleport_duration` ticks, while the Bedrock client interpolates a move for about three ticks, so a text display moved every four ticks, such as a waypoint, stuttered. Geyser now sends one intermediate position per tick over the display's teleport duration. In debug mode, Geyser also logs every item stack request with its response, to look into the item assertions of the development client.
 
 **Sprite sizes and world texts with the MINEZ client mod.** Bedrock draws a glyph at its pixel size, about 0.8 UI units per pixel, so a 16-pixel sprite is about 1.6 times its Java size, and glyph pages have no setting for the drawn size. A custom mappings file may carry a `text_icons` section, keyed by the glyph character of each sprite (the single glyph of a picture made of several tiles), with the texture holding every sprite (`texture`), the sprite's position in it in pixels (`u`, `v`), its size (`frame_width`, `frame_height`) and its number of tiles (`tiles`). Geyser sends this table to MINEZ's client mod from version 1.9.0 as `images` in `ClientConfig`, and the mod draws these characters as pictures in the text it lays out itself, 8 UI units per tile as on Java, with the texture at its own resolution. Name tags are drawn by Bedrock, so a text display whose text contains such a character is not given a name tag for such a mod; Geyser sends the text as a `WorldText` event with the entity ID instead (and the ID alone when it is removed), and the mod shows it on a screen bound to that entity. Should the mod fail to bind one, it sends `WorldTextFailed` and Geyser goes back to name tags for that session.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.34.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.35.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.34 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.35 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -227,19 +227,19 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.34.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.34.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.34.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.34.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.34.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.34.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.34.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.35.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.35.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.35.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.35.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.35.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.35.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.35.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.34`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.35`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
@@ -248,7 +248,7 @@ The version follows upstream's own release numbering, with this fork's revision 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.34` to `2.12.1-b1280.35`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.35` to `2.12.1-b1280.36`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 

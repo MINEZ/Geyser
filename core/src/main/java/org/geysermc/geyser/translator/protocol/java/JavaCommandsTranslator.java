@@ -50,6 +50,7 @@ import org.geysermc.geyser.api.event.java.ServerDefineCommandsEvent;
 import org.geysermc.geyser.api.util.PlatformType;
 import org.geysermc.geyser.command.CommandRegistry;
 import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.auth.NeteaseProfile;
 import org.geysermc.geyser.registry.java.JavaRegistries;
@@ -276,6 +277,14 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             return;
         }
         session.setSentCommands(commandData);
+        if (GameProtocol.isNeteaseCodec(session.getUpstream().getSession().getCodec())) {
+            // MINEZ：网易客户端把新的命令表并进已有的命令，只发它还没有的命令，见 GeyserSession#getSentCommandNames。
+            commandData = newCommandsOnly(commandData, session.getSentCommandNames(), session.getSentEnumNames());
+            if (commandData.isEmpty()) {
+                session.getGeyser().getLogger().debug("No new commands to send to the China Edition client");
+                return;
+            }
+        }
 
         // Add our commands to the AvailableCommandsPacket for the bedrock client
         AvailableCommandsPacket availableCommandsPacket = new AvailableCommandsPacket();
@@ -438,6 +447,74 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
                 }
             }
         }
+    }
+
+    /**
+     * MINEZ：只留下客户端还没有的命令（按名字），其中的硬枚举（包括别名枚举）若与已发过的同名，依次改名为 {@code name_2}、
+     * {@code name_3}…，并记下这次发出的命令名与枚举名。客户端把命令表并进已有的命令时，就不会有重复的命令与枚举。
+     * 命令的参数改变时（例如换到另一个服务器），客户端仍是第一次发去的样子，与客户端自己合并时的结果相同。
+     *
+     * @param commands     这次的命令（已按名字排序、同一包中的枚举名已唯一，见 {@link #assignUniqueEnumNames}）
+     * @param sentCommands 已发过的命令名，会加上这次发出的
+     * @param sentEnums    已发过的硬枚举名，会加上这次发出的
+     * @return 要发出的命令
+     */
+    static List<CommandData> newCommandsOnly(List<CommandData> commands, Set<String> sentCommands, Set<String> sentEnums) {
+        List<CommandData> fresh = new ArrayList<>();
+        for (CommandData command : commands) {
+            if (!sentCommands.contains(command.getName())) {
+                fresh.add(command);
+            }
+        }
+        // 新名字既不能与已发过的重名，也不能与这次的其他枚举重名。
+        Set<String> used = new HashSet<>(sentEnums);
+        for (CommandData command : fresh) {
+            if (command.getAliases() != null) {
+                used.add(command.getAliases().getName());
+            }
+            for (CommandOverloadData overload : command.getOverloads()) {
+                for (CommandParamData param : overload.getOverloads()) {
+                    if (param.getEnumData() != null && !param.getEnumData().isSoft()) {
+                        used.add(param.getEnumData().getName());
+                    }
+                }
+            }
+        }
+        Map<CommandEnumData, CommandEnumData> renamed = new IdentityHashMap<>();
+        java.util.function.Function<CommandEnumData, CommandEnumData> unique = original -> renamed.computeIfAbsent(original, e -> {
+            if (!sentEnums.contains(e.getName())) {
+                return e;
+            }
+            for (int suffix = 2; ; suffix++) {
+                String name = e.getName() + "_" + suffix;
+                if (used.add(name)) {
+                    return new CommandEnumData(name, e.getValues(), e.isSoft());
+                }
+            }
+        });
+        List<CommandData> result = new ArrayList<>();
+        for (CommandData command : fresh) {
+            for (CommandOverloadData overload : command.getOverloads()) {
+                for (CommandParamData param : overload.getOverloads()) {
+                    CommandEnumData enumData = param.getEnumData();
+                    if (enumData != null && !enumData.isSoft()) {
+                        param.setEnumData(unique.apply(enumData));
+                    }
+                }
+            }
+            CommandEnumData aliases = command.getAliases();
+            CommandEnumData newAliases = aliases == null ? null : unique.apply(aliases);
+            if (newAliases != aliases) {
+                command = new CommandData(command.getName(), command.getDescription(), command.getFlags(), command.getPermission(),
+                    newAliases, command.getSubcommands(), command.getOverloads());
+            }
+            result.add(command);
+        }
+        for (CommandData command : result) {
+            sentCommands.add(command.getName());
+        }
+        sentEnums.addAll(used);
+        return result;
     }
 
     private CommandData createFakeHelpCommand() {

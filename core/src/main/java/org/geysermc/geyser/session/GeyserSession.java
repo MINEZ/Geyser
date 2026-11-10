@@ -257,6 +257,7 @@ import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -406,11 +407,18 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     @Setter
     private List<String> restrictedCommands = List.of();
     /**
-     * MINEZ：上一次发给客户端的命令（AvailableCommandsPacket 的内容）。Java 服务器常在进服时连发两次相同的命令表；客户端把后一次的
-     * 命令并进已有的命令表，开发版客户端会报 help 重复注册、重载交错与枚举重复。相同的命令表不再重发，见 JavaCommandsTranslator。
+     * MINEZ：上一次发给客户端的命令（AvailableCommandsPacket 的内容）。Java 服务器常在进服时连发两次相同的命令表，相同的不再重发，
+     * 见 JavaCommandsTranslator。
      */
     @Setter
     private List<CommandData> sentCommands = List.of();
+    /**
+     * MINEZ：这个会话中已发给网易客户端的命令名与硬枚举名。网易客户端收到新的命令表时不清空已有的命令，而是并进去（例如切换服务器、
+     * 成为 OP 时），重复的命令与枚举使开发版客户端报“Duplicate command registration”“Commands added interleaved”“Found 1
+     * duplicate entries in enum values”。因此之后只发新的命令，见 JavaCommandsTranslator#newCommandsOnly。
+     */
+    private final Set<String> sentCommandNames = new HashSet<>();
+    private final Set<String> sentEnumNames = new HashSet<>();
 
     /**
      * Whether the client is currently closing an inventory.

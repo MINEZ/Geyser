@@ -74,6 +74,32 @@ public class JavaCommandsTranslatorTest {
     }
 
     @Test
+    public void sendsOnlyNewCommandsWithFreshEnumNames() {
+        Set<String> sentCommands = new java.util.HashSet<>();
+        Set<String> sentEnums = new java.util.HashSet<>();
+        CommandParamData tagAction = literal(enumOf("add", "add", "remove"));
+        List<CommandData> first = List.of(command("tag", new CommandOverloadData(false, new CommandParamData[]{tagAction})));
+        assertEquals(first, JavaCommandsTranslator.newCommandsOnly(first, sentCommands, sentEnums));
+        assertEquals(Set.of("tag"), sentCommands);
+        assertEquals(Set.of("add", "tagAliases"), sentEnums);
+
+        // 切换服务器后：已有的 tag 不再发；新命令 team 的 add 与已发过的重名，改名。
+        CommandParamData tagAgain = literal(enumOf("add", "add", "remove"));
+        CommandParamData teamAction = literal(enumOf("add", "add"));
+        List<CommandData> second = JavaCommandsTranslator.newCommandsOnly(List.of(
+            command("tag", new CommandOverloadData(false, new CommandParamData[]{tagAgain})),
+            command("team", new CommandOverloadData(false, new CommandParamData[]{teamAction}))), sentCommands, sentEnums);
+        assertEquals(List.of("team"), second.stream().map(CommandData::getName).toList());
+        assertEquals("add_2", teamAction.getEnumData().getName());
+        assertEquals("teamAliases", second.get(0).getAliases().getName());
+        assertTrue(sentEnums.contains("add_2"));
+
+        // 再来一次同样的命令表：没有新的命令。
+        assertTrue(JavaCommandsTranslator.newCommandsOnly(List.of(
+            command("team", new CommandOverloadData(false, new CommandParamData[]{literal(enumOf("add", "add"))}))), sentCommands, sentEnums).isEmpty());
+    }
+
+    @Test
     public void sendsHelpOnlyToReleaseClients() {
         GeyserSession session = mock(GeyserSession.class);
         // 国际版客户端
