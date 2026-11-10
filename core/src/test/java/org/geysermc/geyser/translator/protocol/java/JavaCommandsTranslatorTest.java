@@ -31,6 +31,8 @@ import org.cloudburstmc.protocol.bedrock.data.command.CommandEnumData;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandOverloadData;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandParamData;
 import org.cloudburstmc.protocol.bedrock.data.command.CommandPermission;
+import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.auth.NeteaseProfile;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -40,7 +42,11 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class JavaCommandsTranslatorTest {
 
@@ -65,6 +71,25 @@ public class JavaCommandsTranslatorTest {
         assertEquals(Set.of("add"), teamAction.getEnumData().getValues().keySet());
         assertSame(tagAction.getEnumData(), sameAsTag.getEnumData());
         assertEquals("teamAliases_2", clashesWithAlias.getEnumData().getName());
+    }
+
+    @Test
+    public void sendsHelpOnlyToReleaseClients() {
+        GeyserSession session = mock(GeyserSession.class);
+        // 国际版客户端
+        assertTrue(JavaCommandsTranslator.sendsHelp(session));
+        // 网易正式环境
+        when(session.getNeteaseProfile()).thenReturn(profile("obt", false));
+        assertTrue(JavaCommandsTranslator.sendsHelp(session));
+        // 网易测试环境（开发版客户端）与自签名登录
+        when(session.getNeteaseProfile()).thenReturn(profile("expr1", false));
+        assertFalse(JavaCommandsTranslator.sendsHelp(session));
+        when(session.getNeteaseProfile()).thenReturn(profile("obt", true));
+        assertFalse(JavaCommandsTranslator.sendsHelp(session));
+    }
+
+    private static NeteaseProfile profile(String env, boolean developer) {
+        return new NeteaseProfile(null, "测试", "NE1", null, env, "pc", "windows", null, null, null, "key", null, !developer, developer);
     }
 
     private static CommandData command(String name, CommandOverloadData... overloads) {

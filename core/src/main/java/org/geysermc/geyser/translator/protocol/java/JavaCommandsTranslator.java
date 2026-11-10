@@ -51,6 +51,7 @@ import org.geysermc.geyser.api.util.PlatformType;
 import org.geysermc.geyser.command.CommandRegistry;
 import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.auth.NeteaseProfile;
 import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -151,6 +152,7 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
         }
 
         CommandRegistry registry = session.getGeyser().commandRegistry();
+        boolean sendsHelp = sendsHelp(session);
         CommandNode[] nodes = packet.getNodes();
         List<CommandData> commandData = new ArrayList<>();
         IntSet commandNodes = new IntOpenHashSet();
@@ -184,7 +186,9 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             String name = node.getName().toLowerCase(Locale.ROOT);
             String description = registry.description(name, session.locale());
             BedrockCommandInfo info = new BedrockCommandInfo(name, description, params);
-            commands.computeIfAbsent(info, $ -> new HashSet<>()).add(name);
+            if (sendsHelp || !CLIENT_HELP_NAMES.contains(name)) {
+                commands.computeIfAbsent(info, $ -> new HashSet<>()).add(name);
+            }
 
             // Add the command to the command lists
             knownCommands.add(name);
@@ -253,7 +257,7 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             }
         }
 
-        if (!helpAdded) {
+        if (!helpAdded && sendsHelp) {
             // https://github.com/GeyserMC/Geyser/issues/2573 if Brigadier does not send the help command.
             commandData.add(createFakeHelpCommand());
         }
@@ -357,6 +361,25 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             case "minecraft:worldgen/biome" -> tags ? context.getBiomesWithTags() : context.getBiomes();
             default -> CommandParam.STRING;
         };
+    }
+
+    /**
+     * MINEZ：基岩版客户端自带的帮助命令的名字与别名。
+     */
+    private static final Set<String> CLIENT_HELP_NAMES = Set.of("help", "?");
+
+    /**
+     * MINEZ：是否给这个客户端下发 help（与 ?）。
+     * <p>
+     * 基岩版客户端自带 /help（不发给服务器，只列出客户端知道的命令），上游因此总下发一个 help，让 /help 发到服务器（#2573）。
+     * 这个 help 与客户端自带的重名：发布版客户端照常使用服务器的 help，网易的开发版客户端却会弹出“Duplicate command registration
+     * for help”“Commands added interleaved”“Found 1 duplicate entries in enum values”三个断言。开发版客户端（Mod PC 等）登录在
+     * 网易的测试环境（env 不是 obt）或为自签名登录，因此只给正式环境（obt）的网易客户端与国际版客户端下发 help：玩家照常用 /help，
+     * 开发版客户端不再弹出断言（其中的 /help 由客户端自己处理）。
+     */
+    static boolean sendsHelp(GeyserSession session) {
+        NeteaseProfile profile = session.getNeteaseProfile();
+        return profile == null || (!profile.developer() && "obt".equals(profile.env()));
     }
 
     /**
