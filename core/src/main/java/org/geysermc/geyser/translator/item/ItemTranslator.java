@@ -33,9 +33,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.cloudburstmc.nbt.NbtList;
 import org.cloudburstmc.nbt.NbtMap;
-import org.cloudburstmc.nbt.NbtMapBuilder;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
@@ -86,6 +84,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 public final class ItemTranslator {
 
@@ -120,6 +119,11 @@ public final class ItemTranslator {
 
     private final static List<Item> GLINT_PRESENT = List.of(Items.ENCHANTED_GOLDEN_APPLE, Items.EXPERIENCE_BOTTLE, Items.WRITTEN_BOOK,
         Items.NETHER_STAR, Items.ENCHANTED_BOOK, Items.END_CRYSTAL);
+
+    /**
+     * MINEZ：格式代码（§ 与其后的一个字符），见 {@link #addGlint}。
+     */
+    private static final Pattern FORMATTING_CODE = Pattern.compile(ChatColor.ESCAPE + ".");
 
     private ItemTranslator() {
     }
@@ -242,8 +246,7 @@ public final class ItemTranslator {
 
         // Add enchantment override. We can't remove it - enchantments would stop showing - but we can add it.
         if (components.getOrDefault(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, false) && !GLINT_PRESENT.contains(javaItem)) {
-            NbtMapBuilder nbtMapBuilder = nbtBuilder.getOrCreateNbt();
-            nbtMapBuilder.putIfAbsent("ench", NbtList.EMPTY);
+            addGlint(nbtBuilder);
         }
 
         ItemData.Builder builder = javaItem.translateToBedrock(session, count, components, bedrockItem, session.getItemMappings());
@@ -278,6 +281,23 @@ public final class ItemTranslator {
         }
 
         return builder;
+    }
+
+    /**
+     * MINEZ：给物品加上光效（enchantment_glint_override）。
+     * <p>
+     * 基岩版靠物品的 ench 列表显示光效，空的列表在名称下显示为一个空行。没有描述的物品因此不加，否则名称下只多出一个空行，这类物品
+     * 在基岩版中没有光效；描述以空行开头时（名称与描述之间空一行）去掉这一行，由列表的空行代替，不出现两个空行。已有附魔的物品本来就有光效。
+     */
+    static void addGlint(BedrockItemBuilder builder) {
+        List<String> lore = builder.getOrCreateLore();
+        if (lore.isEmpty() || builder.getOrCreateNbt().containsKey("ench")) {
+            return;
+        }
+        if (FORMATTING_CODE.matcher(lore.get(0)).replaceAll("").isBlank()) {
+            lore.remove(0);
+        }
+        builder.addEnchantmentGlint();
     }
 
     /**

@@ -253,8 +253,10 @@ public abstract class InventoryTranslator<Type extends Inventory> {
 
     public final void translateRequests(GeyserSession session, Type inventory, List<ItemStackRequest> requests) {
         boolean refresh = false;
+        IntSet resendSlots = new IntOpenHashSet();
         ItemStackResponsePacket responsePacket = new ItemStackResponsePacket();
         for (ItemStackRequest request : requests) {
+            ItemStackResponseMatcher.SlotState[] before = ItemStackResponseMatcher.snapshot(session, inventory);
             ItemStackResponse response;
             try {
                 if (request.getActions().length > 0) {
@@ -283,6 +285,8 @@ public abstract class InventoryTranslator<Type extends Inventory> {
             if (response.getResult() != ItemStackResponseStatus.OK) {
                 // Sync our copy of the inventory with Bedrock's to prevent desyncs
                 refresh = true;
+            } else {
+                response = ItemStackResponseMatcher.match(request, response, before, this::bedrockSlotToJava, resendSlots);
             }
             if (session.getGeyser().config().debugMode()) {
                 // MINEZ：记下每个物品请求与回应，用来查明网易开发版客户端的物品断言（回应中有客户端没有预测的格子等）。
@@ -296,6 +300,16 @@ public abstract class InventoryTranslator<Type extends Inventory> {
         if (refresh) {
             InventoryUtils.updateCursor(session);
             updateInventory(session, inventory);
+        } else {
+            IntIterator it = resendSlots.iterator();
+            while (it.hasNext()) {
+                int slot = it.nextInt();
+                if (slot == ItemStackResponseMatcher.CURSOR) {
+                    InventoryUtils.updateCursor(session);
+                } else {
+                    updateSlot(session, inventory, slot);
+                }
+            }
         }
 
         // We're done with our batch of inventory requests so this hack should be reset

@@ -153,7 +153,6 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
         }
 
         CommandRegistry registry = session.getGeyser().commandRegistry();
-        boolean sendsHelp = sendsHelp(session);
         CommandNode[] nodes = packet.getNodes();
         List<CommandData> commandData = new ArrayList<>();
         IntSet commandNodes = new IntOpenHashSet();
@@ -187,9 +186,7 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             String name = node.getName().toLowerCase(Locale.ROOT);
             String description = registry.description(name, session.locale());
             BedrockCommandInfo info = new BedrockCommandInfo(name, description, params);
-            if (sendsHelp || !CLIENT_HELP_NAMES.contains(name)) {
-                commands.computeIfAbsent(info, $ -> new HashSet<>()).add(name);
-            }
+            commands.computeIfAbsent(info, $ -> new HashSet<>()).add(name);
 
             // Add the command to the command lists
             knownCommands.add(name);
@@ -200,6 +197,12 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
 
         session.setKnownCommands(knownCommands);
         session.setRestrictedCommands(restrictedCommands);
+
+        if (!sendsCommands(session)) {
+            // MINEZ：开发版客户端不发命令表（见 sendsCommands）；命令照常可以输入执行，只是没有补全。
+            session.getGeyser().getLogger().debug("Not sending commands to a China Edition development client");
+            return;
+        }
 
         var eventBus = session.getGeyser().eventBus();
 
@@ -258,7 +261,7 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             }
         }
 
-        if (!helpAdded && sendsHelp) {
+        if (!helpAdded) {
             // https://github.com/GeyserMC/Geyser/issues/2573 if Brigadier does not send the help command.
             commandData.add(createFakeHelpCommand());
         }
@@ -373,20 +376,14 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
     }
 
     /**
-     * MINEZ：基岩版客户端自带的帮助命令的名字与别名。
-     */
-    private static final Set<String> CLIENT_HELP_NAMES = Set.of("help", "?");
-
-    /**
-     * MINEZ：是否给这个客户端下发 help（与 ?）。
+     * MINEZ：是否给这个客户端发命令表（AvailableCommandsPacket）。
      * <p>
-     * 基岩版客户端自带 /help（不发给服务器，只列出客户端知道的命令），上游因此总下发一个 help，让 /help 发到服务器（#2573）。
-     * 这个 help 与客户端自带的重名：发布版客户端照常使用服务器的 help，网易的开发版客户端却会弹出“Duplicate command registration
-     * for help”“Commands added interleaved”“Found 1 duplicate entries in enum values”三个断言。开发版客户端（Mod PC 等）登录在
-     * 网易的测试环境（env 不是 obt）或为自签名登录，因此只给正式环境（obt）的网易客户端与国际版客户端下发 help：玩家照常用 /help，
-     * 开发版客户端不再弹出断言（其中的 /help 由客户端自己处理）。
+     * 网易的开发版客户端自带一些命令（实测有 help 与 test，Java 版给 OP 的命令中也有 /test），服务器发来同名的命令时弹出
+     * “Duplicate command registration”“Commands added interleaved”“Found 1 duplicate entries in enum values”三个断言；客户端自带
+     * 哪些命令无从得知。开发版客户端（Mod PC 等）登录在网易的测试环境（env 不是 obt）或为自签名登录，因此不给它们发命令表：命令照常
+     * 可以输入执行（客户端把输入的命令发给服务器），只是没有补全；/help 由客户端自己处理。正式环境的网易客户端与国际版客户端照旧。
      */
-    static boolean sendsHelp(GeyserSession session) {
+    static boolean sendsCommands(GeyserSession session) {
         NeteaseProfile profile = session.getNeteaseProfile();
         return profile == null || (!profile.developer() && "obt".equals(profile.env()));
     }

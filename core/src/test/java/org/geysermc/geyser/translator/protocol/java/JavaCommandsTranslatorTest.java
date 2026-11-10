@@ -100,18 +100,18 @@ public class JavaCommandsTranslatorTest {
     }
 
     @Test
-    public void sendsHelpOnlyToReleaseClients() {
+    public void sendsCommandsOnlyToReleaseClients() {
         GeyserSession session = mock(GeyserSession.class);
         // 国际版客户端
-        assertTrue(JavaCommandsTranslator.sendsHelp(session));
+        assertTrue(JavaCommandsTranslator.sendsCommands(session));
         // 网易正式环境
         when(session.getNeteaseProfile()).thenReturn(profile("obt", false));
-        assertTrue(JavaCommandsTranslator.sendsHelp(session));
+        assertTrue(JavaCommandsTranslator.sendsCommands(session));
         // 网易测试环境（开发版客户端）与自签名登录
         when(session.getNeteaseProfile()).thenReturn(profile("expr1", false));
-        assertFalse(JavaCommandsTranslator.sendsHelp(session));
+        assertFalse(JavaCommandsTranslator.sendsCommands(session));
         when(session.getNeteaseProfile()).thenReturn(profile("obt", true));
-        assertFalse(JavaCommandsTranslator.sendsHelp(session));
+        assertFalse(JavaCommandsTranslator.sendsCommands(session));
     }
 
     private static NeteaseProfile profile(String env, boolean developer) {
