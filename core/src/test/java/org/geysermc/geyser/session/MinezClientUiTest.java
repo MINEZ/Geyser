@@ -169,6 +169,27 @@ class MinezClientUiTest {
     }
 
     @Test
+    void tellsNewModsAboutFlying() throws Exception {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            MinezClientUi ui = new MinezClientUi(session);
+            // 模组就绪之前、或版本太旧时不发。
+            ui.flyingChanged(true);
+            ui.clientReady("1.11.0");
+            int before = sent.size();
+            ui.flyingChanged(true);
+            assertEquals(before, sent.size());
+
+            // 1.12.0 起发出；就绪时正在飞行的，随配置一并告知。
+            when(session.isFlying()).thenReturn(true);
+            ui.clientReady("1.12.0");
+            assertEquals(1, ((Number) event(sent.get(sent.size() - 1), "Flying").get("flying")).intValue());
+            ui.flyingChanged(false);
+            assertEquals(0, ((Number) event(sent.get(sent.size() - 1), "Flying").get("flying")).intValue());
+        }
+    }
+
+    @Test
     void showsWorldTextsWithIconsInTheMod() throws Exception {
         try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
             protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);

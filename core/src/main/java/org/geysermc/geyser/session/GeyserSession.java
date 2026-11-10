@@ -747,7 +747,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     /**
      * If the current player is flying
      */
-    @Setter
     private boolean flying = false;
 
     /**
@@ -2253,6 +2252,17 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
             entityMotionPacket.setRuntimeEntityId(playerEntity.geyserId());
             entityMotionPacket.setMotion(unconfirmedTeleport.getVelocity());
             this.sendUpstreamPacket(entityMotionPacket);
+        }
+    }
+
+    /**
+     * MINEZ：玩家开始或停止飞行时另告知 MINEZ 客户端模组（原版在飞行时显示纸娃娃，模组的聊天栏随之让位），见
+     * {@link MinezClientUi#flyingChanged}。
+     */
+    public void setFlying(boolean flying) {
+        if (this.flying != flying) {
+            this.flying = flying;
+            minezClientUi.flyingChanged(flying);
         }
     }
 

@@ -85,9 +85,18 @@ public final class MinezClientUi {
      */
     public static final String WORLD_TEXT_EVENT = "WorldText";
     /**
+     * 玩家开始或停止飞行：{@code flying} 为 1 或 0。原版在飞行时显示纸娃娃，模组的聊天栏随之让位；网易的客户端接口读不到飞行状态，
+     * 因此由 Geyser 告知，见 {@link #flyingChanged}。
+     */
+    public static final String FLYING_EVENT = "Flying";
+    /**
      * 能以图片显示全部文字图标（配置中的 {@code images}）与世界中的文字的模组的最低版本。
      */
     public static final MinezClientMod.Version TEXT_ICONS_MOD_VERSION = new MinezClientMod.Version(1, 9, 0);
+    /**
+     * 能按飞行状态为纸娃娃让位的模组的最低版本。
+     */
+    public static final MinezClientMod.Version FLYING_MOD_VERSION = new MinezClientMod.Version(1, 12, 0);
     /**
      * 能复制到剪贴板的模组的最低版本。
      */
@@ -151,6 +160,9 @@ public final class MinezClientUi {
         this.version = loaded;
         ready = true;
         selfNameChanged();
+        if (session.isFlying()) {
+            flyingChanged(true);
+        }
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
     }
@@ -190,6 +202,16 @@ public final class MinezClientUi {
         String name = ready ? PlayerListUtils.listName(session.getPlayerEntity()) : null;
         if (name != null) {
             send(NAME_EVENT, Map.of("text", SpriteGlyphs.groupOnNewLine(name)));
+        }
+    }
+
+    /**
+     * 玩家开始或停止飞行后调用（见 {@link GeyserSession#setFlying}）。
+     */
+    public void flyingChanged(boolean flying) {
+        MinezClientMod.Version loaded = version;
+        if (ready && loaded != null && loaded.compareTo(FLYING_MOD_VERSION) >= 0) {
+            send(FLYING_EVENT, Map.of("flying", flying ? 1 : 0));
         }
     }
 
