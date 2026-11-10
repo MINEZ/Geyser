@@ -288,11 +288,6 @@ public abstract class InventoryTranslator<Type extends Inventory> {
             } else {
                 response = ItemStackResponseMatcher.match(request, response, before, this::bedrockSlotToJava, resendSlots);
             }
-            if (session.getGeyser().config().debugMode()) {
-                // MINEZ：记下每个物品请求与回应，用来查明网易开发版客户端的物品断言（回应中有客户端没有预测的格子等）。
-                session.getGeyser().getLogger().debug("ItemStackRequest " + request + " -> " + response);
-            }
-
             responsePacket.getEntries().add(response);
         }
         session.sendUpstreamPacket(responsePacket);
