@@ -40,6 +40,8 @@ import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.Boolea
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 // Note: 1.19.4 requires that the billboard is set to something in order to show, on Java Edition
 @Getter
@@ -64,6 +66,12 @@ public class TextDisplayEntity extends DisplayBaseEntity {
      */
     private String bedrockText = "";
     private boolean shownByMod;
+    /**
+     * MINEZ：Java 版的展示实体按 teleport_duration 在几刻内平滑移到新位置；基岩版客户端每次移动只插值约 3 刻，服务器每 4 刻移动一次
+     * （例如路径点）时文字一顿一顿。因此按 Java 版的刻数，每刻发一次中间位置。移动的目标位置；正在进行的插值。
+     */
+    private @Nullable Vector3f moveTarget;
+    private @Nullable ScheduledFuture<?> interpolation;
 
     public TextDisplayEntity(EntitySpawnContext context) {
         super(context);
@@ -120,6 +128,7 @@ public class TextDisplayEntity extends DisplayBaseEntity {
 
     @Override
     public void despawnEntity() {
+        cancelInterpolation();
         if (secondEntity != null) {
             secondEntity.despawnEntity();
         }
@@ -136,6 +145,53 @@ public class TextDisplayEntity extends DisplayBaseEntity {
             secondEntity.moveRelativeRaw(relX, relY, relZ, yaw, pitch, headYaw, isOnGround);
         }
         super.moveRelativeRaw(relX, relY, relZ, yaw, pitch, headYaw, isOnGround);
+    }
+
+    @Override
+    public void moveRelative(double relX, double relY, double relZ, float yaw, float pitch, float headYaw, boolean isOnGround) {
+        if (teleportDuration > 1 && valid) {
+            Vector3f from = moveTarget != null ? moveTarget : position;
+            moveAbsolute(from.add(relX, relY, relZ), yaw, pitch, headYaw, isOnGround, false);
+            return;
+        }
+        super.moveRelative(relX, relY, relZ, yaw, pitch, headYaw, isOnGround);
+    }
+
+    @Override
+    public void moveAbsolute(Vector3f position, float yaw, float pitch, float headYaw, boolean isOnGround, boolean teleported) {
+        cancelInterpolation();
+        if (teleportDuration <= 1 || !valid) {
+            super.moveAbsolute(position, yaw, pitch, headYaw, isOnGround, teleported);
+            return;
+        }
+        // MINEZ：与 Java 版一样在 teleport_duration 刻内平滑移过去：每刻发一次中间位置（见 moveTarget）。
+        Vector3f start = this.position;
+        moveTarget = position;
+        int steps = teleportDuration;
+        interpolate(start, position, 1, steps, yaw, pitch, headYaw, isOnGround);
+    }
+
+    private void interpolate(Vector3f start, Vector3f end, int step, int steps, float yaw, float pitch, float headYaw, boolean isOnGround) {
+        if (!valid) {
+            return;
+        }
+        Vector3f point = step >= steps ? end : start.add(end.sub(start).mul((float) step / steps));
+        moveAbsoluteRaw(point, yaw, pitch, headYaw, isOnGround, false);
+        if (step >= steps) {
+            interpolation = null;
+            moveTarget = null;
+            return;
+        }
+        interpolation = session.scheduleInEventLoop(() -> interpolate(start, end, step + 1, steps, yaw, pitch, headYaw, isOnGround),
+            50, TimeUnit.MILLISECONDS);
+    }
+
+    private void cancelInterpolation() {
+        if (interpolation != null) {
+            interpolation.cancel(false);
+            interpolation = null;
+        }
+        moveTarget = null;
     }
 
     @Override

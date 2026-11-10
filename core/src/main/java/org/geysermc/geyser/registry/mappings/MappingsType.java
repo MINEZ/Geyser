@@ -34,7 +34,6 @@ import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.api.waypoint.CustomWaypointStyle;
 import org.geysermc.geyser.registry.mappings.util.CustomBlockMapping;
 import org.geysermc.geyser.registry.mappings.versions.block.BlockMappingsReader_v1;
-import org.geysermc.geyser.registry.mappings.versions.icon.ModelIconMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v1;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v2;
 import org.geysermc.geyser.registry.mappings.versions.skull.SkullMappingsReader_v1;
@@ -83,11 +82,11 @@ public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>
         .with(2, new TranslationMappingsReader()));
     
     /**
-     * MINEZ：物品栏中由客户端模组实时渲染的 3D 物品图标，见 {@link org.geysermc.geyser.item.ModelIcons}。
+     * MINEZ：物品格中由客户端模组以高清图片显示的 3D 物品图标，见 {@link org.geysermc.geyser.item.ModelIcons}。
      */
     public static final MappingsType<String, Map<String, Object>> MODEL_ICONS = create("model_icons", builder -> builder
-        .with(1, new ModelIconMappingsReader())
-        .with(2, new ModelIconMappingsReader()));
+        .with(1, new SpriteImageMappingsReader(SpriteImageMappingsReader.MODEL_ICONS))
+        .with(2, new SpriteImageMappingsReader(SpriteImageMappingsReader.MODEL_ICONS)));
 
     private static <K, V> MappingsType<K, V> create(String name, UnaryOperator<Builder<K, V>> builder) {
         return new MappingsType<>(name, Int2ObjectMaps.unmodifiable(builder.apply(new Builder<>()).readers));

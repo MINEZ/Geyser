@@ -42,12 +42,15 @@ import java.util.function.BiConsumer;
  *     <li>{@code animated_sprites}：动态图标的帧条，{@code {"字符": {"texture": "贴图路径", "frame_width": 64, "frame_height": 16,
  *     "frames": 8, "fps": 10, "tiles": 4}}}，见 {@link org.geysermc.geyser.text.SpriteGlyphs#animated()}；</li>
  *     <li>{@code text_icons}：全部文字图标在一张图中的位置，{@code {"字符": {"texture": "贴图路径", "u": 0, "v": 0, "frame_width": 16,
- *     "frame_height": 16, "tiles": 1}}}，见 {@link org.geysermc.geyser.text.SpriteGlyphs#images()}。</li>
+ *     "frame_height": 16, "tiles": 1}}}，见 {@link org.geysermc.geyser.text.SpriteGlyphs#images()}；</li>
+ *     <li>{@code model_icons}：3D 物品图标的高清图片（多帧时横向排开），{@code {"minez:模型": {"texture": "贴图路径", "frame_width": 128,
+ *     "frame_height": 128, "frames": 1, "fps": 1}}}，见 {@link org.geysermc.geyser.item.ModelIcons}。</li>
  * </ul>
  */
 public class SpriteImageMappingsReader implements MappingsReader<String, Map<String, Object>> {
     public static final String[] ANIMATED = {"frame_width", "frame_height", "frames", "fps", "tiles"};
     public static final String[] IMAGES = {"u", "v", "frame_width", "frame_height", "tiles"};
+    public static final String[] MODEL_ICONS = {"frame_width", "frame_height", "frames", "fps"};
 
     private final String[] numbers;
 

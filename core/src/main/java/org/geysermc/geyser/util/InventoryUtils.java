@@ -301,14 +301,6 @@ public class InventoryUtils {
      * @param description the description
      * @return the unusable space block
      */
-    /**
-     * MINEZ：基岩版物品的锁定（{@code minecraft:item_lock}，1 为锁定在格子中）。Geyser 放进物品栏的占位物品（屏障、旧版锻造台的模板）
-     * 本来就不能拿走：锁定后客户端不再为它们发出物品转移请求，不会因请求被拒、连带的预测落空而报
-     * “tryPushSlotPrediction - tried to process a prediction that did not exist”。
-     */
-    private static final String ITEM_LOCK_TAG = "minecraft:item_lock";
-    private static final byte ITEM_LOCK_IN_SLOT = 1;
-
     public static IntFunction<ItemData> createUnusableSpaceBlock(String description) {
         NbtMapBuilder root = NbtMap.builder();
         NbtMapBuilder display = NbtMap.builder();
@@ -318,7 +310,6 @@ public class InventoryUtils {
         display.putList("Lore", NbtType.STRING, Collections.singletonList(ChatColor.RESET + ChatColor.DARK_PURPLE + description));
 
         root.put("display", display.build());
-        root.putByte(ITEM_LOCK_TAG, ITEM_LOCK_IN_SLOT);
         return protocolVersion -> ItemData.builder()
                 .definition(getUnusableSpaceBlockDefinition(protocolVersion))
                 .count(1)
@@ -355,10 +346,9 @@ public class InventoryUtils {
     }
 
     public static IntFunction<ItemData> getUpgradeTemplate() {
-        NbtMap tag = NbtMap.builder().putByte(ITEM_LOCK_TAG, ITEM_LOCK_IN_SLOT).build();
         return protocolVersion -> ItemData.builder()
                 .definition(Registries.ITEMS.forVersion(protocolVersion).getStoredItems().upgradeTemplate().getBedrockDefinition())
-                .count(1).tag(tag).build();
+                .count(1).build();
     }
 
     public static IntFunction<ItemData> getTotemOfUndying() {

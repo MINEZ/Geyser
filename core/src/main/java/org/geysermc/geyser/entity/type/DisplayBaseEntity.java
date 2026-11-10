@@ -36,6 +36,10 @@ import java.util.Objects;
 public class DisplayBaseEntity extends Entity {
 
     private @NonNull Vector3f baseTranslation = Vector3f.ZERO;
+    /**
+     * MINEZ：Java 版移动展示实体时插值的刻数（teleport_duration），见 {@link TextDisplayEntity}。
+     */
+    protected int teleportDuration;
 
     public DisplayBaseEntity(EntitySpawnContext context) {
         super(context);
@@ -57,6 +61,11 @@ public class DisplayBaseEntity extends Entity {
             EntityUtils.updateMountOffset(this, this.vehicle, true, true, 0, 1);
             this.updateBedrockMetadata();
         }
+    }
+
+    public void setTeleportDuration(EntityMetadata<Integer, ?> entityMetadata) {
+        Integer value = entityMetadata.getValue();
+        this.teleportDuration = value == null ? 0 : Math.max(0, value);
     }
 
     public Vector3f getTranslation() {

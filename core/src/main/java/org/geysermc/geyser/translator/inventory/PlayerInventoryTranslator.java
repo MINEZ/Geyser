@@ -56,7 +56,6 @@ import org.geysermc.geyser.inventory.SlotType;
 import org.geysermc.geyser.item.Items;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.skin.FakeHeadProvider;
-import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.translator.item.ItemTranslator;
 import org.geysermc.geyser.util.InventoryUtils;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.player.GameMode;
@@ -69,10 +68,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.function.IntFunction;
 
 public class PlayerInventoryTranslator extends InventoryTranslator<PlayerInventory> {
-    private static final IntFunction<ItemData> UNUSUABLE_CRAFTING_SPACE_BLOCK = InventoryUtils.createUnusableSpaceBlock(GeyserLocale.getLocaleStringLog("geyser.inventory.unusable_item.creative"));
 
     public PlayerInventoryTranslator() {
         super(46);
@@ -135,7 +132,10 @@ public class PlayerInventoryTranslator extends InventoryTranslator<PlayerInvento
             slotPacket.setSlot(i + 27);
 
             if (session.getGameMode() == GameMode.CREATIVE) {
-                slotPacket.setItem(InventoryUtils.withNetId(session, UNUSUABLE_CRAFTING_SPACE_BLOCK.apply(session.getUpstream().getProtocolVersion())));
+                // MINEZ：创造模式下合成格留空，不再放屏障：关闭物品栏时客户端会把合成格中的物品自动放回物品栏，屏障的这些请求都被拒绝，
+                // 接连的预测落空，网易开发版客户端报“tryPushSlotPrediction - tried to process a prediction that did not exist”。
+                // 玩家往合成格中放物品的请求照常被拒绝（见 translateRequest）。
+                slotPacket.setItem(ItemData.AIR);
             } else {
                 slotPacket.setItem(inventory.getItem(i).getItemData(session));
             }

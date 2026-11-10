@@ -109,21 +109,20 @@ class SpriteGlyphMappingsTest {
             {
               "format_version": 2,
               "model_icons": {
-                "minez:dark_star_wings": {"entity": "minez:icon_dark_star_wings", "scale": 1.0, "rot_y": 180},
-                "minez:other": {"entity": "minez:icon_other"},
-                "minez:bad": {"scale": 1.0},
-                "minez:bad_number": {"entity": "minez:icon_x", "scale": "big"}
+                "minez:dark_star_wings": {"texture": "textures/minez/model_icons/dark_star_wings", "frame_width": 128,
+                  "frame_height": 128, "frames": 4, "fps": 2.5},
+                "minez:bad": {"frame_width": 128, "frame_height": 128, "frames": 1, "fps": 1},
+                "minez:bad_number": {"texture": "x", "frame_width": "big", "frame_height": 128, "frames": 1, "fps": 1}
               }
             }
             """);
         Map<String, Map<String, Object>> read = new HashMap<>();
-        // 缺少 entity 或参数不是数字的项记一条错误后跳过；记错误要用到 GeyserImpl。
+        // 缺少贴图路径或数字不对的项记一条错误后跳过；记错误要用到 GeyserImpl。
         org.geysermc.geyser.scoreboard.network.util.GeyserMockContext.mockContext(() ->
             MappingsConfigReader.readCustomMappings(MappingsType.MODEL_ICONS, file, read::put));
 
-        // 参数一律写成浮点数，省略的不补。
-        assertEquals(Map.of(
-            "minez:dark_star_wings", Map.of("entity", "minez:icon_dark_star_wings", "scale", 1.0, "rot_y", 180.0),
-            "minez:other", Map.of("entity", "minez:icon_other")), read);
+        // 整数写成 long，其余数字保持浮点，原样发给模组。
+        assertEquals(Map.of("minez:dark_star_wings", Map.of("texture", "textures/minez/model_icons/dark_star_wings",
+            "frame_width", 128L, "frame_height", 128L, "frames", 4L, "fps", 2.5)), read);
     }
 }
