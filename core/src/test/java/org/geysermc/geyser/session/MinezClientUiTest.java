@@ -65,6 +65,7 @@ class MinezClientUiTest {
     @AfterEach
     void clear() {
         SpriteGlyphs.setAnimated(Map.of());
+        SpriteGlyphs.setImages(Map.of());
         ModelIcons.set(Map.of());
     }
 
@@ -164,6 +165,42 @@ class MinezClientUiTest {
             ui.clientReady("1.8.0");
             assertTrue(ui.copyToClipboard("邀请码 ABC"));
             assertEquals("邀请码 ABC", event(sent.get(sent.size() - 1), "Clipboard").get("text"));
+        }
+    }
+
+    @Test
+    void showsWorldTextsWithIconsInTheMod() throws Exception {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            Map<String, Object> icon = Map.of("texture", "textures/minez/text_icons", "u", 0L, "v", 0L, "frame_width", 16L,
+                "frame_height", 16L, "tiles", 1L);
+            SpriteGlyphs.setImages(Map.of("\uF100", icon));
+            MinezClientUi ui = new MinezClientUi(session);
+
+            // 模组就绪之前、或版本太旧时照常以名牌显示。
+            assertFalse(ui.showWorldText(1, "§f\uF100\n§7降落中"));
+            ui.clientReady("1.8.0");
+            assertFalse(((Map<?, ?>) event(sent.get(0), "ClientConfig")).containsKey("images"));
+            assertFalse(ui.showWorldText(1, "§f\uF100\n§7降落中"));
+
+            // 1.9.0 起随配置发出图标的表；有图标的文字交给模组，没有图标的仍以名牌显示。
+            ui.clientReady("1.9.0");
+            Map<?, ?> images = (Map<?, ?>) event(sent.get(sent.size() - 1), "ClientConfig").get("images");
+            assertEquals("textures/minez/text_icons", ((Map<?, ?>) images.get("\uF100")).get("texture"));
+            int before = sent.size();
+            assertFalse(ui.showWorldText(1, "§f路径点"));
+            assertEquals(before, sent.size());
+            assertTrue(ui.showWorldText(1, "§f\uF100\n§7降落中"));
+            Map<?, ?> shown = event(sent.get(before), "WorldText");
+            assertEquals(1L, ((Number) shown.get("id")).longValue());
+            assertEquals("§f\uF100\n§7降落中", shown.get("text"));
+            // 文字没有变化时不重发；撤下时只发编号；文字中不再有图标时也撤下。
+            assertTrue(ui.showWorldText(1, "§f\uF100\n§7降落中"));
+            assertEquals(before + 1, sent.size());
+            assertFalse(ui.showWorldText(1, "§f路径点"));
+            assertFalse(event(sent.get(before + 1), "WorldText").containsKey("text"));
+            ui.hideWorldText(1);
+            assertEquals(before + 2, sent.size());
         }
     }
 

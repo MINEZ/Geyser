@@ -78,6 +78,10 @@ public final class NeteasePyRpc {
      */
     public static final String ITEM_TABLE_EVENT = "ItemTable";
     /**
+     * MINEZ 客户端模组不能把世界中的文字绑定到实体上，命名空间与系统名同上，数据为 {@code {"id": 实体编号}}，见 {@code MinezClientUi}。
+     */
+    public static final String WORLD_TEXT_FAILED_EVENT = "WorldTextFailed";
+    /**
      * 服务器发给客户端模组的事件（客户端的 {@code ListenForEvent} 收到）的方法名。
      */
     public static final String MOD_EVENT_S2C = "ModEventS2C";
@@ -136,6 +140,14 @@ public final class NeteasePyRpc {
         public boolean isItemTable() {
             return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
                 && ITEM_TABLE_EVENT.equals(eventName);
+        }
+
+        /**
+         * @return 是否为 MINEZ 客户端模组发来的“世界中的文字不能显示”。只认 {@code ModEventC2S}，命名空间、系统名与事件名都须相符。
+         */
+        public boolean isWorldTextFailed() {
+            return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
+                && WORLD_TEXT_FAILED_EVENT.equals(eventName);
         }
 
         /**

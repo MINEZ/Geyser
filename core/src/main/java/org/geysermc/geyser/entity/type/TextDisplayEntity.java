@@ -59,6 +59,11 @@ public class TextDisplayEntity extends DisplayBaseEntity {
     private @Nullable ArmorStandEntity secondEntity = null;
     private boolean isInvisible = false;
     private int lineCount;
+    /**
+     * MINEZ：基岩版格式的文字；是否交给 MINEZ 客户端模组显示（文字中有文字图标时，见 MinezClientUi#showWorldText），这时名牌为空。
+     */
+    private String bedrockText = "";
+    private boolean shownByMod;
 
     public TextDisplayEntity(EntitySpawnContext context) {
         super(context);
@@ -104,9 +109,23 @@ public class TextDisplayEntity extends DisplayBaseEntity {
     }
 
     @Override
+    public void spawnEntity() {
+        // MINEZ：交给模组显示的文字不写进名牌，生成实体之后再交给模组（模组的界面绑定在这个实体上）。
+        if (session.getMinezClientUi().handlesWorldText(bedrockText)) {
+            this.metadata.put(EntityDataTypes.NAME, "");
+        }
+        super.spawnEntity();
+        applyText();
+    }
+
+    @Override
     public void despawnEntity() {
         if (secondEntity != null) {
             secondEntity.despawnEntity();
+        }
+        if (shownByMod) {
+            session.getMinezClientUi().hideWorldText(geyserId);
+            shownByMod = false;
         }
         super.despawnEntity();
     }
@@ -128,7 +147,12 @@ public class TextDisplayEntity extends DisplayBaseEntity {
     }
 
     public void setText(EntityMetadata<Component, ?> entityMetadata) {
-        this.metadata.put(EntityDataTypes.NAME, MessageTranslator.convertMessage(entityMetadata.getValue(), session.locale()));
+        this.bedrockText = MessageTranslator.convertMessage(entityMetadata.getValue(), session.locale());
+        if (valid) {
+            applyText();
+        } else {
+            this.metadata.put(EntityDataTypes.NAME, bedrockText);
+        }
         int oldLineCount = this.lineCount;
         this.lineCount = calculateLineCount(entityMetadata.getValue());
 
@@ -137,6 +161,24 @@ public class TextDisplayEntity extends DisplayBaseEntity {
             setOffset(calculateLineOffset());
             moveAbsoluteRaw(position, yaw, pitch, headYaw, onGround, false);
         }
+    }
+
+    /**
+     * MINEZ：重新决定由模组还是名牌显示（例如模组显示不了时改回名牌），并发出变化。
+     */
+    public void refreshText() {
+        if (valid) {
+            applyText();
+            updateBedrockMetadata();
+        }
+    }
+
+    /**
+     * MINEZ：已生成的实体：文字中有文字图标时交给模组显示、名牌为空，否则以名牌显示。
+     */
+    private void applyText() {
+        shownByMod = session.getMinezClientUi().showWorldText(geyserId, bedrockText);
+        this.metadata.put(EntityDataTypes.NAME, shownByMod ? "" : bedrockText);
     }
 
     private int calculateLineCount(@Nullable Component text) {

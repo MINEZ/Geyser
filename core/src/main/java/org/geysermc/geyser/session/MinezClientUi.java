@@ -32,6 +32,7 @@ import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
+import org.geysermc.geyser.entity.type.TextDisplayEntity;
 import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.text.SpriteGlyphs;
 import org.geysermc.geyser.util.PlayerListUtils;
@@ -40,6 +41,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * MINEZ：与 MINEZ 客户端模组配合显示动态图标（例如称号）。
@@ -77,6 +79,16 @@ public final class MinezClientUi {
      */
     public static final String CLIPBOARD_EVENT = "Clipboard";
     /**
+     * 世界中的文字（文本展示实体）：{@code id} 为实体的编号，{@code text} 为基岩版格式的文字，可能有多行；没有 {@code text} 时撤下。
+     * 文字中有文字图标时，基岩版的名牌只能把图标显示为约 1.6 倍大的字形，因此交给模组以绑定在实体上的界面显示，图标与 Java 版一样大，
+     * 见 {@link #showWorldText}。
+     */
+    public static final String WORLD_TEXT_EVENT = "WorldText";
+    /**
+     * 能以图片显示全部文字图标（配置中的 {@code images}）与世界中的文字的模组的最低版本。
+     */
+    public static final MinezClientMod.Version TEXT_ICONS_MOD_VERSION = new MinezClientMod.Version(1, 9, 0);
+    /**
      * 能复制到剪贴板的模组的最低版本。
      */
     public static final MinezClientMod.Version CLIPBOARD_MOD_VERSION = new MinezClientMod.Version(1, 8, 0);
@@ -95,6 +107,14 @@ public final class MinezClientUi {
     private final MinezItemTableCheck itemTableCheck;
     private volatile boolean ready;
     private volatile MinezClientMod.@Nullable Version version;
+    /**
+     * 交给模组显示的世界中的文字：{实体编号: 文字}。
+     */
+    private final Map<Long, String> worldTexts = new ConcurrentHashMap<>();
+    /**
+     * 模组不能把世界中的文字绑定到实体上时，这个会话改回以名牌显示。
+     */
+    private volatile boolean worldTextsFailed;
     private boolean itemTableRequested;
 
     MinezClientUi(GeyserSession session) {
@@ -116,6 +136,9 @@ public final class MinezClientUi {
         data.put("chat", 1);
         data.put("sprites", SpriteGlyphs.animated());
         data.put("icons", ModelIcons.icons());
+        if (loaded.compareTo(TEXT_ICONS_MOD_VERSION) >= 0) {
+            data.put("images", SpriteGlyphs.images());
+        }
         if (!itemTableRequested) {
             // 每个会话最多请模组读一次网易客户端的物品表（切换维度时界面会重新初始化，模组再次就绪）；这次启动后已经核对过时不再请求。
             Map<String, Object> request = itemTableCheck.request();
@@ -182,6 +205,60 @@ public final class MinezClientUi {
         }
         send(CLIPBOARD_EVENT, Map.of("text", text));
         return true;
+    }
+
+    /**
+     * @return 这段世界中的文字（文本展示实体的文字）是否由模组显示：模组就绪、版本足够，并且文字中有文字图标。
+     */
+    public boolean handlesWorldText(String text) {
+        MinezClientMod.Version loaded = version;
+        return ready && !worldTextsFailed && loaded != null && loaded.compareTo(TEXT_ICONS_MOD_VERSION) >= 0
+            && SpriteGlyphs.hasIcon(text);
+    }
+
+    /**
+     * 请模组在实体上显示文字（实体已生成之后调用）；文字没有变化时不重发。
+     *
+     * @return 是否由模组显示（见 {@link #handlesWorldText}）；为 false 时调用方照常以名牌显示，之前交给模组的文字已撤下。
+     */
+    public boolean showWorldText(long id, String text) {
+        if (!handlesWorldText(text)) {
+            hideWorldText(id);
+            return false;
+        }
+        if (!text.equals(worldTexts.put(id, text))) {
+            send(WORLD_TEXT_EVENT, Map.of("id", id, "text", text));
+        }
+        return true;
+    }
+
+    /**
+     * 撤下交给模组显示的文字（例如实体消失时）。
+     */
+    public void hideWorldText(long id) {
+        if (worldTexts.remove(id) != null) {
+            send(WORLD_TEXT_EVENT, Map.of("id", id));
+        }
+    }
+
+    /**
+     * 模组不能显示世界中的文字（绑定不到实体上）：这个会话此后都以名牌显示，交给模组的文字改回名牌。
+     */
+    public void worldTextFailed(Map<String, Object> data) {
+        if (worldTextsFailed) {
+            return;
+        }
+        worldTextsFailed = true;
+        session.getGeyser().getLogger().warning("MINEZ's client mod of " + session.bedrockUsername()
+            + " could not show the text of entity " + data.get("id") + ", using name tags for world texts in this session");
+        session.ensureInEventLoop(() -> {
+            for (Long id : worldTexts.keySet()) {
+                if (session.getEntityCache().getEntityByGeyserId(id) instanceof TextDisplayEntity display) {
+                    display.refreshText();
+                }
+            }
+            worldTexts.clear();
+        });
     }
 
     private boolean isNetease() {

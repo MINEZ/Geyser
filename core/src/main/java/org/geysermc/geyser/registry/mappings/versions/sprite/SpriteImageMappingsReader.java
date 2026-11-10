@@ -37,26 +37,37 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 
 /**
- * MINEZ：读取映射文件中的 {@code animated_sprites}：{@code {"字符": {"texture": "贴图路径", "frame_width": 64, "frame_height": 16,
- * "frames": 8, "fps": 10, "tiles": 4}}}，见 {@link org.geysermc.geyser.text.SpriteGlyphs#animated()}。原样转发给客户端模组，
- * 这里只检查 texture 为字符串、其余为数字。
+ * MINEZ：读取映射文件中文字图标的图片表，原样转发给客户端模组，这里只检查 texture 为字符串、其余各项为数字：
+ * <ul>
+ *     <li>{@code animated_sprites}：动态图标的帧条，{@code {"字符": {"texture": "贴图路径", "frame_width": 64, "frame_height": 16,
+ *     "frames": 8, "fps": 10, "tiles": 4}}}，见 {@link org.geysermc.geyser.text.SpriteGlyphs#animated()}；</li>
+ *     <li>{@code text_icons}：全部文字图标在一张图中的位置，{@code {"字符": {"texture": "贴图路径", "u": 0, "v": 0, "frame_width": 16,
+ *     "frame_height": 16, "tiles": 1}}}，见 {@link org.geysermc.geyser.text.SpriteGlyphs#images()}。</li>
+ * </ul>
  */
-public class AnimatedSpriteMappingsReader implements MappingsReader<String, Map<String, Object>> {
-    private static final String[] NUMBERS = {"frame_width", "frame_height", "frames", "fps", "tiles"};
+public class SpriteImageMappingsReader implements MappingsReader<String, Map<String, Object>> {
+    public static final String[] ANIMATED = {"frame_width", "frame_height", "frames", "fps", "tiles"};
+    public static final String[] IMAGES = {"u", "v", "frame_width", "frame_height", "tiles"};
+
+    private final String[] numbers;
+
+    public SpriteImageMappingsReader(String... numbers) {
+        this.numbers = numbers;
+    }
 
     @Override
     public void read(Path file, JsonObject mappings, BiConsumer<String, Map<String, Object>> consumer) {
         for (Map.Entry<String, JsonElement> entry : mappings.entrySet()) {
             Map<String, Object> sprite = read(entry.getValue());
             if (entry.getKey().isEmpty() || sprite == null) {
-                GeyserImpl.getInstance().getLogger().error("Invalid animated sprite " + entry.getKey() + " in custom mappings file " + file);
+                GeyserImpl.getInstance().getLogger().error("Invalid sprite image " + entry.getKey() + " in custom mappings file " + file);
                 continue;
             }
             consumer.accept(entry.getKey(), sprite);
         }
     }
 
-    private static Map<String, Object> read(JsonElement element) {
+    private Map<String, Object> read(JsonElement element) {
         if (!element.isJsonObject()) {
             return null;
         }
@@ -67,7 +78,7 @@ public class AnimatedSpriteMappingsReader implements MappingsReader<String, Map<
         }
         Map<String, Object> sprite = new LinkedHashMap<>();
         sprite.put("texture", texture.getAsString());
-        for (String key : NUMBERS) {
+        for (String key : numbers) {
             JsonElement value = object.get(key);
             if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
                 return null;

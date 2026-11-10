@@ -50,6 +50,8 @@ import java.util.Set;
 public final class SpriteGlyphs {
     private static volatile Map<String, String> glyphs = Map.of();
     private static volatile Map<String, Map<String, Object>> animated = Map.of();
+    private static volatile Map<String, Map<String, Object>> images = Map.of();
+    private static volatile Set<Character> iconChars = Set.of();
     private static volatile Set<Character> groups = Set.of();
 
     private SpriteGlyphs() {
@@ -65,6 +67,9 @@ public final class SpriteGlyphs {
         Map<String, Map<String, Object>> animations = new LinkedHashMap<>();
         MappingsConfigReader.loadCustomMappingsFromJson(MappingsType.ANIMATED_SPRITES, animations::put);
         setAnimated(animations);
+        Map<String, Map<String, Object>> icons = new LinkedHashMap<>();
+        MappingsConfigReader.loadCustomMappingsFromJson(MappingsType.TEXT_ICONS, icons::put);
+        setImages(icons);
         if (!map.isEmpty()) {
             GeyserImpl.getInstance().getLogger().info("Registered " + map.size() + " sprite glyphs, " + animations.size() + " of them animated");
         }
@@ -89,6 +94,42 @@ public final class SpriteGlyphs {
             }
         });
         groups = Set.copyOf(chars);
+    }
+
+    /**
+     * 替换文字图标的图片表。
+     */
+    public static void setImages(Map<String, Map<String, Object>> map) {
+        images = Collections.unmodifiableMap(new LinkedHashMap<>(map));
+        Set<Character> chars = new HashSet<>();
+        map.keySet().forEach(key -> {
+            if (key.length() == 1) {
+                chars.add(key.charAt(0));
+            }
+        });
+        iconChars = Set.copyOf(chars);
+    }
+
+    /**
+     * @return 文字中是否有文字图标（{@link #images()} 中的字符）。
+     */
+    public static boolean hasIcon(String text) {
+        Set<Character> chars = iconChars;
+        for (int i = 0; i < text.length() && !chars.isEmpty(); i++) {
+            if (chars.contains(text.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 文字图标的图片表：键为一个字形字符（多块拼成的图标为整组的那个字），值为图片的贴图路径、在其中的位置（u、v，像素）、宽高（像素）
+     * 与块数。基岩版的字形按像素大小显示，约为 Java 版的 1.6 倍大；MINEZ 客户端模组在它画的文字中把这些字符换成图片，与 Java 版一样
+     * 每块 8 个界面单位。由映射文件的 {@code text_icons} 读入，原样发给模组，见 {@link org.geysermc.geyser.session.MinezClientUi}。
+     */
+    public static Map<String, Map<String, Object>> images() {
+        return images;
     }
 
     /**

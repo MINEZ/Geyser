@@ -38,7 +38,7 @@ import org.geysermc.geyser.registry.mappings.versions.icon.ModelIconMappingsRead
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v1;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v2;
 import org.geysermc.geyser.registry.mappings.versions.skull.SkullMappingsReader_v1;
-import org.geysermc.geyser.registry.mappings.versions.sprite.AnimatedSpriteMappingsReader;
+import org.geysermc.geyser.registry.mappings.versions.sprite.SpriteImageMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.sprite.SpriteGlyphMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.sprite.TranslationMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.waypoint.WaypointStyleMappingsReader_v1;
@@ -67,8 +67,14 @@ public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>
      * MINEZ：动态图标的表，发给 MINEZ 客户端模组，见 {@link org.geysermc.geyser.text.SpriteGlyphs#animated()}。
      */
     public static final MappingsType<String, Map<String, Object>> ANIMATED_SPRITES = create("animated_sprites", builder -> builder
-        .with(1, new AnimatedSpriteMappingsReader())
-        .with(2, new AnimatedSpriteMappingsReader()));
+        .with(1, new SpriteImageMappingsReader(SpriteImageMappingsReader.ANIMATED))
+        .with(2, new SpriteImageMappingsReader(SpriteImageMappingsReader.ANIMATED)));
+    /**
+     * MINEZ：全部文字图标的图片，发给 MINEZ 客户端模组，见 {@link org.geysermc.geyser.text.SpriteGlyphs#images()}。
+     */
+    public static final MappingsType<String, Map<String, Object>> TEXT_ICONS = create("text_icons", builder -> builder
+        .with(1, new SpriteImageMappingsReader(SpriteImageMappingsReader.IMAGES))
+        .with(2, new SpriteImageMappingsReader(SpriteImageMappingsReader.IMAGES)));
     /**
      * MINEZ：服务器资源包中新增的翻译，见 {@link org.geysermc.geyser.text.CustomTranslations}。
      */

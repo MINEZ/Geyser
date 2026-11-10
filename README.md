@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.31-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.32-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -203,11 +203,13 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Copying to the clipboard.** Bedrock forms cannot copy text, so a dialog button with a `copy_to_clipboard` action used to do nothing. With MINEZ's client mod from version 1.8.0, Geyser sends the text to the mod as a `Clipboard` event and the mod writes it to the system clipboard with NetEase's `SetClipboardContent`; the dialog's after action then runs as on Java. Without the mod, Geyser opens a form with the text in an input box, which players can select and copy themselves.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.31.jar`, so builds can be told apart at a glance.
+**Sprite sizes and world texts with the MINEZ client mod.** Bedrock draws a glyph at its pixel size, about 0.8 UI units per pixel, so a 16-pixel sprite is about 1.6 times its Java size, and glyph pages have no setting for the drawn size. A custom mappings file may carry a `text_icons` section, keyed by the glyph character of each sprite (the single glyph of a picture made of several tiles), with the texture holding every sprite (`texture`), the sprite's position in it in pixels (`u`, `v`), its size (`frame_width`, `frame_height`) and its number of tiles (`tiles`). Geyser sends this table to MINEZ's client mod from version 1.9.0 as `images` in `ClientConfig`, and the mod draws these characters as pictures in the text it lays out itself, 8 UI units per tile as on Java, with the texture at its own resolution. Name tags are drawn by Bedrock, so a text display whose text contains such a character is not given a name tag for such a mod; Geyser sends the text as a `WorldText` event with the entity ID instead (and the ID alone when it is removed), and the mod shows it on a screen bound to that entity. Should the mod fail to bind one, it sends `WorldTextFailed` and Geyser goes back to name tags for that session.
+
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.32.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.31 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.32 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -223,19 +225,19 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.31.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.31.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.31.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.31.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.31.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.31.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.31.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.32.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.32.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.32.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.32.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.32.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.32.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.32.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
 ## Versioning
 
-The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.31`:
+The version follows upstream's own release numbering, with this fork's revision added at the end. In `2.12.1-b1280.32`:
 
 - `2.12.1` is the upstream version, from the `version` line in `gradle.properties` with its `-SNAPSHOT` suffix dropped. That line is left exactly as upstream has it, so it only conflicts when upstream changes it.
 - `b1280` is the upstream build this fork is based on, from `upstreamBuild` in the same file — the same number upstream's official build of that commit carries, as in its own `2.12.1-b1280`.
@@ -244,7 +246,7 @@ The version follows upstream's own release numbering, with this fork's revision 
 Upstream numbers a build for every commit pushed to `master`. After merging upstream, look up the build of the upstream commit you merged in the `changes` of `https://download.geysermc.org/v2/projects/geyser/versions/<version>/builds` (for example `https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds`), then:
 
 - set `upstreamBuild` to that build, take upstream's `version` line if it changed, and reset `minezRevision` to `1`;
-- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.31` to `2.12.1-b1280.32`.
+- for any other release of this fork, increment `minezRevision`, for example from `2.12.1-b1280.32` to `2.12.1-b1280.33`.
 
 Update the version badges at the top of both READMEs, and the file names under [Building](#building), along with it.
 
