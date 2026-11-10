@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.38-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.39-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -206,7 +206,7 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 - **Commands.** Java servers often send the command tree twice in a row when a player joins, so Geyser sorts the commands by name and skips a packet identical to the last one sent in that session. The China Edition client adds a new `AvailableCommands` packet to the commands it already has instead of replacing them, for example after a server switch or on becoming an operator, so Geyser sends China Edition clients only the commands they do not have yet, renaming any hard enum whose name was already sent (`add_2` and so on). Commands are no longer merged into `help` (the check was one-sided), the fake `help` is added only when no command uses that name, and hard enums sharing a name but not their values, such as `add` in `tag` and in `team`, are renamed `add_2` and so on, since the client merges enums by name. Development clients also have commands of their own, `help` and `test` at least, and report a command the server sends under one of those names as registered twice, with overloads added interleaved and a duplicate enum value; which commands they have cannot be known. Development clients (Mod PC and the like) log in to NetEase's test environment, whose `env` is not `obt`, or with a self-signed chain, so Geyser sends them no commands at all: commands typed in full still reach the server, only without suggestions, and `/help` is the client's own. Release and international clients get their commands as before.
 - **Placeholder items.** The placeholder items Geyser puts into inventories, the barriers in padded chests, the upgrade template of the old smithing table and the totem shown during its animation, now carry an item network ID. The creative crafting grid is left empty instead of filled with barriers: on closing the inventory, the client moves what is in the crafting grid back into the inventory, and its requests to move the barriers were all rejected.
-- **Item stack responses.** The client keeps a prediction for every slot a request names, and checks each slot of the response against it. Geyser builds a response from the Java clicks it made, so it always held the cursor and every slot a click went through, such as the cursor when an item is dragged from one slot straight to another, and named the player's slots `HOTBAR` or `INVENTORY` where the request may say `HOTBAR_AND_INVENTORY`. The development client then reported `Could not find request id in historic predictions`, and the predictions left unchecked later caused `tryPushSlotPrediction`. A response now holds only the slots its request names, under the request's container names, as Bedrock's own server does; any other slot whose contents did change is sent afterwards as a slot update.
+- **Item stack responses.** The client keeps a prediction for every slot a request names, and checks each slot of the response against it. Geyser builds a response from the Java clicks it made, so it always held the cursor and every slot a click went through, such as the cursor when an item is dragged from one slot straight to another, and named the player's slots `HOTBAR` or `INVENTORY` where the request may say `HOTBAR_AND_INVENTORY`. The development client then reported `Could not find request id in historic predictions`, and the predictions left unchecked later caused `tryPushSlotPrediction`. A response now holds only the slots its request names, under the request's container names, as Bedrock's own server does; any other slot whose contents did change is sent afterwards as a slot update. Breaking a block sends a `MINE_BLOCK` request that names no slot but predicts the durability of the held tool; Geyser accepted it with an empty response, the prediction was left unchecked, and the development client reported `SparseContainerClient::clearAllPredictions - unprocessed predictions left in mItems`. Its response now holds that hotbar slot as Geyser knows it, and the Java server's slot update brings the real durability right after.
 
 **Copying to the clipboard.** Bedrock forms cannot copy text, so a dialog button with a `copy_to_clipboard` action used to do nothing. With MINEZ's client mod from version 1.8.0, Geyser sends the text to the mod as a `Clipboard` event and the mod writes it to the system clipboard with NetEase's `SetClipboardContent`; the dialog's after action then runs as on Java. Without the mod, Geyser opens a form with the text in an input box, which players can select and copy themselves.
 
@@ -214,11 +214,11 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Sprite sizes and world texts with the MINEZ client mod.** Bedrock draws a glyph at its pixel size, about 0.8 UI units per pixel, so a 16-pixel sprite is about 1.6 times its Java size, and glyph pages have no setting for the drawn size. A custom mappings file may carry a `text_icons` section, keyed by the glyph character of each sprite (the single glyph of a picture made of several tiles), with the texture holding every sprite (`texture`), the sprite's position in it in pixels (`u`, `v`), its size (`frame_width`, `frame_height`) and its number of tiles (`tiles`). Geyser sends this table to MINEZ's client mod from version 1.9.0 as `images` in `ClientConfig`, and the mod draws these characters as pictures in the text it lays out itself, 8 UI units per tile as on Java, with the texture at its own resolution. Name tags are drawn by Bedrock, so a text display whose text contains such a character is not given a name tag for such a mod; Geyser sends the text as a `WorldText` event with the entity ID instead (and the ID alone when it is removed), and the mod shows it on a screen bound to that entity. Should the mod fail to bind one, it sends `WorldTextFailed` and Geyser goes back to name tags for that session.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.38.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.39.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.38 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.39 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -234,13 +234,13 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.38.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.38.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.38.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.38.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.38.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.38.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.38.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.39.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.39.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.39.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.39.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.39.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.39.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.39.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 

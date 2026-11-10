@@ -47,6 +47,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.CraftResultsDeprecatedAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.DropAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.ItemStackRequestAction;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.MineBlockAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.SwapAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.TransferItemStackRequestAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponse;
@@ -627,8 +628,14 @@ public abstract class InventoryTranslator<Type extends Inventory> {
                 case CRAFT_RESULTS_DEPRECATED: // Tends to be called for UI inventories
                 case CRAFT_RECIPE_OPTIONAL: // Anvils and cartography tables will handle this
                 case CRAFT_LOOM: // Looms 1.17.40+
-                case CRAFT_REPAIR_AND_DISENCHANT: // Grindstones 1.17.40+
+                case CRAFT_REPAIR_AND_DISENCHANT: { // Grindstones 1.17.40+
+                    break;
+                }
                 case MINE_BLOCK: { // server-auth block breaking, confirming durability
+                    // MINEZ：客户端挖掉方块时预测了手中工具的耐久度，回应中须带上这一格（按 Geyser 所知的物品），否则这个预测留在客户端，
+                    // 网易开发版客户端弹出“SparseContainerClient::clearAllPredictions - unprocessed predictions left in mItems”。
+                    // 实际的耐久度随后由 Java 版服务器的格子更新发来。
+                    affectedSlots.add(inventory.getOffsetForHotbar(((MineBlockAction) action).getHotbarSlot()));
                     break;
                 }
                 default:

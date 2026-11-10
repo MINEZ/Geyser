@@ -35,6 +35,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.DestroyAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.DropAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.ItemStackRequestAction;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.MineBlockAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.SwapAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.TransferItemStackRequestAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponse;
@@ -137,6 +138,10 @@ final class ItemStackResponseMatcher {
             return List.of(consume.getSource());
         } else if (action instanceof DestroyAction destroy) {
             return List.of(destroy.getSource());
+        } else if (action instanceof MineBlockAction mine) {
+            // 挖掉方块时预测了耐久度的手中工具（快捷栏中的一格）。
+            FullContainerName hotbar = new FullContainerName(ContainerSlotType.HOTBAR, null);
+            return List.of(new ItemStackRequestSlotData(ContainerSlotType.HOTBAR, mine.getHotbarSlot(), mine.getStackNetworkId(), hotbar));
         }
         return List.of();
     }

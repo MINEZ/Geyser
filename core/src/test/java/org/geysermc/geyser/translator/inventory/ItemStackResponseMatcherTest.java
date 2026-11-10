@@ -32,6 +32,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.FullContainerName;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequest;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.ItemStackRequestAction;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.MineBlockAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.PlaceAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponse;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponseContainer;
@@ -99,6 +100,24 @@ public class ItemStackResponseMatcherTest {
 
         assertEquals(2, matched.getContainers().size());
         assertEquals(IntSet.of(9, ItemStackResponseMatcher.CURSOR), resend);
+    }
+
+    @Test
+    public void keepsTheToolOfAMinedBlock() {
+        // 挖掉方块时客户端预测了快捷栏 2 格中工具的耐久度：回应须带上这一格，光标不带
+        ItemStackRequest request = request(new MineBlockAction(2, 120, 77));
+        ItemStackResponse response = response(
+            container(ContainerSlotType.HOTBAR, item(2, 1, 77)),
+            container(ContainerSlotType.CURSOR, item(0, 0, 0)));
+
+        IntSet resend = new IntOpenHashSet();
+        ItemStackResponse matched = match(request, response, resend);
+
+        assertEquals(1, matched.getContainers().size());
+        ItemStackResponseContainer hotbar = matched.getContainers().get(0);
+        assertEquals(ContainerSlotType.HOTBAR, hotbar.getContainerName().getContainer());
+        assertEquals(2, hotbar.getItems().get(0).getSlot());
+        assertTrue(resend.isEmpty());
     }
 
     /**

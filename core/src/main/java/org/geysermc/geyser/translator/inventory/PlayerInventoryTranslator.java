@@ -41,6 +41,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.DestroyAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.DropAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.ItemStackRequestAction;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.MineBlockAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.SwapAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.action.TransferItemStackRequestAction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.response.ItemStackResponse;
@@ -257,6 +258,8 @@ public class PlayerInventoryTranslator extends InventoryTranslator<PlayerInvento
 
         PlayerInventory playerInv = session.getPlayerInventory();
         IntSet affectedSlots = new IntOpenHashSet();
+        // MINEZ：只在回应中带上、不改动的格子。
+        IntSet confirmedSlots = new IntOpenHashSet();
         for (ItemStackRequestAction action : request.getActions()) {
             switch (action.getType()) {
                 case TAKE, PLACE -> {
@@ -418,6 +421,11 @@ public class PlayerInventoryTranslator extends InventoryTranslator<PlayerInvento
                         playerInv.getCursor().sub(destroyAction.getCount());
                     }
                 }
+                case MINE_BLOCK -> {
+                    // MINEZ：挖掉方块时客户端预测的手中工具，回应中带上这一格（见 InventoryTranslator#translateRequest），
+                    // 不必向 Java 版服务器发送创造模式的格子。
+                    confirmedSlots.add(inventory.getOffsetForHotbar(((MineBlockAction) action).getHotbarSlot()));
+                }
                 default -> {
                     session.getGeyser().getLogger().error("Unknown crafting state induced by " + session.bedrockUsername());
                     return rejectRequest(request);
@@ -430,7 +438,8 @@ public class PlayerInventoryTranslator extends InventoryTranslator<PlayerInvento
             int slot = it.nextInt();
             sendCreativeAction(session, inventory, slot);
         }
-        return acceptRequest(request, makeContainerEntries(session, inventory, affectedSlots));
+        confirmedSlots.addAll(affectedSlots);
+        return acceptRequest(request, makeContainerEntries(session, inventory, confirmedSlots));
     }
 
     @Override
