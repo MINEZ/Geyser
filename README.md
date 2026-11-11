@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.41-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.42-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -150,7 +150,7 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 
 **Entities Bedrock cannot show.** Upstream logs an error with a stack trace for every entity of a vanilla type it has no Bedrock counterpart for, such as block displays. Such entities are now skipped with a debug message; Bedrock players still do not see them. Item displays are shown where a custom mappings file names an entity for them, see below.
 
-**Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again every 250 milliseconds, up to 20 times, and only then treated as closed. With `debug-mode` on, each retry is logged.
+**Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again, every 250 milliseconds for the first 20 times and every second after that, and only treated as closed once the client has stayed busy for ten minutes, the default time limit of MINEZ's login gate for creating a role. A client can stay busy far longer than a moment: a NetEase account entering the server for the first time refused the role creation form for six seconds, while its own screens were still open, and the earlier limit of about five seconds turned that into the player closing the form, so the login gate disconnected the account. With `debug-mode` on, the first 20 retries and every 60th after them are logged.
 
 **Falling while changing dimension.** When the player changes dimension, which is also how Geyser moves a player between servers behind a proxy, Geyser parks them at (0, 32767, 0) over empty chunks until the Java server sends their position. The client kept applying gravity meanwhile, so the player seemed to fall into the void before the new world appeared. Until that position arrives, the player now has no gravity and cannot move; both come back with the position, and a Java server's own no-gravity setting is kept. Behind a proxy, a server switch starts earlier still: the client is sent back to the configuration phase, where Geyser clears the chunks around the player while they still stand in the old world, so they fell and saw the world vanish before the new server's login even arrived; the hold now starts there. The new world also takes a moment to load, during which it looked empty, so the player is also given a client-side blindness effect for the whole switch, applied again when the position arrives in case the client dropped it while changing dimension, and removed one and a half seconds later, unless the Java server has given them blindness of its own, and in any case wears off after ten seconds.
 
@@ -218,11 +218,11 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Sprite sizes and world texts with the MINEZ client mod.** Bedrock draws a glyph at its pixel size, about 0.8 UI units per pixel, so a 16-pixel sprite is about 1.6 times its Java size, and glyph pages have no setting for the drawn size. A custom mappings file may carry a `text_icons` section, keyed by the glyph character of each sprite (the single glyph of a picture made of several tiles), with the texture holding every sprite (`texture`), the sprite's position in it in pixels (`u`, `v`), its size (`frame_width`, `frame_height`) and its number of tiles (`tiles`). Geyser sends this table to MINEZ's client mod from version 1.9.0 as `images` in `ClientConfig`, and the mod draws these characters as pictures in the text it lays out itself, 8 UI units per tile as on Java, with the texture at its own resolution. Name tags are drawn by Bedrock, so a text display whose text contains such a character is not given a name tag for such a mod; Geyser sends the text as a `WorldText` event with the entity ID instead (and the ID alone when it is removed), and the mod shows it on a screen bound to that entity. Should the mod fail to bind one, it sends `WorldTextFailed` and Geyser goes back to name tags for that session.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.41.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.42.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.41 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.42 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -238,13 +238,13 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.41.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.41.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.41.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.41.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.41.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.41.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.41.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.42.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.42.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.42.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.42.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.42.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.42.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.42.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
