@@ -48,8 +48,13 @@ import java.util.Map;
 import java.util.function.UnaryOperator;
 
 public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>> readers) {
+    /**
+     * MINEZ：格式 2 的文件（物品为 v2 的写法）中的方块按格式 1 的写法读，使物品与方块能写在同一个映射文件中（例如 MINEZ 资源包的
+     * 生成工具写出的 minez_resources.json）。
+     */
     public static final MappingsType<String, CustomBlockMapping> BLOCKS = create("blocks", builder -> builder
-        .with(1, new BlockMappingsReader_v1()));
+        .with(1, new BlockMappingsReader_v1())
+        .with(2, new BlockMappingsReader_v1()));
     public static final MappingsType<Identifier, CustomItemDefinition> ITEMS = create("items", builder -> builder
         .with(1, new ItemMappingsReader_v1())
         .with(2, new ItemMappingsReader_v2()));
