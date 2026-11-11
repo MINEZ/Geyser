@@ -30,6 +30,7 @@ import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
+import org.geysermc.geyser.util.MinezCommandNames;
 
 @Translator(packet = CommandRequestPacket.class)
 public class BedrockCommandRequestTranslator extends PacketTranslator<CommandRequestPacket> {
@@ -50,6 +51,7 @@ public class BedrockCommandRequestTranslator extends PacketTranslator<CommandReq
             return;
         }
 
-        session.sendCommand(message.substring(1));
+        // MINEZ：基岩版中写作“_”开头的命令换回“/”开头（例如 /_set 为 WorldEdit 的 //set），见 MinezCommandNames。
+        session.sendCommand(MinezCommandNames.toJava(message.substring(1), session.getKnownCommands()));
     }
 }

@@ -57,6 +57,7 @@ import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
 import org.geysermc.geyser.util.EntityUtils;
+import org.geysermc.geyser.util.MinezCommandNames;
 import org.geysermc.mcprotocollib.protocol.data.game.command.CommandNode;
 import org.geysermc.mcprotocollib.protocol.data.game.command.CommandParser;
 import org.geysermc.mcprotocollib.protocol.data.game.command.properties.ResourceProperties;
@@ -165,6 +166,11 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
 
         List<String> knownCommands = new ArrayList<>();
         List<String> restrictedCommands = new ArrayList<>();
+        // MINEZ：Java 版的全部命令名，用来决定名字以“/”开头的命令在基岩版中的写法（见 MinezCommandNames）。
+        Set<String> javaNames = new HashSet<>();
+        for (int nodeIndex : rootNode.getChildIndices()) {
+            javaNames.add(nodes[nodeIndex].getName().toLowerCase(Locale.ROOT));
+        }
         // Loop through the root nodes to get all commands
         for (int nodeIndex : rootNode.getChildIndices()) {
             CommandNode node = nodes[nodeIndex];
@@ -185,8 +191,10 @@ public class JavaCommandsTranslator extends PacketTranslator<ClientboundCommands
             // Insert the alias name into the command list
             String name = node.getName().toLowerCase(Locale.ROOT);
             String description = registry.description(name, session.locale());
-            BedrockCommandInfo info = new BedrockCommandInfo(name, description, params);
-            commands.computeIfAbsent(info, $ -> new HashSet<>()).add(name);
+            // MINEZ：基岩版客户端不发出以“//”开头的命令，名字以“/”开头的命令在基岩版中写作“_”开头（见 MinezCommandNames）。
+            String bedrockName = MinezCommandNames.toBedrock(name, javaNames);
+            BedrockCommandInfo info = new BedrockCommandInfo(bedrockName, description, params);
+            commands.computeIfAbsent(info, $ -> new HashSet<>()).add(bedrockName);
 
             // Add the command to the command lists
             knownCommands.add(name);

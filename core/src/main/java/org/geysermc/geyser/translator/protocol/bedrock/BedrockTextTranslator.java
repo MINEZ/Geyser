@@ -30,6 +30,7 @@ import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
+import org.geysermc.geyser.util.MinezCommandNames;
 
 @Translator(packet = TextPacket.class)
 public class BedrockTextTranslator extends PacketTranslator<TextPacket> {
@@ -48,7 +49,8 @@ public class BedrockTextTranslator extends PacketTranslator<TextPacket> {
 
         if (message.startsWith("/")) {
             // Yes, Java actually allows whitespaces before commands and will still see those as valid
-            session.sendCommand(message.substring(1));
+            // MINEZ：基岩版中写作“_”开头的命令换回“/”开头，见 MinezCommandNames。
+            session.sendCommand(MinezCommandNames.toJava(message.substring(1), session.getKnownCommands()));
             return;
         }
 
