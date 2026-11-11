@@ -312,6 +312,12 @@ public final class EntityUtils {
             passenger.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION_DEGREES, 90f);
             passenger.getMetadata().put(EntityDataTypes.SEAT_HAS_ROTATION, true);
             passenger.getMetadata().put(EntityDataTypes.SEAT_ROTATION_OFFSET_DEGREES, -90f);
+        } else if (isRiding && passenger instanceof ItemDisplayEntity) {
+            // MINEZ：骑乘中的物品展示实体（例如翅膀）的朝向锁定为载具的朝向，见 ItemDisplayEntity。
+            passenger.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION, true);
+            passenger.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION_DEGREES, 0f);
+            passenger.getMetadata().put(EntityDataTypes.SEAT_HAS_ROTATION, true);
+            passenger.getMetadata().put(EntityDataTypes.SEAT_ROTATION_OFFSET_DEGREES, 0f);
         } else {
             passenger.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION, false);
             passenger.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION_DEGREES, 0f);

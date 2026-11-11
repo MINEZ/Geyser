@@ -38,6 +38,7 @@ import org.geysermc.geyser.entity.CustomBedrockEntityDefinition;
 import org.geysermc.geyser.entity.DisplayModels;
 import org.geysermc.geyser.entity.spawn.EntitySpawnContext;
 import org.geysermc.geyser.inventory.GeyserItemStack;
+import org.geysermc.geyser.util.EntityUtils;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.EntityMetadata;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.ByteEntityMetadata;
 import org.geysermc.mcprotocollib.protocol.data.game.item.ItemStack;
@@ -54,8 +55,10 @@ import java.util.concurrent.TimeUnit;
  * 其余的由实体数据传给客户端，由实体的渲染控制器与动画（见 MINEZ/CraftengineResources 的生成工具）使用：
  * <ul>
  *     <li>染色（dyed_color，例如降落伞）：变种（VARIANT，0xRRGGBB），给模型中染色的面上色；</li>
- *     <li>朝向：标记变种（MARK_VARIANT，0~359 度），动画按它转动模型。基岩版实体自身的朝向一律为 0：骑在玩家身上时（例如翅膀），
- *     基岩版不理会服务器发来的转向，翅膀停在生成时的朝向；</li>
+ *     <li>朝向：基岩版实体自身的朝向一律为 0，Java 版的朝向写进标记变种（MARK_VARIANT，0~359 度），动画按它转动模型。骑在载具上时
+ *     （例如翅膀骑在玩家身上），基岩版不按服务器发来的转向转动骑乘者，因此以座位把实体的朝向锁定为载具的朝向（偏移 0，见
+ *     {@link org.geysermc.geyser.util.EntityUtils#updateRiderRotationLock}），标记变种为 0：模型随载具转动，不必等服务器同步。本服骑乘中的
+ *     展示实体都朝着载具的方向（Java 版由脚本把翅膀的朝向同步为玩家的朝向，有 3 度的阈值与延迟）；</li>
  *     <li>缩放：实体的缩放（SCALE）为变换中水平两轴的平均，竖直方向与之的比值乘以 1000 写进皮肤编号（SKIN_ID），动画按它在竖直方向
  *     缩放模型（例如降落伞落地后塌下：竖直方向缩到 0.15）。变换有插值时间（interpolation_duration）时与 Java 版一样逐刻过渡。</li>
  * </ul>
@@ -111,7 +114,7 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
         this.metadata.put(EntityDataTypes.WIDTH, 0f);
         this.metadata.put(EntityDataTypes.HEIGHT, 0f);
         this.metadata.put(EntityDataTypes.VARIANT, color);
-        this.metadata.put(EntityDataTypes.MARK_VARIANT, yawDegrees());
+        this.metadata.put(EntityDataTypes.MARK_VARIANT, markVariant());
         putScale(displayScale);
     }
 
@@ -143,18 +146,28 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
     }
 
     private void setDisplayYaw(float yaw) {
-        int before = yawDegrees();
+        int before = markVariant();
         this.displayYaw = yaw;
-        if (yawDegrees() != before) {
-            this.metadata.put(EntityDataTypes.MARK_VARIANT, yawDegrees());
+        if (markVariant() != before) {
+            this.metadata.put(EntityDataTypes.MARK_VARIANT, markVariant());
             if (valid) {
                 updateBedrockMetadata();
             }
         }
     }
 
-    private int yawDegrees() {
-        return Math.floorMod(Math.round(displayYaw), 360);
+    /**
+     * 模型在实体自身朝向之外再转的角度（0~359 度）：骑乘中为 0（朝向锁定为载具的朝向），否则为 Java 版的朝向。
+     */
+    private int markVariant() {
+        return vehicle != null ? 0 : Math.floorMod(Math.round(displayYaw), 360);
+    }
+
+    @Override
+    public void setVehicle(Entity entity) {
+        super.setVehicle(entity);
+        // 由骑乘的变化处随后发出（updateBedrockMetadata）。
+        this.metadata.put(EntityDataTypes.MARK_VARIANT, markVariant());
     }
 
     public void setItem(EntityMetadata<ItemStack, ?> entityMetadata) {
@@ -282,6 +295,8 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
         linkPacket.setEntityLink(new EntityLinkData(vehicle.geyserId(), geyserId,
             rider ? EntityLinkData.Type.RIDER : EntityLinkData.Type.PASSENGER, false, false, 0f));
         session.sendUpstreamPacket(linkPacket);
+        // 座位的朝向锁定与位置一样重新写入：换模型重新生成时，骑乘时写入的实体数据早已发出、清空。
+        EntityUtils.updateRiderRotationLock(this, vehicle, true);
         updateMountOffset();
     }
 }
