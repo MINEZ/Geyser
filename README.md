@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.40-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.41-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -94,6 +94,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Names of custom items | Behaviour | Changed |
 | Animated sprites with the MINEZ client mod | Behaviour | Added |
 | 3D item icons with the MINEZ client mod | Behaviour | Added |
+| Item displays as custom entities | Behaviour | Added |
 | Display names in the player list | Behaviour | Changed |
 | Translations from custom mappings | Config | Added |
 | Enchanted books with only Java-only enchantments | Behaviour | Changed |
@@ -147,7 +148,7 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 
 **Reopening a dialog after a click.** A Java dialog whose `after_action` is `none` stays on screen after a click until the server shows another dialog, while a Bedrock form is gone once clicked, so upstream reopened the dialog at once. When the click was handled by the server (a command or a custom action), the dialog the server opened next, such as the one a Back button leads to, arrived almost together with it: the client could not close the reopened form in time and kept it under the new one, so the dialog seemed to open twice, and the stale form left after closing the new one did nothing when clicked. After such a click, Geyser now waits a second before reopening the dialog, and does not reopen it if the server has opened or closed a dialog meanwhile. As on Java, a container the server opens also closes the dialog that was open, so a click that opens one (such as a storage button) is not followed a second later by the dialog coming back and closing the container.
 
-**Entities Bedrock cannot show.** Upstream logs an error with a stack trace for every entity of a vanilla type it has no Bedrock counterpart for, such as item and block displays. Such entities are now skipped with a debug message; Bedrock players still do not see them.
+**Entities Bedrock cannot show.** Upstream logs an error with a stack trace for every entity of a vanilla type it has no Bedrock counterpart for, such as block displays. Such entities are now skipped with a debug message; Bedrock players still do not see them. Item displays are shown where a custom mappings file names an entity for them, see below.
 
 **Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again every 250 milliseconds, up to 20 times, and only then treated as closed. With `debug-mode` on, each retry is logged.
 
@@ -160,6 +161,8 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 **Animated sprites with the MINEZ client mod.** Font glyphs cannot be animated, so an animated sprite, such as one of MINEZ's titles, only shows its first frame in Bedrock text. A custom mappings file may also carry an `animated_sprites` section, keyed by the glyph characters of one picture, such as the single glyph of a title, each with the path of a strip texture in the resource pack whose frames lie side by side (`texture`), the size of one frame in pixels (`frame_width`, `frame_height`), the number of frames (`frames`), the frames per second (`fps`) and the number of tiles (`tiles`); entries missing any of these are logged as errors and skipped. Once MINEZ's client mod, from version 1.4.0, reports that it is ready, Geyser sends it this table with a `ModEventS2C` client event named `ClientConfig`, the first message Geyser sends to a client mod, encoded as NetEase's own servers do: `["ModEventS2C", [namespace, system, event, data], nil]`, strings written as MessagePack binaries, message ID 9753608. From then on, every message shown in the chat (raw, chat, translation, system, whisper and announcement texts, but not the action bar), is still sent as usual and also sent to the mod as a `ChatMessage` event carrying its Bedrock text, with `<sender> ` in front for chat texts that name a sender, as Bedrock shows them. The mod hides Bedrock's own chat on the HUD and draws its own, where these character runs become animated pictures; the chat screen opened for typing still shows Bedrock's own history, with the first frame. Geyser also sends the player's own display name in the player list, with a picture made of several tiles, such as a title, moved to a second line together with the colour codes in front of it, as a `PlayerName` event once the mod is ready and whenever the name changes; the mod shows it above the player model in the pause menu with the title animated, in place of Bedrock's name tag. With the mod from version 1.12.0, Geyser also sends a `Flying` event, `{"flying": 1}` or `0`, whenever the player starts or stops flying, and once the mod is ready if the player is flying then: Bedrock shows the paper doll while flying, and the mod moves its chat down to make room, but NetEase's client API cannot tell whether the player is flying. International sessions, and sessions whose mod has not reported in, are left as before.
 
 **3D item icons with the MINEZ client mod.** A Bedrock item icon is one cell of the item atlas, which keeps icons of items with 3D models, such as MINEZ's wings, at 32 pixels. A custom mappings file may carry a `model_icons` section, keyed by item model (`minez:<model>`, the part of the Bedrock identifier before the dot), each with a texture in the resource pack (`texture`), the size of one frame in pixels (`frame_width`, `frame_height`), the number of frames side by side (`frames`) and the frames per second (`fps`); MINEZ's resource pack renders these the way Java's inventory draws the model, its gui transform and lighting, at 128 pixels. Geyser sends the table to MINEZ's client mod as `icons` in `ClientConfig`, and the mod lays the picture over the vanilla icon in inventory slots and on the cursor, with the vanilla icon's anchors, position and size.
+
+**Item displays as custom entities.** Bedrock has no item displays, and upstream does not translate them, so Bedrock players could not see MINEZ's falling airdrops, their parachutes, or the wings worn by players. A custom mappings file may carry a `display_entities` section, keyed by item model and display context, such as `minez:airdrop_parachute|none` or `minecraft:chest|none` (a vanilla item's model is its own identifier), each naming a custom Bedrock entity outside the `minecraft` namespace; malformed entries are logged as errors and skipped. Geyser registers these entities at startup, so changing the section takes a restart. MINEZ's resource pack defines each one as a client entity whose model is the Java model already turned by the display context's transform and by the half turn every item display gives its item, with the entity's position as origin. An item display is spawned on Bedrock only once its item is known, as that entity, and respawned when its item turns into another model; one whose item has no entry is not spawned, as before. Geyser keeps it at the Java entity's position and rotation, gliding over the display's teleport duration as for text displays, scales it by the average of the display's scale, gives it no hitbox, and sends a dyed item's colour as the entity's variant (`0xRRGGBB`, white when undyed) for the model's tinted faces. A display riding a player sits at the top of the player, offset by its translation, as on Java; when it is spawned after the ride began, Geyser sends the ride again.
 
 **China Edition's own items.** NetEase's client has items of its own, such as `minecraft:debug_stick`, `minecraft:mod` and `minecraft:mod_ex`, which it registers by itself: they are not in the item table Geyser sends, and must not be, as the client would then register them twice. A custom item given one of their IDs showed as that item, such as a glinting debug stick, or as nothing. Their IDs and names are now listed in `bedrock/netease_items.1_21_130.json`, and custom items in China Edition's table skip those IDs; everything else is numbered as before.
 
@@ -215,11 +218,11 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Sprite sizes and world texts with the MINEZ client mod.** Bedrock draws a glyph at its pixel size, about 0.8 UI units per pixel, so a 16-pixel sprite is about 1.6 times its Java size, and glyph pages have no setting for the drawn size. A custom mappings file may carry a `text_icons` section, keyed by the glyph character of each sprite (the single glyph of a picture made of several tiles), with the texture holding every sprite (`texture`), the sprite's position in it in pixels (`u`, `v`), its size (`frame_width`, `frame_height`) and its number of tiles (`tiles`). Geyser sends this table to MINEZ's client mod from version 1.9.0 as `images` in `ClientConfig`, and the mod draws these characters as pictures in the text it lays out itself, 8 UI units per tile as on Java, with the texture at its own resolution. Name tags are drawn by Bedrock, so a text display whose text contains such a character is not given a name tag for such a mod; Geyser sends the text as a `WorldText` event with the entity ID instead (and the ID alone when it is removed), and the mod shows it on a screen bound to that entity. Should the mod fail to bind one, it sends `WorldTextFailed` and Geyser goes back to name tags for that session.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.40.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.41.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.40 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.41 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -235,13 +238,13 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.40.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.40.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.40.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.40.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.40.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.40.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.40.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.41.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.41.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.41.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.41.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.41.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.41.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.41.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 

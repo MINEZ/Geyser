@@ -45,6 +45,7 @@ import org.geysermc.geyser.api.event.lifecycle.GeyserDefineEntityPropertiesEvent
 import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.entity.BedrockEntityDefinition;
 import org.geysermc.geyser.entity.CustomBedrockEntityDefinition;
+import org.geysermc.geyser.entity.DisplayModels;
 import org.geysermc.geyser.entity.EntityTypeDefinition;
 import org.geysermc.geyser.entity.GeyserEntityType;
 import org.geysermc.geyser.entity.VanillaEntities;
@@ -57,6 +58,7 @@ import org.geysermc.geyser.entity.properties.type.StringEnumProperty;
 import org.geysermc.geyser.entity.type.BoatEntity;
 import org.geysermc.geyser.entity.type.ChestBoatEntity;
 import org.geysermc.geyser.entity.type.Entity;
+import org.geysermc.geyser.entity.type.ItemDisplayEntity;
 import org.geysermc.geyser.entity.type.TextDisplayEntity;
 import org.geysermc.geyser.entity.type.living.ArmorStandEntity;
 import org.geysermc.geyser.entity.type.living.animal.AnimalEntity;
@@ -232,6 +234,21 @@ public final class EntityUtils {
                             yOffset += displayTranslation.getY() + multiplier * lines;
                             zOffset = displayTranslation.getZ();
                         }
+                    } else if (passenger instanceof ItemDisplayEntity itemDisplay) {
+                        // MINEZ：Java 版骑在玩家身上的展示实体在玩家头顶（乘客挂点为玩家的高度），再按变换中的平移移动。
+                        Vector3f displayTranslation = itemDisplay.getTranslation();
+                        xOffset = displayTranslation.getX();
+                        yOffset += displayTranslation.getY();
+                        zOffset = displayTranslation.getZ();
+                    }
+                }
+                case MANNEQUIN -> {
+                    // MINEZ：与玩家相同（例如试穿时骑在人偶身上的翅膀）。
+                    if (passenger instanceof ItemDisplayEntity itemDisplay) {
+                        Vector3f displayTranslation = itemDisplay.getTranslation();
+                        xOffset = displayTranslation.getX();
+                        yOffset += displayTranslation.getY();
+                        zOffset = displayTranslation.getZ();
                     }
                 }
                 case HAPPY_GHAST -> {
@@ -258,7 +275,9 @@ public final class EntityUtils {
              * Horses are tinier
              * Players, Minecarts, and Boats have different origins
              */
-            if (mount.getJavaDefinition() == VanillaEntities.PLAYER) {
+            if (mount.getJavaDefinition() == VanillaEntities.PLAYER
+                || (mount.getJavaDefinition() == VanillaEntities.MANNEQUIN && passenger instanceof ItemDisplayEntity)) {
+                // 基岩版玩家（与人偶）的位置在眼睛的高度。MINEZ：人偶身上的物品展示实体同样减去。
                 yOffset -= VanillaEntities.PLAYER.offset();
             }
             if (passenger.getJavaDefinition() == VanillaEntities.PLAYER) {
@@ -407,6 +426,8 @@ public final class EntityUtils {
                 customEntities.add(bedrockEntityDefinition);
             }
         });
+        // MINEZ：物品展示实体在基岩版中显示成的自定义实体（映射文件的 display_entities）。
+        DisplayModels.register(customEntities);
 
         if (!customEntities.isEmpty()) {
             NbtMap nbt = Registries.BEDROCK_ENTITY_IDENTIFIERS.get();

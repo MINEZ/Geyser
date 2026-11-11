@@ -34,6 +34,7 @@ import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.api.waypoint.CustomWaypointStyle;
 import org.geysermc.geyser.registry.mappings.util.CustomBlockMapping;
 import org.geysermc.geyser.registry.mappings.versions.block.BlockMappingsReader_v1;
+import org.geysermc.geyser.registry.mappings.versions.display.DisplayEntityMappingsReader;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v1;
 import org.geysermc.geyser.registry.mappings.versions.item.ItemMappingsReader_v2;
 import org.geysermc.geyser.registry.mappings.versions.skull.SkullMappingsReader_v1;
@@ -87,6 +88,13 @@ public record MappingsType<K, V>(String name, Int2ObjectMap<MappingsReader<K, V>
     public static final MappingsType<String, Map<String, Object>> MODEL_ICONS = create("model_icons", builder -> builder
         .with(1, new SpriteImageMappingsReader(SpriteImageMappingsReader.MODEL_ICONS))
         .with(2, new SpriteImageMappingsReader(SpriteImageMappingsReader.MODEL_ICONS)));
+
+    /**
+     * MINEZ：物品展示实体在基岩版中显示成的自定义实体，见 {@link org.geysermc.geyser.entity.DisplayModels}。
+     */
+    public static final MappingsType<String, String> DISPLAY_ENTITIES = create("display_entities", builder -> builder
+        .with(1, new DisplayEntityMappingsReader())
+        .with(2, new DisplayEntityMappingsReader()));
 
     private static <K, V> MappingsType<K, V> create(String name, UnaryOperator<Builder<K, V>> builder) {
         return new MappingsType<>(name, Int2ObjectMaps.unmodifiable(builder.apply(new Builder<>()).readers));

@@ -50,6 +50,7 @@ import org.geysermc.geyser.entity.type.FishingHookEntity;
 import org.geysermc.geyser.entity.type.FurnaceMinecartEntity;
 import org.geysermc.geyser.entity.type.HangingEntity;
 import org.geysermc.geyser.entity.type.InteractionEntity;
+import org.geysermc.geyser.entity.type.ItemDisplayEntity;
 import org.geysermc.geyser.entity.type.ItemEntity;
 import org.geysermc.geyser.entity.type.ItemFrameEntity;
 import org.geysermc.geyser.entity.type.LeashKnotEntity;
@@ -307,6 +308,7 @@ public final class VanillaEntities {
     public static final VanillaEntityType<SulfurCubeEntity> SULFUR_CUBE;
     public static final VanillaEntityType<TadpoleEntity> TADPOLE;
     public static final VanillaEntityType<TextDisplayEntity> TEXT_DISPLAY;
+    public static final VanillaEntityType<ItemDisplayEntity> ITEM_DISPLAY;
     public static final VanillaEntityType<TNTEntity> TNT;
     public static final VanillaEntityType<MinecartEntity> TNT_MINECART;
     public static final VanillaEntityType<TraderLlamaEntity> TRADER_LLAMA;
@@ -450,7 +452,7 @@ public final class VanillaEntities {
                     .addTranslator(null) // Transformation interpolation duration
                     .addTranslator(MetadataTypes.INT, DisplayBaseEntity::setTeleportDuration) // Position/Rotation interpolation duration
                     .addTranslator(MetadataTypes.VECTOR3, DisplayBaseEntity::setTranslation) // Translation
-                    .addTranslator(null) // Scale
+                    .addTranslator(MetadataTypes.VECTOR3, DisplayBaseEntity::setDisplayScale) // Scale
                     .addTranslator(null) // Left rotation
                     .addTranslator(null) // Right rotation
                     .addTranslator(null) // Billboard render constraints
@@ -470,6 +472,14 @@ public final class VanillaEntities {
                     .addTranslator(null) // Background color
                     .addTranslator(null) // Text opacity
                     .addTranslator(null) // Bit mask
+                    .build();
+
+            // MINEZ：映射文件中有对应的自定义实体时显示成它，见 ItemDisplayEntity；生成时的基岩版定义只是占位，不会以它生成。
+            ITEM_DISPLAY = VanillaEntityType.inherited(ItemDisplayEntity::new, displayBase)
+                    .type(EntityType.ITEM_DISPLAY)
+                    .bedrockDefinition(BedrockEntityDefinitions.ARMOR_STAND)
+                    .addTranslator(MetadataTypes.ITEM_STACK, ItemDisplayEntity::setItem)
+                    .addTranslator(MetadataTypes.BYTE, ItemDisplayEntity::setDisplayType)
                     .build();
 
             INTERACTION = VanillaEntityType.inherited(InteractionEntity::new, entityBase)
