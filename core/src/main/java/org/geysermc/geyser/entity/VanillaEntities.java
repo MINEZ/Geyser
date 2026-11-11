@@ -449,7 +449,7 @@ public final class VanillaEntities {
 
             EntityTypeBase<DisplayBaseEntity> displayBase = EntityTypeBase.baseInherited(DisplayBaseEntity.class, entityBase)
                     .addTranslator(null) // Interpolation delay
-                    .addTranslator(null) // Transformation interpolation duration
+                    .addTranslator(MetadataTypes.INT, DisplayBaseEntity::setTransformationInterpolationDuration) // Transformation interpolation duration
                     .addTranslator(MetadataTypes.INT, DisplayBaseEntity::setTeleportDuration) // Position/Rotation interpolation duration
                     .addTranslator(MetadataTypes.VECTOR3, DisplayBaseEntity::setTranslation) // Translation
                     .addTranslator(MetadataTypes.VECTOR3, DisplayBaseEntity::setDisplayScale) // Scale

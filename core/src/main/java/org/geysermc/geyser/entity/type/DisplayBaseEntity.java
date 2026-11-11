@@ -45,6 +45,10 @@ public class DisplayBaseEntity extends Entity {
      * 进行的插值。
      */
     protected int teleportDuration;
+    /**
+     * MINEZ：Java 版改变变换（缩放等）时插值的刻数（interpolation_duration），见 {@link ItemDisplayEntity}。
+     */
+    protected int transformationInterpolationDuration;
     private @Nullable Vector3f moveTarget;
     private @Nullable ScheduledFuture<?> interpolation;
 
@@ -68,6 +72,11 @@ public class DisplayBaseEntity extends Entity {
             EntityUtils.updateMountOffset(this, this.vehicle, true, true, 0, 1);
             this.updateBedrockMetadata();
         }
+    }
+
+    public void setTransformationInterpolationDuration(EntityMetadata<Integer, ?> entityMetadata) {
+        Integer value = entityMetadata.getValue();
+        this.transformationInterpolationDuration = value == null ? 0 : Math.max(0, value);
     }
 
     public void setTeleportDuration(EntityMetadata<Integer, ?> entityMetadata) {

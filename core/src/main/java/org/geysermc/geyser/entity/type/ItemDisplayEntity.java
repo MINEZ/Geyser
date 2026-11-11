@@ -43,13 +43,22 @@ import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.ByteEn
 import org.geysermc.mcprotocollib.protocol.data.game.item.ItemStack;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponentTypes;
 
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 /**
  * MINEZ：物品展示实体。
  * <p>
  * 基岩版没有物品展示实体。映射文件 {@code display_entities} 中有这个物品模型与显示方式时（见 {@link DisplayModels}），显示成生成工具
- * 事先转好的自定义实体：模型已按显示方式的变换与物品展示实体自带的转向转好，实体只需放在同一位置、同一朝向，按变换中的缩放放大；
- * 染色（dyed_color，例如降落伞）以变种（VARIANT，0xRRGGBB）传给客户端，由实体的渲染控制器给模型中染色的面上色。没有对应的实体时
- * 基岩版照旧看不到。
+ * 事先转好的自定义实体：模型已按显示方式的变换与物品展示实体自带的转向转好，实体放在同一位置。没有对应的实体时基岩版照旧看不到。
+ * 其余的由实体数据传给客户端，由实体的渲染控制器与动画（见 MINEZ/CraftengineResources 的生成工具）使用：
+ * <ul>
+ *     <li>染色（dyed_color，例如降落伞）：变种（VARIANT，0xRRGGBB），给模型中染色的面上色；</li>
+ *     <li>朝向：标记变种（MARK_VARIANT，0~359 度），动画按它转动模型。基岩版实体自身的朝向一律为 0：骑在玩家身上时（例如翅膀），
+ *     基岩版不理会服务器发来的转向，翅膀停在生成时的朝向；</li>
+ *     <li>缩放：实体的缩放（SCALE）为变换中水平两轴的平均，竖直方向与之的比值乘以 1000 写进皮肤编号（SKIN_ID），动画按它在竖直方向
+ *     缩放模型（例如降落伞落地后塌下：竖直方向缩到 0.15）。变换有插值时间（interpolation_duration）时与 Java 版一样逐刻过渡。</li>
+ * </ul>
  * <p>
  * 实体的样子要等物品（实体数据）到了才知道，而 Geyser 在生成 Java 版实体时就生成基岩版的实体，因此先不生成，有了物品再以对应的实体
  * 生成；物品换成别的模型时移除后重新生成，并重新骑上原来的载具（例如身上的翅膀骑在玩家身上）。
@@ -70,9 +79,19 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
     private @Nullable CustomBedrockEntityDefinition wanted;
     private @Nullable CustomBedrockEntityDefinition shown;
     private int color = WHITE;
+    /**
+     * Java 版的朝向（度），以标记变种发给客户端；正在显示的缩放；正在进行的缩放插值。
+     */
+    private float displayYaw;
+    private Vector3f displayScale = Vector3f.ONE;
+    private @Nullable ScheduledFuture<?> scaleInterpolation;
 
     public ItemDisplayEntity(EntitySpawnContext context) {
         super(context);
+        this.displayYaw = this.yaw;
+        this.yaw = 0;
+        this.pitch = 0;
+        this.headYaw = 0;
     }
 
     @Override
@@ -92,7 +111,8 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
         this.metadata.put(EntityDataTypes.WIDTH, 0f);
         this.metadata.put(EntityDataTypes.HEIGHT, 0f);
         this.metadata.put(EntityDataTypes.VARIANT, color);
-        applyScale();
+        this.metadata.put(EntityDataTypes.MARK_VARIANT, yawDegrees());
+        putScale(displayScale);
     }
 
     @Override
@@ -106,7 +126,35 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
     @Override
     public void despawnEntity() {
         spawnRequested = false;
+        cancelScaleInterpolation();
         super.despawnEntity();
+    }
+
+    @Override
+    public void moveRelativeRaw(double relX, double relY, double relZ, float yaw, float pitch, float headYaw, boolean isOnGround) {
+        setDisplayYaw(yaw);
+        super.moveRelativeRaw(relX, relY, relZ, 0, 0, 0, isOnGround);
+    }
+
+    @Override
+    public void moveAbsoluteRaw(Vector3f position, float yaw, float pitch, float headYaw, boolean isOnGround, boolean teleported) {
+        setDisplayYaw(yaw);
+        super.moveAbsoluteRaw(position, 0, 0, 0, isOnGround, teleported);
+    }
+
+    private void setDisplayYaw(float yaw) {
+        int before = yawDegrees();
+        this.displayYaw = yaw;
+        if (yawDegrees() != before) {
+            this.metadata.put(EntityDataTypes.MARK_VARIANT, yawDegrees());
+            if (valid) {
+                updateBedrockMetadata();
+            }
+        }
+    }
+
+    private int yawDegrees() {
+        return Math.floorMod(Math.round(displayYaw), 360);
     }
 
     public void setItem(EntityMetadata<ItemStack, ?> entityMetadata) {
@@ -121,9 +169,53 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
 
     @Override
     public void setDisplayScale(EntityMetadata<Vector3f, ?> entityMetadata) {
-        Vector3f value = entityMetadata.getValue();
-        // 基岩版的实体只能整体缩放：各轴不同时取平均（MINEZ 的展示实体都是等比缩放）。
-        setScale(value == null ? 1f : (value.getX() + value.getY() + value.getZ()) / 3f);
+        Vector3f target = entityMetadata.getValue() == null ? Vector3f.ONE : entityMetadata.getValue();
+        cancelScaleInterpolation();
+        int steps = transformationInterpolationDuration;
+        if (steps <= 1 || !valid) {
+            showScale(target);
+            return;
+        }
+        // 与 Java 版一样在 interpolation_duration 刻内过渡：每刻发一次中间的缩放。
+        interpolateScale(displayScale, target, 1, steps);
+    }
+
+    private void interpolateScale(Vector3f start, Vector3f end, int step, int steps) {
+        if (!valid) {
+            displayScale = end;
+            return;
+        }
+        showScale(step >= steps ? end : start.add(end.sub(start).mul((float) step / steps)));
+        if (step < steps) {
+            scaleInterpolation = session.scheduleInEventLoop(() -> interpolateScale(start, end, step + 1, steps), 50, TimeUnit.MILLISECONDS);
+        } else {
+            scaleInterpolation = null;
+        }
+    }
+
+    private void cancelScaleInterpolation() {
+        if (scaleInterpolation != null) {
+            scaleInterpolation.cancel(false);
+            scaleInterpolation = null;
+        }
+    }
+
+    private void showScale(Vector3f scale) {
+        displayScale = scale;
+        putScale(scale);
+        if (valid) {
+            updateBedrockMetadata();
+        }
+    }
+
+    /**
+     * 基岩版的实体只能整体缩放：整体为水平两轴的平均，竖直方向与之的比值（千分之几）另写进皮肤编号，由动画缩放。
+     */
+    private void putScale(Vector3f scale) {
+        float horizontal = (scale.getX() + scale.getZ()) / 2f;
+        setScale(horizontal);
+        int ratio = horizontal > 1.0e-4f ? Math.round(scale.getY() / horizontal * 1000f) : 1000;
+        this.metadata.put(EntityDataTypes.SKIN_ID, ratio);
     }
 
     /**

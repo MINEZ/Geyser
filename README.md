@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.42-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.43-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -162,7 +162,7 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 
 **3D item icons with the MINEZ client mod.** A Bedrock item icon is one cell of the item atlas, which keeps icons of items with 3D models, such as MINEZ's wings, at 32 pixels. A custom mappings file may carry a `model_icons` section, keyed by item model (`minez:<model>`, the part of the Bedrock identifier before the dot), each with a texture in the resource pack (`texture`), the size of one frame in pixels (`frame_width`, `frame_height`), the number of frames side by side (`frames`) and the frames per second (`fps`); MINEZ's resource pack renders these the way Java's inventory draws the model, its gui transform and lighting, at 128 pixels. Geyser sends the table to MINEZ's client mod as `icons` in `ClientConfig`, and the mod lays the picture over the vanilla icon in inventory slots and on the cursor, with the vanilla icon's anchors, position and size.
 
-**Item displays as custom entities.** Bedrock has no item displays, and upstream does not translate them, so Bedrock players could not see MINEZ's falling airdrops, their parachutes, or the wings worn by players. A custom mappings file may carry a `display_entities` section, keyed by item model and display context, such as `minez:airdrop_parachute|none` or `minecraft:chest|none` (a vanilla item's model is its own identifier), each naming a custom Bedrock entity outside the `minecraft` namespace; malformed entries are logged as errors and skipped. Geyser registers these entities at startup, so changing the section takes a restart. MINEZ's resource pack defines each one as a client entity whose model is the Java model already turned by the display context's transform and by the half turn every item display gives its item, with the entity's position as origin. An item display is spawned on Bedrock only once its item is known, as that entity, and respawned when its item turns into another model; one whose item has no entry is not spawned, as before. Geyser keeps it at the Java entity's position and rotation, gliding over the display's teleport duration as for text displays, scales it by the average of the display's scale, gives it no hitbox, and sends a dyed item's colour as the entity's variant (`0xRRGGBB`, white when undyed) for the model's tinted faces. A display riding a player sits at the top of the player, offset by its translation, as on Java; when it is spawned after the ride began, Geyser sends the ride again.
+**Item displays as custom entities.** Bedrock has no item displays, and upstream does not translate them, so Bedrock players could not see MINEZ's falling airdrops, their parachutes, or the wings worn by players. A custom mappings file may carry a `display_entities` section, keyed by item model and display context, such as `minez:airdrop_parachute|none` or `minecraft:chest|none` (a vanilla item's model is its own identifier), each naming a custom Bedrock entity outside the `minecraft` namespace; malformed entries are logged as errors and skipped. Geyser registers these entities at startup, so changing the section takes a restart. MINEZ's resource pack defines each one as a client entity whose model is the Java model already turned by the display context's transform and by the half turn every item display gives its item, with the entity's position as origin. An item display is spawned on Bedrock only once its item is known, as that entity, and respawned when its item turns into another model; one whose item has no entry is not spawned, as before. Geyser keeps it at the Java entity's position, gliding over the display's teleport duration as for text displays, gives it no hitbox, and sends a dyed item's colour as the entity's variant (`0xRRGGBB`, white when undyed) for the model's tinted faces. The entity itself always faces 0 degrees: Bedrock ignores the rotation of a rider, so wings riding a player kept the rotation they spawned with. The Java rotation goes out as the mark variant (0 to 359 degrees) instead, and the entity's animation turns the model by it. Bedrock can only scale an entity evenly, so its scale is the average of the display's two horizontal scales, and the vertical scale relative to that, times 1000, goes out as the skin ID for the animation to stretch the model, such as a parachute flattening on landing; a scale change with an interpolation duration is spread over that many ticks, as on Java. A display riding a player sits at the top of the player, offset by its translation, as on Java; when it is spawned after the ride began, Geyser sends the ride again.
 
 **China Edition's own items.** NetEase's client has items of its own, such as `minecraft:debug_stick`, `minecraft:mod` and `minecraft:mod_ex`, which it registers by itself: they are not in the item table Geyser sends, and must not be, as the client would then register them twice. A custom item given one of their IDs showed as that item, such as a glinting debug stick, or as nothing. Their IDs and names are now listed in `bedrock/netease_items.1_21_130.json`, and custom items in China Edition's table skip those IDs; everything else is numbered as before.
 
@@ -218,11 +218,11 @@ Content that Java 26.1 to 26.3 added and 1.21.130 lacks is shown through stand-i
 
 **Sprite sizes and world texts with the MINEZ client mod.** Bedrock draws a glyph at its pixel size, about 0.8 UI units per pixel, so a 16-pixel sprite is about 1.6 times its Java size, and glyph pages have no setting for the drawn size. A custom mappings file may carry a `text_icons` section, keyed by the glyph character of each sprite (the single glyph of a picture made of several tiles), with the texture holding every sprite (`texture`), the sprite's position in it in pixels (`u`, `v`), its size (`frame_width`, `frame_height`) and its number of tiles (`tiles`). Geyser sends this table to MINEZ's client mod from version 1.9.0 as `images` in `ClientConfig`, and the mod draws these characters as pictures in the text it lays out itself, 8 UI units per tile as on Java, with the texture at its own resolution. Name tags are drawn by Bedrock, so a text display whose text contains such a character is not given a name tag for such a mod; Geyser sends the text as a `WorldText` event with the entity ID instead (and the ID alone when it is removed), and the mod shows it on a screen bound to that entity. Should the mod fail to bind one, it sends `WorldTextFailed` and Geyser goes back to name tags for that session.
 
-**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.42.jar`, so builds can be told apart at a glance.
+**Artifact file names.** Upstream names its jars without a version, such as `Geyser-Velocity.jar`. They now carry this fork's version, such as `Geyser-Velocity-2.12.1-b1280.43.jar`, so builds can be told apart at a glance.
 
 **GitHub Actions.** Upstream's workflows build every platform, publish to GeyserMC's Maven repository and downloads site, and need GeyserMC's private keys, so they fail in a fork. This fork has a single workflow, `build.yml`, run on every push: one job builds only `Geyser-Velocity-<version>.jar`, the one MINEZ deploys, and uploads it as the `Geyser-Velocity` artifact of the run; another job runs the core tests at the same time and uploads their report when they fail. A newer push to the same branch cancels a run still in progress. Upstream's other workflows (pull requests, previews) are removed.
 
-**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.42 (git-master-abc1234)`.
+**Version string.** `/geyser version` and the plugin descriptors report this fork's version followed by the commit, such as `2.12.1-b1280.43 (git-master-abc1234)`.
 
 **Startup notice and support links.** Upstream's startup banner asks for bugs on its Discord. It now says this is an unofficial MINEZ fork and points to [this repository's issue tracker](https://github.com/MINEZ/Geyser/issues), and so do the header of newly written config files and `/geyser connectiontest`. The header of an existing config file is only rewritten when its config version changes, so edit it by hand if you want it updated.
 
@@ -238,13 +238,13 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.42.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.42.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.42.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.42.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.42.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.42.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.42.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.43.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.43.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.43.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.43.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.43.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.43.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.43.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 
