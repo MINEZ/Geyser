@@ -65,6 +65,28 @@ public class ConfigLoaderTest {
     @TempDir
     Path tempDirectory;
 
+    @Test
+    void neteasePlatformPackDeclarationsLoadWithoutChangingDefaults() throws Exception {
+        Path file = tempDirectory.resolve("platform-packs.yml");
+        ConfigLoader loader = new ConfigLoader(file.toFile(), PlatformType.VELOCITY);
+        var defaults = loader.load0(GeyserPluginConfig.class);
+        assertTrue(defaults.bedrock().netease().platformResourcePacks().isEmpty());
+        assertTrue(defaults.bedrock().netease().platformBehaviorPacks().isEmpty());
+        assertEquals("", defaults.bedrock().netease().platformResourcePackProbeUserId());
+        var node = loader.loadConfigurationNode(GeyserPluginConfig.class);
+        var resources = List.of("a858dec6-447c-46c8-ae1f-dd384ae6dd27_1.18.6");
+        var behaviors = List.of("03529531-08fb-4f27-b402-01d1fe545883_1.18.6");
+        node.node("bedrock", "netease", "platform-resource-packs").setList(String.class, resources);
+        node.node("bedrock", "netease", "platform-behavior-packs").setList(String.class, behaviors);
+        node.node("bedrock", "netease", "platform-resource-pack-probe-user-id").set("2230082046");
+        org.spongepowered.configurate.yaml.YamlConfigurationLoader.builder().path(file).build().save(node);
+        var config = new ConfigLoader(file.toFile(), PlatformType.VELOCITY).load0(GeyserPluginConfig.class);
+        assertEquals(resources, config.bedrock().netease().platformResourcePacks());
+        assertEquals(behaviors, config.bedrock().netease().platformBehaviorPacks());
+        assertEquals("2230082046", config.bedrock().netease().platformResourcePackProbeUserId());
+        assertTrue(config.bedrock().netease().requireClientMod());
+    }
+
     static Stream<Arguments> platformTypes() {
         return Stream.of(
             // @ExcludePlatform

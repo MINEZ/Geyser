@@ -32,6 +32,7 @@ import org.geysermc.event.FireResult;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.event.bedrock.NeteaseShopEvent;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseMsgPack;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePackDiagnostics;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.session.GeyserSession;
@@ -54,6 +55,7 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
      */
     private long lastMenuRequest;
     private boolean hasMenuRequest;
+    private int usingModDiagnostics;
 
     LoggingPacketHandler(GeyserImpl geyser, GeyserSession session) {
         this.geyser = geyser;
@@ -95,6 +97,11 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
             } catch (NeteaseMsgPack.FormatException e) {
                 geyser.getLogger().debug("Dropped malformed China Edition packet " + packet + " from " + session.bedrockUsername() + ": " + e.getMessage());
                 return;
+            }
+            if ("SyncUsingMod".equals(message.method()) && geyser.getLogger().isDebug() && usingModDiagnostics < 2) {
+                usingModDiagnostics++;
+                geyser.getLogger().debug("[MINEZ-PackDiag1] SyncUsingMod 来自 " + session.bedrockUsername()
+                    + ": " + NeteasePackDiagnostics.describe(message.data()));
             }
             if (message.isOpenMenu()) {
                 openMenu();

@@ -267,12 +267,43 @@ public interface GeyserConfig {
         // MINEZ：须载入 MINEZ 客户端模组才能进入。
         @Comment("""
             Whether China Edition players must have MINEZ's client mod loaded before they join the Java server. The mod reaches
-            them as a resource pack in Geyser's "packs" folder; once it has loaded, it tells Geyser its version. While a login gate
+            them as a resource pack in Geyser's "packs" folder or through the NetEase platform pack lists below;
+            once it has loaded, it tells Geyser its version. While a login gate
             is registered, players wait in an empty world until it does, and are disconnected when it has not done so within
-            60 seconds, or when its version is lower than that of the pack being sent. Without the pack, or without a login gate,
+            60 seconds, or when its version is lower than that of the activated pack. A platform declaration takes precedence
+            over a matching server pack. Without a declared or server pack, or without a login gate,
             nobody is checked.""")
         @DefaultBoolean(true)
         boolean requireClientMod();
+
+        @Comment("""
+            Resource packs already installed by the NetEase developer platform, as UUID_version strings.
+            Applies only to release China Edition clients (env=obt). These packs replace matching server packs
+            in this session's activation stack and are NOT offered for server download. Versions must match
+            the ZIP published on the platform. Leave both platform pack lists empty for the existing behavior.""")
+        default List<String> platformResourcePacks() {
+            return Collections.emptyList();
+        }
+
+        @Comment("""
+            Client behavior packs already installed by the NetEase developer platform, as UUID_version strings.
+            Listed in NetEase's additional behavior pack activation stack; no pack bytes are sent by Geyser.
+            Activation of published behavior packs through this extension is not yet verified on the official client.
+            Geyser does not run Bedrock server behavior packs.""")
+        default List<String> platformBehaviorPacks() {
+            return Collections.emptyList();
+        }
+
+        @Comment("""
+            Temporary diagnostic for one official China Edition player's numeric NetEase UID. Empty disables it.
+            Advertises the configured platform RESOURCE packs in ResourcePacksInfo with zero-size metadata and no URL.
+            If that client requests any platform pack, disconnect before sending pack data. Other players are unaffected.
+            A response without a download request does not prove that the packs or their scripts loaded.
+            This does not test behavior pack availability and never bypasses the client-mod ready check.
+            Clear this value after collecting the diagnostic log.""")
+        default String platformResourcePackProbeUserId() {
+            return "";
+        }
     }
 
     @ConfigSerializable

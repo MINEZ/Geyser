@@ -48,6 +48,8 @@ import org.geysermc.geyser.api.pack.ResourcePackManifest;
 import org.geysermc.geyser.api.pack.option.ResourcePackOption;
 import org.geysermc.geyser.event.type.SessionLoadResourcePacksEventImpl;
 import org.geysermc.geyser.network.bedrock.netease.MinezClientMod;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePackDiagnostics;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePlatformPacks;
 import org.geysermc.geyser.pack.GeyserResourcePack;
 import org.geysermc.geyser.pack.ResourcePackHolder;
 import org.geysermc.geyser.pack.url.GeyserUrlPackCodec;
@@ -80,6 +82,9 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
     private final Map<UUID, BitSet> sentChunks = new HashMap<>();
     private final Set<String> requestedPacks = new HashSet<>();
     private SessionLoadResourcePacksEventImpl resourcePackLoadEvent;
+    private int packResponseDiagnostics;
+    private NeteasePlatformPacks platformPacks = NeteasePlatformPacks.EMPTY;
+    private boolean platformResourceProbe;
 
     UpstreamPacketHandler(GeyserImpl geyser, GeyserSession session) {
         super(geyser, session);
@@ -105,10 +110,34 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
             // Can happen if an error occurs in the resource pack event; that'll disconnect the player
             return;
         }
+        if (NeteasePlatformPacks.appliesTo(session.getNeteaseProfile())) {
+            try {
+                var config = geyser.config().bedrock().netease();
+                platformPacks = NeteasePlatformPacks.parse(config.platformResourcePacks(), config.platformBehaviorPacks());
+                platformResourceProbe = platformPacks.probes(session.getNeteaseProfile(), config.platformResourcePackProbeUserId());
+            } catch (IllegalArgumentException error) {
+                geyser.getLogger().error("网易平台包配置无效：" + error.getMessage());
+                session.disconnect("服务器的平台资源包配置有误，请联系服主。");
+                return;
+            }
+            // 平台负责分发，这个会话不再发送相同 UUID 的任何服务器包版本。
+            platformPacks.ids().forEach(resourcePackLoadEvent::unregister);
+            if (platformPacks.enabled()) {
+                geyser.getLogger().debug("[MINEZ-PlatformPacks1] 使用平台预装包栈的玩家："
+                    + session.bedrockUsername() + "；以下包不由服务器下载：" + platformPacks.ids());
+            }
+        }
         session.integratedPackActive(resourcePackLoadEvent.isIntegratedPackActive());
 
         ResourcePacksInfoPacket resourcePacksInfo = new ResourcePacksInfoPacket();
         resourcePacksInfo.getResourcePackInfos().addAll(this.resourcePackLoadEvent.infoPacketEntries());
+        platformPacks.applyInfoFlags(resourcePacksInfo);
+        if (platformResourceProbe) {
+            platformPacks.addResourceProbeEntries(resourcePacksInfo);
+            geyser.getLogger().info("[MINEZ-PlatformProbe] 已为指定账号加入平台资源包探测元信息："
+                + NeteasePackDiagnostics.describe(platformPacks.resources().stream()
+                    .map(pack -> pack.uuid() + "_" + pack.version()).toList()));
+        }
         resourcePacksInfo.setVibrantVisualsForceDisabled(!session.isAllowVibrantVisuals());
 
         resourcePacksInfo.setForcedToAccept(GeyserImpl.getInstance().config().gameplay().forceResourcePacks() ||
@@ -116,6 +145,14 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
         resourcePacksInfo.setWorldTemplateId(new UUID(0, 0));
         resourcePacksInfo.setWorldTemplateVersion("");
 
+        if (session.getNeteaseProfile() != null && geyser.getLogger().isDebug()) {
+            geyser.getLogger().debug("[MINEZ-PackDiag1] PackInfo 发往 " + session.bedrockUsername()
+                + ": scriptingEnabled=" + resourcePacksInfo.isScriptingEnabled()
+                + " hasAddonPacks=" + resourcePacksInfo.isHasAddonPacks()
+                + " resources=" + NeteasePackDiagnostics.describe(resourcePacksInfo.getResourcePackInfos().stream()
+                    .map(entry -> Map.of("uuid", entry.getPackId().toString(), "version", entry.getPackVersion(),
+                        "scripting", entry.isScripting(), "addon", entry.isAddonPack())).toList()));
+        }
         session.sendUpstreamPacket(resourcePacksInfo);
 
         GeyserLocale.loadGeyserLocale(session.locale());
@@ -132,8 +169,17 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
             return PacketSignal.HANDLED;
         }
 
+        if (session.getNeteaseProfile() != null && geyser.getLogger().isDebug() && packResponseDiagnostics < 8) {
+            packResponseDiagnostics++;
+            geyser.getLogger().debug("[MINEZ-PackDiag1] PackResponse 来自 " + session.bedrockUsername() + ": "
+                + packet.getStatus() + " ids=" + NeteasePackDiagnostics.describe(packet.getPackIds()));
+        }
         switch (packet.getStatus()) {
             case COMPLETED -> {
+                if (platformResourceProbe) {
+                    geyser.getLogger().info("[MINEZ-PlatformProbe] 资源协商完成，仍需等待真实的 ClientReady；"
+                        + "此响应不能证明行为包或脚本已加载。");
+                }
                 finishedResourcePackSending = true;
                 if (geyser.config().java().authType() != AuthType.ONLINE) {
                     // MINEZ：网易玩家的名字可能不合 Java 版的规则，改用 NeteaseLogin 算出的名字。
@@ -145,7 +191,7 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
                         // 中国版会话须先载入下发的 MINEZ 客户端模组，见 MinezClientMod。
                         MinezClientMod.Version mod = session.getNeteaseProfile() != null && resourcePackLoadEvent != null
                             && geyser.config().bedrock().netease().requireClientMod()
-                            ? MinezClientMod.required(resourcePackLoadEvent.resourcePacks()) : null;
+                            ? platformPacks.requiredClientMod(MinezClientMod.required(resourcePackLoadEvent.resourcePacks())) : null;
                         GatedLoginImpl.start(session, gate, username, mod);
                     } else {
                         session.authenticate(username);
@@ -160,6 +206,16 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
             case SEND_PACKS -> {
                 // Bedrock clients can send empty "send_packs" responses, in which case we shouldn't send anything back
                 if (!packet.getPackIds().isEmpty()) {
+                    // 先检查完整请求，避免普通包达到数量上限后漏掉末尾的平台包。
+                    var platformRequests = packet.getPackIds().stream().filter(platformPacks::isPlatformRequest).limit(64).toList();
+                    if (!platformRequests.isEmpty()) {
+                        geyser.getLogger().warning("[MINEZ-PlatformProbe] 客户端请求下载平台包，已阻止服务器发送："
+                            + NeteasePackDiagnostics.describe(platformRequests));
+                        session.disconnect(platformResourceProbe
+                            ? "平台资源包诊断：客户端请求下载预装包，请将本次服务器日志发给服主。"
+                            : "平台资源包未就绪，请退出网络游戏并从大厅重新进入以更新资源。");
+                        return PacketSignal.HANDLED;
+                    }
                     // Each pack is sent once, and no more can be asked for than were offered
                     boolean added = false;
                     for (String id : packet.getPackIds()) {
@@ -181,13 +237,25 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
                 // Only needed once
                 if (!sentResourcePackStack) {
                     sentResourcePackStack = true;
+                    if (platformResourceProbe) {
+                        geyser.getLogger().info("[MINEZ-PlatformProbe] 收到 HAVE_ALL_PACKS，客户端未请求平台资源包；"
+                            + "这只表示未请求下载，不代表资源或脚本已经加载。");
+                    }
 
                     ResourcePackStackPacket stackPacket = new ResourcePackStackPacket();
                     stackPacket.setExperimentsPreviouslyToggled(false);
                     stackPacket.setForcedToAccept(false); // Leaving this as false allows the player to choose to download or not
                     stackPacket.setGameVersion("*");
                     stackPacket.getResourcePacks().addAll(this.resourcePackLoadEvent.orderedPacks());
+                    platformPacks.applyStack(stackPacket);
 
+                    if (session.getNeteaseProfile() != null && geyser.getLogger().isDebug()) {
+                        geyser.getLogger().debug("[MINEZ-PackDiag1] PackStack 发往 " + session.bedrockUsername()
+                            + ": resources=" + NeteasePackDiagnostics.describe(stackPacket.getResourcePacks().stream()
+                                .map(entry -> Map.of("uuid", entry.getPackId(), "version", entry.getPackVersion())).toList())
+                            + " behaviors=[] vipResources=[] vipBehaviors=" + NeteasePackDiagnostics.describe(stackPacket.getBehaviorPacks().stream()
+                                .map(entry -> Map.of("uuid", entry.getPackId(), "version", entry.getPackVersion())).toList()));
+                    }
                     session.sendUpstreamPacket(stackPacket);
                 }
             }
