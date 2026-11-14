@@ -64,7 +64,6 @@ import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UnknownPacket;
 import org.cloudburstmc.protocol.common.util.VarInts;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
-import org.geysermc.geyser.network.bedrock.netease.NeteasePlatformPacks;
 import org.junit.jupiter.api.Test;
 
 import java.awt.Color;
@@ -295,23 +294,6 @@ class NeteaseCodecTest {
         assertEquals(1, decode(NETEASE, netease, ResourcePackStackPacket.class).getResourcePacks().size());
         // 没有这两个列表时也能读。
         assertEquals(1, decode(NETEASE, vanilla, ResourcePackStackPacket.class).getResourcePacks().size());
-    }
-
-    @Test
-    void platformClientBehaviorPackUsesNeteaseExtensionOnTheWire() throws Exception {
-        var packs = NeteasePlatformPacks.parse(
-            List.of("a858dec6-447c-46c8-ae1f-dd384ae6dd27_1.18.6"),
-            List.of("03529531-08fb-4f27-b402-01d1fe545883_1.18.6"));
-        ResourcePackStackPacket packet = new ResourcePackStackPacket();
-        packet.setGameVersion("*");
-        packs.applyStack(packet);
-        byte[] encoded = encode(NETEASE, packet);
-        assertArrayEquals(concat(encode(VANILLA, packet), new byte[] {0, 1},
-            string("03529531-08fb-4f27-b402-01d1fe545883"), string("1.18.6"), string("")), encoded);
-        var decoded = decode(NETEASE, encoded, ResourcePackStackPacket.class);
-        assertEquals(packet.getResourcePacks(), decoded.getResourcePacks());
-        assertEquals(packet.getBehaviorPacks(), decoded.getBehaviorPacks());
-        assertEquals("03529531-08fb-4f27-b402-01d1fe545883", decoded.getBehaviorPacks().getFirst().getPackId());
     }
 
     @Test

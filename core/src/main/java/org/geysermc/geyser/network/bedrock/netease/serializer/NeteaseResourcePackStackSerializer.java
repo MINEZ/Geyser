@@ -42,8 +42,7 @@ import java.util.ArrayList;
 
 /**
  * MINEZ：网易 898 的 ResourcePackStackPacket 在 {@code hasEditorPacks} 之后追加两个列表：VIP 资源包与 VIP 行为包，
- * 条目格式与普通包栈相同。898 的上游编码器已不再写普通 behaviorPacks；中国版将该 Java 字段写入末尾的
- * 扩展行为包列表，用于宣告平台预装的客户端行为包。扩展资源包列表暂为空；读取时先检查剩余字节。
+ * 条目格式与普通包栈相同。Geyser 没有这类包，写两个空列表；读取时每个列表前都先看是否还有剩余字节。
  */
 public class NeteaseResourcePackStackSerializer extends ResourcePackStackSerializer_v898 {
     public static final NeteaseResourcePackStackSerializer INSTANCE = new NeteaseResourcePackStackSerializer();
@@ -52,17 +51,14 @@ public class NeteaseResourcePackStackSerializer extends ResourcePackStackSeriali
     public void serialize(ByteBuf buffer, BedrockCodecHelper helper, ResourcePackStackPacket packet) {
         super.serialize(buffer, helper, packet);
         VarInts.writeUnsignedInt(buffer, 0); // VIP 资源包。
-        helper.writeArray(buffer, packet.getBehaviorPacks(), this::writeEntry); // 网易扩展行为包。
+        VarInts.writeUnsignedInt(buffer, 0); // VIP 行为包。
     }
 
     @Override
     public void deserialize(ByteBuf buffer, BedrockCodecHelper helper, ResourcePackStackPacket packet) {
         super.deserialize(buffer, helper, packet);
-        if (buffer.isReadable()) {
+        for (int i = 0; i < 2 && buffer.isReadable(); i++) {
             helper.readArray(buffer, new ArrayList<>(), this::readEntry);
-        }
-        if (buffer.isReadable()) {
-            helper.readArray(buffer, packet.getBehaviorPacks(), this::readEntry);
         }
     }
 }

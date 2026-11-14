@@ -41,7 +41,6 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -107,21 +106,6 @@ class LoggingPacketHandlerNeteaseMenuTest {
         return modEvent("MinezClient", "MenuSystem", "OpenServerMenu");
     }
 
-    private static NeteasePacket.PyRpc usingMod() {
-        ByteArrayOutputStream message = new ByteArrayOutputStream();
-        message.write(0x92);
-        bin(message, "SyncUsingMod");
-        message.write(0x91);
-        bin(message, "MinezClient");
-        ByteArrayOutputStream packet = new ByteArrayOutputStream();
-        packet.write(message.size());
-        packet.writeBytes(message.toByteArray());
-        packet.writeBytes(new byte[]{0x01, 0x00, 0x00, 0x00});
-        NeteasePacket.PyRpc pyRpc = new NeteasePacket.PyRpc();
-        pyRpc.payload(packet.toByteArray());
-        return pyRpc;
-    }
-
     private static void bin(ByteArrayOutputStream out, String value) {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
         out.write(0xc4);
@@ -161,28 +145,5 @@ class LoggingPacketHandlerNeteaseMenuTest {
         LoggingPacketHandler handler = handler(VANILLA, true);
         assertEquals(PacketSignal.HANDLED, handler.handlePacket(menu()));
         verify(session, never()).sendCommand(anyString());
-    }
-
-    @Test
-    void usingModDiagnosticsAreDebugOnlyAndLimited() {
-        LoggingPacketHandler handler = handler(NETEASE, false);
-        handler.handlePacket(usingMod());
-        verify(logger, never()).debug(contains("[MINEZ-PackDiag1]"));
-        when(logger.isDebug()).thenReturn(true);
-        for (int i = 0; i < 5; i++) {
-            handler.handlePacket(usingMod());
-        }
-        verify(logger, times(2)).debug(contains("[MINEZ-PackDiag1] SyncUsingMod 来自 测试玩家: {\"value\":[\"MinezClient\"]}"));
-        verify(session, never()).sendCommand(anyString());
-        verify(session, never()).getMinezClientUi();
-        verify(eventBus, never()).fire(any());
-    }
-
-    @Test
-    void usingModDiagnosticsDoNotRunForInternationalSessions() {
-        LoggingPacketHandler handler = handler(VANILLA, false);
-        when(logger.isDebug()).thenReturn(true);
-        handler.handlePacket(usingMod());
-        verify(logger, never()).debug(contains("[MINEZ-PackDiag1]"));
     }
 }

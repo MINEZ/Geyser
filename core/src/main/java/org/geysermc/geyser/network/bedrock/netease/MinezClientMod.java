@@ -43,8 +43,7 @@ import java.util.regex.Pattern;
  * 数据 {@code {"version": "主.次.修订"}}）告知已载入的版本。登录闸门先生成等待世界、等这个事件，版本不低于下发的包时才交给闸门；
  * {@link #READY_TIMEOUT} 内没有收到时以 {@link #MISSING} 断开，版本更低时以 {@link #OUTDATED} 断开。
  * <p>
- * 普通会话的要求版本取自本次下发的包；正式环境配置了 {@link NeteasePlatformPacks} 时，优先取平台声明的版本。
- * 两处都没有本模组时不检查。平台预装包不通过 Geyser 下载，移除旧下载条目不会取消平台模组的就绪检查。
+ * 要求的版本取自本次下发的包，不另外设置：更新模组只需替换 {@code packs} 中的包。下发的包中没有本模组时不检查。
  */
 public final class MinezClientMod {
     /**
