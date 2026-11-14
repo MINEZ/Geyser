@@ -57,7 +57,7 @@ import java.util.Set;
  * 物品表少教育版的 {@code minecraft:board} 与 {@code minecraft:chalkboard}，其余与国际版相同。物品的编号由服务端在进服时下发，
  * 资料中网易与国际版互换的几个编号因此不需要处理。
  * <p>
- * 网易客户端另有自己的物品（例如 {@code minecraft:debug_stick}、{@code minecraft:mod}），客户端自带，不在服务端下发的物品表中，
+ * 网易客户端另有自己的物品（例如 {@code minecraft:mod}、{@code minecraft:mod_ex}），客户端自带，不在服务端下发的物品表中，
  * 也不能下发（同一个物品会注册两次）。它们的编号与名字写在 {@code bedrock/netease_items.<版本>.json} 中，自定义物品分配编号时
  * 跳过这些编号，否则会显示成网易的物品或透明。这个文件由客户端实际的物品表得出：MINEZ 客户端模组每个会话读出客户端在各编号上的
  * 物品，Geyser 比对后写进日志与 {@code netease_item_table.json}（见 {@code MinezItemTableCheck}）；其中“客户端有、Geyser 没有”
@@ -142,7 +142,7 @@ public final class NeteasePalette {
     }
 
     /**
-     * 读入网易客户端自己的物品：{@code {"items": [{"name": "minecraft:debug_stick", "id": 1276}, ...]}}。
+     * 读入网易客户端自己的物品：{@code {"items": [{"name": "minecraft:mod", "id": 1279}, ...]}}。
      */
     static Int2ObjectMap<String> readNeteaseItems(InputStream stream) {
         JsonObject json = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();

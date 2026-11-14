@@ -267,12 +267,13 @@ public interface GeyserConfig {
         // MINEZ：须载入 MINEZ 客户端模组才能进入。
         @Comment("""
             Whether China Edition players must have MINEZ's client mod loaded before they join the Java server. Once the mod has
-            loaded, it tells Geyser its version. Release clients only install mods published with the game on NetEase's developer
-            platform, never ones a server sends; test clients such as MC Studio load the mod from its resource pack in Geyser's
-            "packs" folder. While a login gate is registered, players wait in an empty world until the mod reports, and are
-            disconnected when it has not done so within 60 seconds, or when its version is lower than that of the pack being sent.
-            Only put a version in "packs" once the same or a newer one is live on the platform, or release clients cannot join.
-            Without the pack, or without a login gate, nobody is checked.""")
+            loaded, it tells Geyser its version. Release clients only turn on packs published with the game on NetEase's developer
+            platform, and only those this server lists, so put the platform's behavior and resource packs in Geyser's "packs"
+            folder too; test clients such as MC Studio load them, or the mod's own resource pack, from there. While a login gate is
+            registered, players wait in an empty world until the mod reports, and are disconnected when it has not done so within
+            60 seconds, or when its version is lower than that of the packs being sent. Only put a version in "packs" once the same
+            one is live on the platform, or release clients cannot join. Without the packs, or without a login gate, nobody is
+            checked.""")
         @DefaultBoolean(true)
         boolean requireClientMod();
     }

@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.20-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.46-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -133,7 +133,7 @@ git submodule update --init --recursive
 
 **MINEZ 客户端模组的服务器菜单按钮。** 基岩版没有副手键，中国版玩家按不了 Java 版打开 MINEZ 服务器菜单的 Shift+F。MINEZ 为中国版做的客户端模组在屏幕上放了一个菜单按钮，点击时发出一个 Mod SDK 的客户端事件（`ModEventC2S`）：命名空间 `MinezClient`，系统 `MenuSystem`，事件名 `OpenServerMenu`。Geyser 收到后替玩家执行 `/menu`，与玩家自己输入命令相同；每秒最多一次，并且只在玩家已进入 Java 服务器的世界之后，其余的记一条 debug 日志后丢弃。与其他客户端事件一样，任何人都能发出它，但它只做玩家自己输入命令也能做到的事。国际版会话不会触发。
 
-**须载入 MINEZ 客户端模组。** 没有 MINEZ 客户端模组的中国版玩家打不开服务器菜单，因此现在模组载入之前不让玩家进入。模组以资源包的形式放在 Geyser 的 `packs` 文件夹中下发给客户端，包的 UUID 为 `a858dec6-447c-46c8-ae1f-dd384ae6dd27`；界面初始化完成后，模组发出一个客户端事件：命名空间 `MinezClient`，系统 `MenuSystem`，事件名 `ClientReady`，数据为版本号，例如 `{"version": "1.3.0"}`。注册了登录闸门时，下发了这个包的中国版会话先进入空白的等待世界，标题为“正在进入服务器”，副标题为“正在载入 MINEZ 客户端模组，请稍候…”；模组报告的版本不低于下发的包时，才交给闸门。60 秒内没有报告的，以“未能载入 MINEZ 客户端模组，请重新进入服务器。”断开；版本更低或读不出版本的，以“MINEZ 客户端模组不是最新版，请重新进入服务器以更新。”断开。要求的版本总是取自 `packs` 文件夹中的包，更新模组只需替换这个包。这个包只对 MC Studio、网易审核账号等测试环境的客户端起作用：正式版客户端不加载服务器下发的模组，只安装网易开发者平台上随网络游戏发布的模组。因此，平台上已发布同一版本或更新的版本之后，才能把它放进 `packs`，否则正式版玩家都会被挡在门外。等待期间闸门自己的时限照常计时，玩家中途退出时照常结束。闸门显示表单或放行时等待世界已经在了，因此与显示过表单的闸门一样，进入 Java 服务器后才触发 `SessionJoinEvent`。没有下发这个包的会话、没有注册登录闸门时、国际版会话，以及关掉了 `bedrock.netease.require-client-mod` 时，都不检查。这个事件只是客户端的自述，所以它拦下的是模组没能载入的玩家，拦不住执意不装模组进入的人。
+**须载入 MINEZ 客户端模组。** 没有 MINEZ 客户端模组的中国版玩家打不开服务器菜单，因此现在模组载入之前不让玩家进入。模组经 Geyser 的 `packs` 文件夹以两种方式到达客户端：MC Studio、网易审核账号等测试环境的客户端载入 Geyser 下发的资源包，包的 UUID 为 `a858dec6-447c-46c8-ae1f-dd384ae6dd27`；正式版客户端不加载服务器下发的模组，只启用网易开发者平台上随网络游戏发布的包，而且只启用进服时服务器按 UUID 与版本告知了的包。因此 `packs` 中也放着平台包中的行为包（UUID 为 `3e101d8f-5ea5-486c-a3e9-7c12e2455a2f`，模组的脚本在其中）与资源包，Geyser 照常告知：正式版客户端用平台下载的副本，测试环境的客户端从 Geyser 下载。界面初始化完成后，模组发出一个客户端事件：命名空间 `MinezClient`，系统 `MenuSystem`，事件名 `ClientReady`，数据为版本号，例如 `{"version": "1.3.0"}`。注册了登录闸门时，告知了其中任一个包的中国版会话先进入空白的等待世界，标题为“正在进入服务器”，副标题为“正在载入 MINEZ 客户端模组，请稍候…”；模组报告的版本不低于这个包（两个都有时取较高的）时，才交给闸门。60 秒内没有报告的，以“未能载入 MINEZ 客户端模组，请重新进入服务器。”断开；版本更低或读不出版本的，以“MINEZ 客户端模组不是最新版，请重新进入服务器以更新。”断开。要求的版本总是取自 `packs` 文件夹中的包，更新模组只需替换这些包。平台上已发布同一版本之后，才能把它放进 `packs`，否则正式版玩家都会被挡在门外。等待期间闸门自己的时限照常计时，玩家中途退出时照常结束。闸门显示表单或放行时等待世界已经在了，因此与显示过表单的闸门一样，进入 Java 服务器后才触发 `SessionJoinEvent`。没有告知这两个包的会话、没有注册登录闸门时、国际版会话，以及关掉了 `bedrock.netease.require-client-mod` 时，都不检查。这个事件只是客户端的自述，所以它拦下的是模组没能载入的玩家，拦不住执意不装模组进入的人。
 
 **基岩版中的对话框。** Geyser 把 Java 版的对话框显示为基岩版的表单。现在补上了原先丢失的几样内容：
 

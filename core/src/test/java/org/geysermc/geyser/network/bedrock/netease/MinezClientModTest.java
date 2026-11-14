@@ -89,4 +89,17 @@ class MinezClientModTest {
         assertNull(MinezClientMod.required(List.of(other)));
         assertNull(MinezClientMod.required(List.of()));
     }
+
+    @Test
+    void thePlatformBehaviorPackAlsoCounts() {
+        ResourcePack other = pack(UUID.randomUUID(), 9, 9, 9);
+        // 只放了开发者平台的两个包（正式服）。
+        assertEquals(new MinezClientMod.Version(1, 18, 6),
+            MinezClientMod.required(List.of(other, pack(MinezClientMod.PLATFORM_BEHAVIOR_UUID, 1, 18, 6))));
+        // 两者都有时取较高的版本。
+        assertEquals(new MinezClientMod.Version(1, 18, 7), MinezClientMod.required(List.of(
+            pack(MinezClientMod.PACK_UUID, 1, 18, 7), pack(MinezClientMod.PLATFORM_BEHAVIOR_UUID, 1, 18, 6))));
+        assertEquals(new MinezClientMod.Version(1, 18, 7), MinezClientMod.required(List.of(
+            pack(MinezClientMod.PLATFORM_BEHAVIOR_UUID, 1, 18, 7), pack(MinezClientMod.PACK_UUID, 1, 18, 6))));
+    }
 }
