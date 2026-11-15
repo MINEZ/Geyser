@@ -44,7 +44,8 @@ import java.util.Set;
  * 基岩版的文字不能显示图集中的贴图，MINEZ 的资源包“MINEZ 资源”（由 MINEZ/CraftengineResources 的生成工具生成）把这些贴图画进字形图
  * （font/glyph_F1.png 等，私用区字符），同一个工具生成的映射文件 {@code custom_mappings/minez_resources.json} 的 {@code sprites}
  * 写明每个精灵对应的字符：{@code {"图集": {"精灵": "字符"}}}。图集与精灵都按 {@link Key} 规范化，没有写命名空间的为 {@code minecraft}。
- * 多块拼成的图标（例如称号的各块）整组合成一个字，第一块对应这个字，其余各块对应空字符串（不输出），见 {@link #groupOnNewLine}。
+ * 多块拼成的图标（例如称号的各块）每块一个字（网易开发者平台只接受每格 16 像素的字形图）；旧版资源包整组合成一个字，第一块对应这个字，
+ * 其余各块对应空字符串（不输出），两种都支持，见 {@link #groupOnNewLine}。
  * 动态图标另见 {@link #animated()}。Geyser 启动时读入（{@link #load()}），关闭时清空。
  */
 public final class SpriteGlyphs {
@@ -52,6 +53,9 @@ public final class SpriteGlyphs {
     private static volatile Map<String, Map<String, Object>> animated = Map.of();
     private static volatile Map<String, Map<String, Object>> images = Map.of();
     private static volatile Set<Character> iconChars = Set.of();
+    /**
+     * 多块拼成的动态图标的第一个字（例如称号的第一块）。
+     */
     private static volatile Set<Character> groups = Set.of();
 
     private SpriteGlyphs() {
@@ -89,7 +93,7 @@ public final class SpriteGlyphs {
         animated = Collections.unmodifiableMap(new LinkedHashMap<>(map));
         Set<Character> chars = new HashSet<>();
         map.forEach((key, value) -> {
-            if (key.length() == 1 && value.get("tiles") instanceof Number tiles && tiles.intValue() > 1) {
+            if (!key.isEmpty() && value.get("tiles") instanceof Number tiles && tiles.intValue() > 1) {
                 chars.add(key.charAt(0));
             }
         });
@@ -103,8 +107,8 @@ public final class SpriteGlyphs {
         images = Collections.unmodifiableMap(new LinkedHashMap<>(map));
         Set<Character> chars = new HashSet<>();
         map.keySet().forEach(key -> {
-            if (key.length() == 1) {
-                chars.add(key.charAt(0));
+            for (int i = 0; i < key.length(); i++) {
+                chars.add(key.charAt(i));
             }
         });
         iconChars = Set.copyOf(chars);
@@ -124,7 +128,7 @@ public final class SpriteGlyphs {
     }
 
     /**
-     * 文字图标的图片表：键为一个字形字符（多块拼成的图标为整组的那个字），值为图片的贴图路径、在其中的位置（u、v，像素）、宽高（像素）
+     * 文字图标的图片表：键为一个字形字符（多块拼成的图标为各块的字依次连成的一串；旧版资源包为整组的那个字），值为图片的贴图路径、在其中的位置（u、v，像素）、宽高（像素）
      * 与块数。基岩版的字形按像素大小显示，约为 Java 版的 1.6 倍大；MINEZ 客户端模组在它画的文字中把这些字符换成图片，与 Java 版一样
      * 每块 8 个界面单位。由映射文件的 {@code text_icons} 读入，原样发给模组，见 {@link org.geysermc.geyser.session.MinezClientUi}。
      */

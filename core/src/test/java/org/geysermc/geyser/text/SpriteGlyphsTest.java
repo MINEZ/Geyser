@@ -32,9 +32,11 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * MINEZ：玩家列表的名字中，多块拼成的动态图标（称号）换到第二行。
+ * MINEZ：玩家列表的名字中，多块拼成的动态图标（称号）换到第二行；文字图标的字符。
  */
 class SpriteGlyphsTest {
     private static final String TITLE = "";
@@ -66,5 +68,26 @@ class SpriteGlyphsTest {
         assertEquals("§b测试 " + ICON, SpriteGlyphs.groupOnNewLine("§b测试 " + ICON));
         // 称号前面没有别的文字时不换行。
         assertEquals(" §f" + TITLE, SpriteGlyphs.groupOnNewLine(" §f" + TITLE));
+    }
+
+    @Test
+    void titleOfOneGlyphPerTileMovesToSecondLine() {
+        // 每块一个字的称号（网易开发者平台只接受每格 16 像素的字形图），按第一块的字换行。
+        String tiles = "";
+        SpriteGlyphs.setAnimated(Map.of(tiles, Map.of("texture", "textures/minez/anim/item/title/builder", "tiles", 4L)));
+        assertEquals("§b测试
+§f" + tiles, SpriteGlyphs.groupOnNewLine("§b测试 §f" + tiles));
+    }
+
+    @Test
+    void everyCharacterOfAnImageKeyIsAnIcon() {
+        try {
+            SpriteGlyphs.setImages(Map.of("", Map.of("tiles", 2L)));
+            assertTrue(SpriteGlyphs.hasIcon("称号 "));
+            assertTrue(SpriteGlyphs.hasIcon(""));
+            assertFalse(SpriteGlyphs.hasIcon("称号"));
+        } finally {
+            SpriteGlyphs.setImages(Map.of());
+        }
     }
 }

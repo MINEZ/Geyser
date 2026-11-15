@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.46-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.47-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -151,7 +151,7 @@ git submodule update --init --recursive
 
 **文本中内联的图标与玩家头像。** Java 版 1.21.9 新增了 object 组件，可以在文本中内联显示图集中的图标或玩家的头像，例如聊天消息前的头像。基岩版不能显示它们，原先显示为 `[unknown player head]`、`[item/iron_ingot@items]` 这样的文字。现在这类组件有备用文字时显示备用文字；没有时，原版物品或方块的图标（`minecraft` 命名空间下的 `item/<名称>`、`block/<名称>`）显示为该物品或方块在玩家语言中的名称，其余的（包括玩家头像）不显示。在映射文件中指定了字形的图标改为显示这个字形，优先于备用文字，见下文。
 
-**映射文件中的文字图标字形。** 基岩版资源包可以把图片画进字体的字形图，例如私用区字符 U+F100~U+F1FF 对应的 `font/glyph_F1.png`。现在 `custom_mappings` 中的映射文件可以带一节 `sprites`，与 `items` 并列，任何 `format_version` 的文件都可以，写明每个图集精灵对应的字符：`{"minecraft:items": {"minez:item/flare": "\uF100"}}`。没有写命名空间的图集与精灵为 `minecraft`，Java 版中没有写图集的精灵属于 `minecraft:blocks`。这样的 sprite 组件显示为对应的字符，基岩版玩家看到与 Java 版相同的图标，并与 Java 版一样按文字颜色着色。不是非空字符串的项记一条错误后跳过。MINEZ 以 [MINEZ/CraftengineResources](https://github.com/MINEZ/CraftengineResources) 中的工具，由 Java 版资源包同时生成资源包与这个文件；字形不能播放动画，动态图标只显示第一帧。
+**映射文件中的文字图标字形。** 基岩版资源包可以把图片画进字体的字形图，例如私用区字符 U+F100~U+F1FF 对应的 `font/glyph_F1.png`。现在 `custom_mappings` 中的映射文件可以带一节 `sprites`，与 `items` 并列，任何 `format_version` 的文件都可以，写明每个图集精灵对应的字符：`{"minecraft:items": {"minez:item/flare": "\uF100"}}`。没有写命名空间的图集与精灵为 `minecraft`，Java 版中没有写图集的精灵属于 `minecraft:blocks`。这样的 sprite 组件显示为对应的字符，基岩版玩家看到与 Java 版相同的图标，并与 Java 版一样按文字颜色着色。基岩版的每个字之后都留一点间隙，多块拼成的图标（例如称号）的块与块之间因此有细缝：网易开发者平台只接受 256×256、每格 16 像素的字形图，而正式版客户端只启用平台上发布的资源包，所以 MINEZ 的资源包每块一个字；MINEZ 客户端模组排版的文字中，这样的称号整组画成一张图片，没有缝。旧版资源包把整组画成一个字，第一块对应这个字，其余各块对应空字符串（不显示），两种都支持。不是非空字符串的项记一条错误后跳过。MINEZ 以 [MINEZ/CraftengineResources](https://github.com/MINEZ/CraftengineResources) 中的工具，由 Java 版资源包同时生成资源包与这个文件；字形不能播放动画，动态图标只显示第一帧。
 
 **由 MINEZ 客户端模组播放的动态图标。** 字形不能播放动画，动态的图标（例如 MINEZ 的称号）在基岩版的文字中只显示第一帧。映射文件还可以带一节 `animated_sprites`，键为组成一张图的一串字形字符（例如一个称号的各块），值写明资源包中帧条贴图的路径（各帧横向排列，`texture`）、每帧的宽高（像素，`frame_width`、`frame_height`）、帧数（`frames`）、每秒帧数（`fps`）与块数（`tiles`），缺少其中一项的记一条错误后跳过。MINEZ 客户端模组（1.4.0 起）报告就绪后，Geyser 以名为 `ClientConfig` 的 `ModEventS2C` 客户端事件把这张表发给模组。这是 Geyser 第一次向客户端模组发消息，编码与网易自己的服务端相同：`["ModEventS2C", [命名空间, 系统名, 事件名, 数据], nil]`，字符串写成 MessagePack 的 bin，消息 ID 为 9753608。此后每一条显示在聊天栏中的消息（raw、chat、translation、system、whisper 与 announcement，不含动作栏）照常发出，同时以 `ChatMessage` 事件把它的基岩版文字发给模组；带有发送者的 chat 消息与基岩版一样在前面加上 `<发送者> `。模组隐藏基岩版游戏画面中的聊天栏，自己画一个，其中这些字符换成播放动画的图片；打开聊天输入框后的历史消息仍由基岩版显示，只有第一帧。以 U+E0FF 开头（前面只有颜色代码）的系统消息（服务器只发给基岩版玩家）不显示在聊天栏中，而是去掉这个字符后以 `Preview` 事件发给模组，由模组在一个小窗口中显示；这个字符出现在其他位置、或在玩家的聊天消息中时照常显示：MINEZ 用它预览带动画的称号。国际版会话、模组尚未报告就绪的会话都照旧。
 
