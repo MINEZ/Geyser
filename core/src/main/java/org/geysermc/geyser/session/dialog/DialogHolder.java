@@ -42,9 +42,11 @@ import org.geysermc.geyser.translator.text.TextTranslator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Used to manage an open dialog. Handles dialog input, transferring to other dialogs, and dialog "submenus" for e.g. waiting on a new dialog or confirming a command.
@@ -153,58 +155,48 @@ public final class DialogHolder implements TextTranslator {
     }
 
     /**
-     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，有提示时把提示的第一行写在按钮文字的下一行，免得其中的说明（例如在线人数）看不到；
-     * 按钮最多显示两行，多行的提示另由 {@link #convertTooltipDetails(List)} 完整写在正文之后。
+     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，最多也只显示两行：有提示时把提示的各行以全角空格连成一行，写在按钮文字的下一行，
+     * 免得其中的说明（例如在线人数）看不到。{@code common} 中的行（各按钮共同的一行，见 {@link #commonTooltipLines(List)}）不写在按钮上，
+     * 由 {@link #convertTooltipNotes(List)} 在正文之后写一次。
      */
-    public String convertButton(DialogButton button) {
+    public String convertButton(DialogButton button, List<String> common) {
         // 按钮是浅色的，颜色按 FormColors#onLight 替换。
         String label = convertText(button.label());
-        return FormColors.onLight(button.tooltip()
-            .map(tooltip -> label + "\n" + tooltipLines(tooltip)[0])
-            .orElse(label));
+        String detail = button.tooltip()
+            .map(tooltip -> Arrays.stream(tooltipLines(tooltip)).filter(line -> !common.contains(line)).collect(Collectors.joining("　")))
+            .orElse("");
+        return FormColors.onLight(detail.isEmpty() ? label : label + "\n" + detail);
+    }
+
+    /** MINEZ：按钮的文字，提示的各行都写在按钮上，见 {@link #convertButton(DialogButton, List)}。 */
+    public String convertButton(DialogButton button) {
+        return convertButton(button, List.of());
     }
 
     /**
-     * MINEZ：有多行提示的按钮，完整写出它们的提示，放在正文之后；没有时为空文本。
-     * 两个以上的按钮都有的一行（例如各分区共同的注意事项）不逐个重复，只在最后写一次。
+     * MINEZ：两个以上的按钮的提示都有的行（例如各分区共同的注意事项）。这些行不逐个写在按钮上，只在正文之后写一次。
      */
-    public String convertTooltipDetails(List<DialogButton> buttons) {
-        List<DialogButton> detailed = new ArrayList<>();
-        List<List<String>> details = new ArrayList<>();
+    public List<String> commonTooltipLines(List<DialogButton> buttons) {
+        List<List<String>> all = new ArrayList<>();
         for (DialogButton button : buttons) {
-            if (button.tooltip().isEmpty()) {
-                continue;
-            }
-            List<String> lines = List.of(tooltipLines(button.tooltip().get()));
-            if (lines.size() >= 2) {
-                detailed.add(button);
-                details.add(lines);
-            }
-        }
-        if (detailed.isEmpty()) {
-            return "";
+            button.tooltip().ifPresent(tooltip -> all.add(List.of(tooltipLines(tooltip))));
         }
         List<String> common = new ArrayList<>();
-        if (details.size() >= 2) {
-            for (String line : details.getFirst()) {
-                if (details.stream().allMatch(lines -> lines.contains(line)) && !common.contains(line)) {
+        if (all.size() >= 2) {
+            for (String line : all.getFirst()) {
+                if (all.stream().allMatch(lines -> lines.contains(line)) && !common.contains(line)) {
                     common.add(line);
                 }
             }
         }
-        StringBuilder text = new StringBuilder("§r§l按钮说明§r");
-        for (int i = 0; i < detailed.size(); i++) {
-            text.append("\n§r§7• §r").append(convertText(detailed.get(i).label()));
-            for (String line : details.get(i)) {
-                if (!common.contains(line)) {
-                    text.append("\n    ").append(line);
-                }
-            }
-        }
-        for (String line : common) {
-            text.append("\n\n").append(line);
-        }
-        return FormColors.onDark(text.toString());
+        return common;
+    }
+
+    /**
+     * MINEZ：各按钮共同的提示（{@link #commonTooltipLines(List)}），写在正文之后；没有时为空文本。
+     */
+    public String convertTooltipNotes(List<String> common) {
+        return FormColors.onDark(String.join("\n", common));
     }
 
     /** 提示的各行，没有颜色的文字为灰色。 */

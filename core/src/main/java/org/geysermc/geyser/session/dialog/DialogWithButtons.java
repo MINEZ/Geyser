@@ -73,11 +73,12 @@ public abstract class DialogWithButtons extends Dialog {
     @Override
     protected void addCustomComponents(DialogHolder holder, SimpleForm.Builder builder) {
         List<DialogButton> buttons = buttons(holder);
-        // MINEZ：按钮的悬停提示写在按钮文字的下一行。
+        // MINEZ：按钮的悬停提示写在按钮文字的下一行，各按钮共同的一行已写在正文之后。
+        List<String> common = holder.commonTooltipLines(buttonsWithTooltips(holder));
         for (DialogButton button : buttons) {
-            builder.button(holder.convertButton(button));
+            builder.button(holder.convertButton(button, common));
         }
-        exitAction.ifPresent(button -> builder.button(holder.convertButton(button)));
+        exitAction.ifPresent(button -> builder.button(holder.convertButton(button, common)));
 
         builder.validResultHandler(response -> {
             if (response.clickedButtonId() == buttons.size()) {
