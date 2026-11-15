@@ -73,18 +73,17 @@ class SpriteGlyphsTest {
     @Test
     void titleOfOneGlyphPerTileMovesToSecondLine() {
         // 每块一个字的称号（网易开发者平台只接受每格 16 像素的字形图），按第一块的字换行。
-        String tiles = "";
+        String tiles = "\uF120\uF121\uF122\uF123";
         SpriteGlyphs.setAnimated(Map.of(tiles, Map.of("texture", "textures/minez/anim/item/title/builder", "tiles", 4L)));
-        assertEquals("§b测试
-§f" + tiles, SpriteGlyphs.groupOnNewLine("§b测试 §f" + tiles));
+        assertEquals("§b测试\n§f" + tiles, SpriteGlyphs.groupOnNewLine("§b测试 §f" + tiles));
     }
 
     @Test
     void everyCharacterOfAnImageKeyIsAnIcon() {
         try {
-            SpriteGlyphs.setImages(Map.of("", Map.of("tiles", 2L)));
-            assertTrue(SpriteGlyphs.hasIcon("称号 "));
-            assertTrue(SpriteGlyphs.hasIcon(""));
+            SpriteGlyphs.setImages(Map.of("\uF120\uF121", Map.of("tiles", 2L)));
+            assertTrue(SpriteGlyphs.hasIcon("称号 \uF120\uF121"));
+            assertTrue(SpriteGlyphs.hasIcon("\uF121"));
             assertFalse(SpriteGlyphs.hasIcon("称号"));
         } finally {
             SpriteGlyphs.setImages(Map.of());
