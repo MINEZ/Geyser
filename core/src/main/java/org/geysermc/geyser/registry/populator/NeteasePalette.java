@@ -28,9 +28,6 @@ package org.geysermc.geyser.registry.populator;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
@@ -42,7 +39,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -81,9 +81,9 @@ public final class NeteasePalette {
      */
     static final String NETEASE_ITEMS_FILE = "bedrock/netease_items.%s.json";
     /**
-     * 网易客户端自己的物品：编号 → 名字，由 {@link #NETEASE_ITEMS_FILE} 读入。
+     * 网易客户端自己的物品：名字 → 是否每种客户端都有，由 {@link #NETEASE_ITEMS_FILE} 读入。
      */
-    private static volatile Int2ObjectMap<String> neteaseItems = Int2ObjectMaps.emptyMap();
+    private static volatile Map<String, Boolean> neteaseItems = Map.of();
 
     private NeteasePalette() {
     }
@@ -149,26 +149,31 @@ public final class NeteasePalette {
     }
 
     /**
-     * 读入网易客户端自己的物品：{@code {"items": [{"name": "minecraft:mod", "id": 1279}, ...]}}。
+     * 读入网易客户端自己的物品：{@code {"items": [{"name": "minecraft:mod"}, {"name": "minecraft:debug_stick", "optional": true}, ...]}}。
+     * optional 为只有部分客户端才有的物品（例如 debug_stick 只有 PC 开发版有），客户端没有时不算问题。编号不记：它们随自定义物品的
+     * 个数移动（见类的说明）。
+     *
+     * @return 名字 → 是否每种客户端都有
      */
-    static Int2ObjectMap<String> readNeteaseItems(InputStream stream) {
+    static Map<String, Boolean> readNeteaseItems(InputStream stream) {
         JsonObject json = JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonObject();
-        Int2ObjectMap<String> items = new Int2ObjectOpenHashMap<>();
+        Map<String, Boolean> items = new LinkedHashMap<>();
         for (JsonElement element : json.getAsJsonArray("items")) {
             JsonObject item = element.getAsJsonObject();
-            items.put(item.get("id").getAsInt(), item.get("name").getAsString());
+            JsonElement optional = item.get("optional");
+            items.put(item.get("name").getAsString(), optional == null || !optional.getAsBoolean());
         }
-        return Int2ObjectMaps.unmodifiable(items);
+        return Collections.unmodifiableMap(items);
     }
 
-    static void setNeteaseItems(Int2ObjectMap<String> items) {
+    static void setNeteaseItems(Map<String, Boolean> items) {
         neteaseItems = items;
     }
 
     /**
-     * @return 网易客户端自己的物品：编号 → 名字。
+     * @return 网易客户端自己的物品：名字 → 是否每种客户端都有。
      */
-    public static Int2ObjectMap<String> neteaseItems() {
+    public static Map<String, Boolean> neteaseItems() {
         return neteaseItems;
     }
 

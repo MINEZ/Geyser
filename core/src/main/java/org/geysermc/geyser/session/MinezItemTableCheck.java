@@ -175,7 +175,7 @@ final class MinezItemTableCheck {
         ItemMappings mappings = session.getItemMappings();
         Int2ObjectMap<String> server = new Int2ObjectOpenHashMap<>();
         mappings.getItemDefinitions().forEach((id, definition) -> server.put((int) id, definition.getIdentifier()));
-        List<String> differences = differences(table, server, new HashSet<>(NeteasePalette.neteaseItems().values()));
+        List<String> differences = differences(table, server, NeteasePalette.neteaseItems());
         StringBuilder message = new StringBuilder();
         String kind = clientKind();
         if (differences.isEmpty()) {
@@ -198,14 +198,14 @@ final class MinezItemTableCheck {
     /**
      * @param client  客户端读出的物品表：编号 → 名字。
      * @param server  这个会话下发的物品表：编号 → 名字。
-     * @param netease 记下的网易客户端自己的物品的名字。它们的编号随下发的自定义物品的个数移动（见 NeteasePalette），按名字认，
-     *                不看编号。
+     * @param netease 记下的网易客户端自己的物品：名字 → 是否每种客户端都有。它们的编号随下发的自定义物品的个数移动（见
+     *                NeteasePalette），按名字认，不看编号。
      * @return 有问题的编号，每项为“编号: 客户端 / Geyser (原因)”，按编号排列；客户端或 Geyser 没有的写作“-”。原因为：
      * {@code conflict}（下发的物品被网易的物品占了编号）、{@code unlisted China Edition item}（网易的物品不在
-     * {@code netease_items} 中）、{@code missing on client}（客户端没有下发的物品）；记下的网易物品客户端已没有时，另记一项
-     * “名字: not found”。
+     * {@code netease_items} 中）、{@code missing on client}（客户端没有下发的物品）；记下的网易物品（不含只有部分客户端才有的）
+     * 客户端已没有时，另记一项“名字: not found”。
      */
-    static List<String> differences(Int2ObjectMap<String> client, Int2ObjectMap<String> server, Set<String> netease) {
+    static List<String> differences(Int2ObjectMap<String> client, Int2ObjectMap<String> server, Map<String, Boolean> netease) {
         Set<String> serverNames = new HashSet<>(server.values());
         List<String> differences = new ArrayList<>();
         for (int id = FIRST_ID; id <= LAST_ID; id++) {
@@ -217,7 +217,7 @@ final class MinezItemTableCheck {
                     reason = "missing on client";
                 }
             } else if (ours == null) {
-                if (!netease.contains(theirs)) {
+                if (!netease.containsKey(theirs)) {
                     reason = "unlisted China Edition item";
                 }
             } else if (!theirs.equals(ours) && !serverNames.contains(theirs)) {
@@ -228,7 +228,7 @@ final class MinezItemTableCheck {
             }
         }
         Set<String> seen = new HashSet<>(client.values());
-        netease.stream().sorted().filter(name -> !seen.contains(name))
+        netease.entrySet().stream().filter(Map.Entry::getValue).map(Map.Entry::getKey).sorted().filter(name -> !seen.contains(name))
             .forEach(name -> differences.add(name + ": not found (China Edition item not found)"));
         return differences;
     }

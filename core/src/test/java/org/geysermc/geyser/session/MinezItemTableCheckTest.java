@@ -45,7 +45,7 @@ class MinezItemTableCheckTest {
     void reportsOnlyRealProblems() {
         Int2ObjectMap<String> server = new Int2ObjectOpenHashMap<>(Map.of(1, "minecraft:stone", 793, "minecraft:wool",
             100, "minecraft:white_wool", 1277, "minez:a.paper", 1278, "minez:b.paper", 1300, "minez:c.paper"));
-        Set<String> netease = Set.of("minecraft:debug_stick", "minecraft:mod", "minecraft:mod_ex");
+        Map<String, Boolean> netease = Map.of("minecraft:debug_stick", false, "minecraft:mod", true, "minecraft:mod_ex", true);
         Int2ObjectMap<String> client = new Int2ObjectOpenHashMap<>();
         client.put(1, "minecraft:stone");
         client.put(100, "minecraft:white_wool");
@@ -65,8 +65,10 @@ class MinezItemTableCheckTest {
             "1300: minecraft:mod_ex / minez:c.paper (conflict)",
             "2000: minecraft:mod_new / - (unlisted China Edition item)"), MinezItemTableCheck.differences(client, server, netease));
         // 记下的网易物品客户端已没有。
+        // 记下的网易物品客户端已没有；只有部分客户端才有的（debug_stick）没有时不算问题。
         assertEquals(List.of("minecraft:mod: not found (China Edition item not found)"),
-            MinezItemTableCheck.differences(Int2ObjectMaps.emptyMap(), Int2ObjectMaps.emptyMap(), Set.of("minecraft:mod")));
+            MinezItemTableCheck.differences(Int2ObjectMaps.emptyMap(), Int2ObjectMaps.emptyMap(),
+                Map.of("minecraft:mod", true, "minecraft:debug_stick", false)));
     }
 
     @Test
