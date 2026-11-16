@@ -92,13 +92,15 @@ public class CustomItemRegistryPopulator {
     // In behaviour packs and Java components this is set to a text value, such as "eat" or "drink"; over Bedrock network it's sent as an int.
     // These don't all work correctly on Bedrock - see the Consumable.Animation Javadoc in the API
     // Last checked for bedrock 1.21.94 - IDs might have changed since then
-    private static final Map<Consumable.ItemUseAnimation, Integer> BEDROCK_ANIMATIONS = Map.of(
+    static final Map<Consumable.ItemUseAnimation, Integer> BEDROCK_ANIMATIONS = Map.of(
         Consumable.ItemUseAnimation.NONE, 0,
         Consumable.ItemUseAnimation.EAT, 1,
         Consumable.ItemUseAnimation.DRINK, 2,
         Consumable.ItemUseAnimation.BLOCK, 3,
         Consumable.ItemUseAnimation.BOW, 4,
         Consumable.ItemUseAnimation.SPEAR, 6,
+        // MINEZ：套了皮肤的三叉戟以 TRIDENT 动画注册（见下方 consumableComponent），此前没有对应的 ID，客户端不举手（同上游 #6759）。
+        Consumable.ItemUseAnimation.TRIDENT, 6,
         Consumable.ItemUseAnimation.CROSSBOW, 9,
         Consumable.ItemUseAnimation.SPYGLASS, 10,
         Consumable.ItemUseAnimation.BRUSH, 12
