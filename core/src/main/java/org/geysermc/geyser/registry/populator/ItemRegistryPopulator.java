@@ -185,6 +185,8 @@ public class ItemRegistryPopulator {
 
         // We can reduce some operations as Java information is the same across all palette versions
         boolean firstMappingsPass = true;
+        // MINEZ：国际版 1.21.130 的自定义区间（起点、条目数），网易的物品表按它预留网易物品的编号，见 NeteasePalette.RESERVED_OFFSETS。
+        int[] customRange = null;
 
         /* Load item palette */
         for (PaletteVersion palette : paletteVersions) {
@@ -252,6 +254,15 @@ public class ItemRegistryPopulator {
 
                 definitions.put(entry.getName(), definition);
                 registry.put(definition.getRuntimeId(), definition);
+            }
+
+            // MINEZ：自定义区间从这里开始。网易的物品表按国际版 1.21.130 的条目数预留网易物品的编号（两者的原版部分与自定义物品相同）。
+            int customStart = nextFreeBedrockId;
+            if (palette.netease()) {
+                if (customRange == null || customRange[0] != customStart) {
+                    throw new AssertionError("The China Edition palette must follow the international 1.21.130 one with the same vanilla items");
+                }
+                NeteasePalette.setCustomRange(customRange[0], customRange[1]);
             }
 
             Object2ObjectMap<String, BlockDefinition> bedrockBlockIdOverrides = new Object2ObjectOpenHashMap<>();
@@ -804,6 +815,26 @@ public class ItemRegistryPopulator {
 
             // MINEZ：网易中国版客户端的物品表另行登记。
             (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
+            if (!palette.netease() && palette.version().equals("1_21_130")) {
+                int customCount = 0;
+                for (int id : registry.keySet()) {
+                    if (id >= customStart) {
+                        customCount++;
+                    }
+                }
+                customRange = new int[] {customStart, customCount};
+            } else if (palette.netease()) {
+                int netease = 0;
+                for (int id : registry.keySet()) {
+                    if (id >= customStart) {
+                        netease++;
+                    }
+                }
+                if (netease != customRange[1]) {
+                    GeyserImpl.getInstance().getLogger().warning("China Edition palette has " + netease + " custom item entries but "
+                        + customRange[1] + " were expected; the IDs reserved for China Edition's own items may be off");
+                }
+            }
 
             firstMappingsPass = false;
         }

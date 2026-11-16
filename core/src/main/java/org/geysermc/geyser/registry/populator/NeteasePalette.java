@@ -31,6 +31,9 @@ import com.google.gson.JsonParser;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import org.cloudburstmc.nbt.NbtMap;
 import org.geysermc.geyser.registry.populator.conversion.BlockRemapper;
 import org.geysermc.geyser.registry.type.PaletteItem;
@@ -57,11 +60,15 @@ import java.util.Set;
  * 物品表少教育版的 {@code minecraft:board} 与 {@code minecraft:chalkboard}，其余与国际版相同。物品的编号由服务端在进服时下发，
  * 资料中网易与国际版互换的几个编号因此不需要处理。
  * <p>
- * 网易客户端另有自己的物品（例如 {@code minecraft:mod}、{@code minecraft:mod_ex}），客户端自带，不在服务端下发的物品表中，
- * 也不能下发（同一个物品会注册两次）。它们的编号与名字写在 {@code bedrock/netease_items.<版本>.json} 中，自定义物品分配编号时
- * 跳过这些编号，否则会显示成网易的物品或透明。这个文件由客户端实际的物品表得出：MINEZ 客户端模组每个会话读出客户端在各编号上的
- * 物品，Geyser 比对后写进日志与 {@code netease_item_table.json}（见 {@code MinezItemTableCheck}）；其中“客户端有、Geyser 没有”
- * 的物品即网易自己的物品。网易更新客户端、日志中出现新的网易物品时，把它们补进这个文件。
+ * 网易客户端另有自己的物品（{@code minecraft:mod}、{@code minecraft:mod_ex}，PC 开发版另有 {@code minecraft:debug_stick}），客户端
+ * 自带，不在服务端下发的物品表中，也不能下发（同一个物品会注册两次）。它们的编号不固定，随服务器下发的自定义物品的个数移动：
+ * 2026-11-16 比对两份完整的客户端物品表（正式服的安卓正式版 3.10.5、测试服的 PC 开发版 3.10.0，自定义物品 649 与 814 个），
+ * 以自定义区间（原版物品之后，见 {@link #RESERVED_OFFSETS}）分配的条目数为 T、起点为 S，网易物品落在 S + T 往前的固定位置：安卓的
+ * mod、mod_ex 在 −213、−212，PC 的 debug_stick、mod、mod_ex 在 −216、−212、−211。自定义物品用到这些编号时显示成网易的物品或透明。
+ * 两次观测时 Geyser 都在自定义区间里留了 2 个空号，因此分不清网易数的是“条目数”还是“最大编号”（后者随空号数变化）；
+ * {@link #RESERVED_OFFSETS} 预留的 7 个位置对两种情况都成立。实际的物品表仍由 MINEZ 客户端模组每个会话读出、Geyser 比对后写进日志与
+ * {@code netease_item_table.json}（见 {@code MinezItemTableCheck}），网易更新客户端后据此核对；{@code bedrock/netease_items.<版本>.json}
+ * 只记网易物品的名字，供比对时认出它们。
  */
 public final class NeteasePalette {
     static final String CHALKBOARD = "minecraft:chalkboard";
@@ -166,10 +173,48 @@ public final class NeteasePalette {
     }
 
     /**
-     * @return 从 id 起第一个没有被网易客户端自己的物品占用的编号。
+     * 网易物品在自定义区间末尾往前的位置（见类的说明）：以 S + T 为 0，安卓与 PC 的网易物品依次在 −216、−213、−212、−211；网易若数的是
+     * 最大编号，空号数为 7 时它们再往后移 5，落在 −211、−208、−207、−206。合起来正好 7 个，预留后两种情况都不撞号。
+     */
+    static final int[] RESERVED_OFFSETS = {-216, -213, -212, -211, -208, -207, -206};
+
+    /**
+     * 自定义区间的起点（原版物品之后的第一个编号）与这次要分配的条目数，由分配前统计（国际版 1.21.130 的物品表与网易的原版部分
+     * 相同，先分配，条目数一致）。
+     */
+    private static volatile IntSet reservedIds = IntSets.EMPTY_SET;
+
+    /**
+     * 按自定义区间算出网易物品可能落在的编号（见 {@link #RESERVED_OFFSETS}），之后分配编号时跳过。
+     *
+     * @param start 自定义区间的起点
+     * @param count 这次要分配的条目数（不含预留的空号）
+     */
+    static void setCustomRange(int start, int count) {
+        reservedIds = reservedIds(start, count);
+    }
+
+    static IntSet reservedIds(int start, int count) {
+        IntSet ids = new IntOpenHashSet();
+        for (int offset : RESERVED_OFFSETS) {
+            int id = start + count + offset;
+            if (id >= start) {
+                ids.add(id);
+            }
+        }
+        return IntSets.unmodifiable(ids);
+    }
+
+    static IntSet reservedIds() {
+        return reservedIds;
+    }
+
+    /**
+     * @return 从 id 起第一个不是网易物品可能落在的编号。
      */
     static int nextFreeItemId(int id) {
-        while (neteaseItems.containsKey(id)) {
+        IntSet reserved = reservedIds;
+        while (reserved.contains(id)) {
             id++;
         }
         return id;

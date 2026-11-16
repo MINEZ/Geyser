@@ -33,6 +33,7 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.registry.populator.NeteasePalette;
 import org.geysermc.geyser.registry.type.ItemMappings;
+import org.geysermc.geyser.session.auth.NeteaseProfile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * MINEZ：核对网易客户端实际的物品表。
@@ -54,8 +56,9 @@ import java.util.TreeMap;
  * 中收到要读的编号范围与一个用来自检的原版物品，用隐藏的物品图标控件按编号读出客户端认为的物品名，以 {@code ItemTable} 事件分批发回：
  * {@code {"part": 序号, "parts": 总批数, "items": [[编号, 物品名], ...]}}；读不出时为 {@code {"unsupported": 说明}}。
  * <p>
- * 网易自己的物品只随客户端版本变化，Geyser 每次启动后只核对一次：在得到第一份完整的结果之前，每个会话都会请求；之后的会话不再请求，
- * 客户端不必再花约一分钟读表。
+ * 网易自己的物品因客户端而异：平台、系统、环境与版本不同的客户端，网易物品的个数与排法可能不同（2026-11-16：安卓正式版没有
+ * {@code minecraft:debug_stick}，PC 开发版有，编号也差一个）。Geyser 每次启动后对每种客户端（{@link #clientKind}）各核对一次：
+ * 这种客户端在得到第一份完整的结果之前，每个会话都会请求；之后同种客户端的会话不再请求，不必再花约一分钟读表。
  * <p>
  * 收齐后与这个会话下发的物品表以及网易客户端自己的物品（{@link NeteasePalette#neteaseItems()}）逐个编号比对，有问题的写进日志
  * （每次启动内，同样的结果只记一次），完整的结果写进 Geyser 的配置目录中的 {@value #FILE_NAME}。下列情况不算问题：两边的名字相同；
@@ -77,11 +80,14 @@ final class MinezItemTableCheck {
     private static final int MAX_ITEMS = LAST_ID - FIRST_ID + 1;
     private static final int MAX_NAME_LENGTH = 128;
     private static final int MAX_LOGGED = 200;
-    private static volatile String lastReport;
     /**
-     * 这次启动后是否已经得到完整的结果。
+     * 这次启动后已经得到完整结果的客户端种类（{@link #clientKind}）。
      */
-    private static volatile boolean checked;
+    private static final Set<String> CHECKED = ConcurrentHashMap.newKeySet();
+    /**
+     * 每种客户端最近一次记进日志的结果，同样的结果只记一次。
+     */
+    private static final Map<String, String> LAST_REPORTS = new ConcurrentHashMap<>();
 
     private final GeyserSession session;
     private final Int2ObjectMap<String> table = new Int2ObjectOpenHashMap<>();
@@ -95,10 +101,22 @@ final class MinezItemTableCheck {
     }
 
     /**
-     * @return 随 ClientConfig 发给模组的请求；这次启动后已经核对过、或下发的物品表中没有用来自检的物品时为 null，不核对。
+     * 客户端的种类：平台、系统、环境、引擎版本与补丁版本，取自网易登录链。同种客户端的网易物品相同。
+     */
+    String clientKind() {
+        NeteaseProfile profile = session.getNeteaseProfile();
+        if (profile == null) {
+            return "unknown";
+        }
+        return String.join(" ", String.valueOf(profile.platform()), String.valueOf(profile.osName()), String.valueOf(profile.env()),
+            String.valueOf(profile.engineVersion()), String.valueOf(profile.patchVersion()));
+    }
+
+    /**
+     * @return 随 ClientConfig 发给模组的请求；这次启动后这种客户端已经核对过、或下发的物品表中没有用来自检的物品时为 null，不核对。
      */
     @Nullable Map<String, Object> request() {
-        if (checked) {
+        if (CHECKED.contains(clientKind())) {
             return null;
         }
         ItemDefinition check = session.getItemMappings().getDefinition(CHECK_ITEM);
@@ -122,7 +140,7 @@ final class MinezItemTableCheck {
         Object unsupported = data.get("unsupported");
         if (unsupported != null) {
             done = true;
-            report("MINEZ's client mod of " + session.bedrockUsername() + " could not read the China Edition client's item table: "
+            report(clientKind(), "MINEZ's client mod of " + session.bedrockUsername() + " (" + clientKind() + ") could not read the China Edition client's item table: "
                 + truncate(String.valueOf(unsupported)), true);
             return;
         }
@@ -157,35 +175,37 @@ final class MinezItemTableCheck {
         ItemMappings mappings = session.getItemMappings();
         Int2ObjectMap<String> server = new Int2ObjectOpenHashMap<>();
         mappings.getItemDefinitions().forEach((id, definition) -> server.put((int) id, definition.getIdentifier()));
-        List<String> differences = differences(table, server, NeteasePalette.neteaseItems());
+        List<String> differences = differences(table, server, new HashSet<>(NeteasePalette.neteaseItems().values()));
         StringBuilder message = new StringBuilder();
+        String kind = clientKind();
         if (differences.isEmpty()) {
-            message.append("The China Edition client's item table matches Geyser's (").append(table.size())
+            message.append("The China Edition client's item table (").append(kind).append(") matches Geyser's (").append(table.size())
                 .append(" items, IDs ").append(FIRST_ID).append(" to ").append(LAST_ID).append(", ")
                 .append(NeteasePalette.neteaseItems().size()).append(" of them China Edition's own)");
         } else {
-            message.append("The China Edition client's item table differs from Geyser's at ").append(differences.size())
-                .append(" IDs (client / Geyser), see ").append(FILE_NAME).append(" in Geyser's folder:");
+            message.append("The China Edition client's item table (").append(kind).append(") differs from Geyser's at ").append(differences.size())
+                .append(" IDs (client / Geyser), see ").append(fileName(kind)).append(" in Geyser's folder:");
             differences.stream().limit(MAX_LOGGED).forEach(line -> message.append("\n  ").append(line));
             if (differences.size() > MAX_LOGGED) {
                 message.append("\n  ...");
             }
         }
-        report(message.toString(), !differences.isEmpty());
-        write(differences);
-        checked = true;
+        report(kind, message.toString(), !differences.isEmpty());
+        write(kind, differences);
+        CHECKED.add(kind);
     }
 
     /**
      * @param client  客户端读出的物品表：编号 → 名字。
      * @param server  这个会话下发的物品表：编号 → 名字。
-     * @param netease 记下的网易客户端自己的物品：编号 → 名字。
+     * @param netease 记下的网易客户端自己的物品的名字。它们的编号随下发的自定义物品的个数移动（见 NeteasePalette），按名字认，
+     *                不看编号。
      * @return 有问题的编号，每项为“编号: 客户端 / Geyser (原因)”，按编号排列；客户端或 Geyser 没有的写作“-”。原因为：
      * {@code conflict}（下发的物品被网易的物品占了编号）、{@code unlisted China Edition item}（网易的物品不在
-     * {@code netease_items} 中）、{@code missing on client}（客户端没有下发的物品）、{@code China Edition item not found}
-     * （记下的网易物品客户端已没有）。
+     * {@code netease_items} 中）、{@code missing on client}（客户端没有下发的物品）；记下的网易物品客户端已没有时，另记一项
+     * “名字: not found”。
      */
-    static List<String> differences(Int2ObjectMap<String> client, Int2ObjectMap<String> server, Int2ObjectMap<String> netease) {
+    static List<String> differences(Int2ObjectMap<String> client, Int2ObjectMap<String> server, Set<String> netease) {
         Set<String> serverNames = new HashSet<>(server.values());
         List<String> differences = new ArrayList<>();
         for (int id = FIRST_ID; id <= LAST_ID; id++) {
@@ -195,11 +215,9 @@ final class MinezItemTableCheck {
             if (theirs == null) {
                 if (ours != null) {
                     reason = "missing on client";
-                } else if (netease.containsKey(id)) {
-                    reason = "China Edition item not found";
                 }
             } else if (ours == null) {
-                if (!theirs.equals(netease.get(id))) {
+                if (!netease.contains(theirs)) {
                     reason = "unlisted China Edition item";
                 }
             } else if (!theirs.equals(ours) && !serverNames.contains(theirs)) {
@@ -209,14 +227,16 @@ final class MinezItemTableCheck {
                 differences.add(id + ": " + (theirs == null ? "-" : theirs) + " / " + (ours == null ? "-" : ours) + " (" + reason + ")");
             }
         }
+        Set<String> seen = new HashSet<>(client.values());
+        netease.stream().sorted().filter(name -> !seen.contains(name))
+            .forEach(name -> differences.add(name + ": not found (China Edition item not found)"));
         return differences;
     }
 
-    private void report(String message, boolean warning) {
-        if (message.equals(lastReport)) {
+    private void report(String kind, String message, boolean warning) {
+        if (message.equals(LAST_REPORTS.put(kind, message))) {
             return;
         }
-        lastReport = message;
         if (warning) {
             GeyserImpl.getInstance().getLogger().warning(message);
         } else {
@@ -224,8 +244,17 @@ final class MinezItemTableCheck {
         }
     }
 
-    private void write(List<String> differences) {
+    /**
+     * 写出结果的文件名：每种客户端各一个，名字中带上客户端的种类（只留字母、数字、点与下划线）。
+     */
+    static String fileName(String kind) {
+        String suffix = kind.replaceAll("[^A-Za-z0-9.]+", "_").replaceAll("^_+|_+$", "");
+        return FILE_NAME.replace(".json", "." + suffix + ".json");
+    }
+
+    private void write(String kind, List<String> differences) {
         Map<String, Object> json = new LinkedHashMap<>();
+        json.put("client_kind", kind);
         json.put("protocol", session.protocolVersion());
         json.put("from", FIRST_ID);
         json.put("to", LAST_ID);
@@ -233,7 +262,7 @@ final class MinezItemTableCheck {
         Map<String, String> items = new TreeMap<>((a, b) -> Integer.compare(Integer.parseInt(a), Integer.parseInt(b)));
         table.forEach((id, name) -> items.put(Integer.toString(id), name));
         json.put("client", items);
-        Path file = GeyserImpl.getInstance().configDirectory().resolve(FILE_NAME);
+        Path file = GeyserImpl.getInstance().configDirectory().resolve(fileName(kind));
         try {
             Files.writeString(file, new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(json), StandardCharsets.UTF_8);
         } catch (IOException e) {

@@ -207,20 +207,29 @@ class NeteasePaletteTest {
     }
 
     @Test
-    void skipsIdsOfNeteaseItems() throws Exception {
-        try (java.io.InputStream stream = NeteasePalette.class.getClassLoader()
-                .getResourceAsStream(NeteasePalette.NETEASE_ITEMS_FILE.formatted("1_21_130"))) {
-            NeteasePalette.setNeteaseItems(NeteasePalette.readNeteaseItems(stream));
-        }
+    void reservesIdsWhereNeteaseItemsLand() {
+        // 2026-11-16 的三份客户端物品表（自定义区间从 843 起）：网易物品落在的编号都在预留之中。
+        // 安卓正式版，自定义 649 个：mod 1279、mod_ex 1280。
+        assertTrue(NeteasePalette.reservedIds(843, 649).containsAll(java.util.List.of(1279, 1280)));
+        // PC 开发版，自定义 649 个：debug_stick 1276、mod 1280、mod_ex 1281。
+        assertTrue(NeteasePalette.reservedIds(843, 649).containsAll(java.util.List.of(1276, 1280, 1281)));
+        // PC 开发版，自定义 814 个：debug_stick 1441、mod 1445、mod_ex 1446。
+        assertTrue(NeteasePalette.reservedIds(843, 814).containsAll(java.util.List.of(1441, 1445, 1446)));
+        // 安卓正式版在 814 个时按同样的规律落在 1444、1445。
+        assertTrue(NeteasePalette.reservedIds(843, 814).containsAll(java.util.List.of(1444, 1445)));
+        assertEquals(NeteasePalette.RESERVED_OFFSETS.length, NeteasePalette.reservedIds(843, 814).size());
+    }
+
+    @Test
+    void skipsReservedIds() {
+        NeteasePalette.setCustomRange(843, 814);
         try {
-            // 网易客户端自己的物品（mod 1279，mod_ex 1280）的编号跳过，其余照常顺延。
-            assertEquals("minecraft:mod", NeteasePalette.neteaseItems().get(1279));
-            assertEquals(1276, NeteasePalette.nextFreeItemId(1276));
-            assertEquals(1278, NeteasePalette.nextFreeItemId(1278));
-            assertEquals(1281, NeteasePalette.nextFreeItemId(1279));
-            assertEquals(1281, NeteasePalette.nextFreeItemId(1280));
+            assertEquals(1440, NeteasePalette.nextFreeItemId(1440));
+            assertEquals(1442, NeteasePalette.nextFreeItemId(1441));
+            assertEquals(1447, NeteasePalette.nextFreeItemId(1444));
+            assertEquals(1279, NeteasePalette.nextFreeItemId(1279));
         } finally {
-            NeteasePalette.setNeteaseItems(it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap());
+            NeteasePalette.setCustomRange(0, -1000);
         }
     }
 }
