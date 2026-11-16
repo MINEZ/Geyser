@@ -26,17 +26,38 @@
 package org.geysermc.geyser.network.bedrock.raknet;
 
 import io.netty.channel.Channel;
+import org.cloudburstmc.netty.channel.raknet.RakChildChannel;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
+import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.network.GeyserServerInitializer;
+import org.geysermc.geyser.network.RaknetServer;
+import org.geysermc.geyser.network.bedrock.GeyserBedrockPeer;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseClients;
+
+import java.net.InetSocketAddress;
 
 public class RakServerInitializer extends GeyserServerInitializer {
     private final boolean rakCookiesEnabled;
+    private final RaknetServer server;
 
-    public RakServerInitializer(GeyserImpl geyser, boolean rakCookiesEnabled) {
+    public RakServerInitializer(GeyserImpl geyser, boolean rakCookiesEnabled, RaknetServer server) {
         super(geyser, "Geyser player thread");
         this.rakCookiesEnabled = rakCookiesEnabled;
+        this.server = server;
+    }
+
+    @Override
+    protected BedrockPeer createPeer(Channel channel) {
+        BedrockPeer peer = super.createPeer(channel);
+        // MINEZ：经网易中转的连接，以中转发来的玩家真实地址作为会话的地址（Velocity、封禁等都用它）
+        if (channel instanceof RakChildChannel child && peer instanceof GeyserBedrockPeer geyserPeer) {
+            InetSocketAddress client = this.server.neteaseClientAddress(child.remoteOrProxyAddress());
+            if (client != null) {
+                geyserPeer.setProxiedAddress(client);
+            }
+        }
+        return peer;
     }
 
     @Override
