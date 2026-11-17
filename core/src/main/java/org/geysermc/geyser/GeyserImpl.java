@@ -77,6 +77,7 @@ import org.geysermc.geyser.command.CommandRegistry;
 import org.geysermc.geyser.configuration.GeyserConfig;
 import org.geysermc.geyser.configuration.GeyserPluginConfig;
 import org.geysermc.geyser.erosion.UnixSocketClientListener;
+import org.geysermc.geyser.entity.type.player.PlayerEntity;
 import org.geysermc.geyser.event.GeyserEventBus;
 import org.geysermc.geyser.event.type.SessionDisconnectEventImpl;
 import org.geysermc.geyser.extension.GeyserExtensionManager;
@@ -84,6 +85,7 @@ import org.geysermc.geyser.impl.MinecraftVersionImpl;
 import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.level.BedrockDimension;
 import org.geysermc.geyser.level.WorldManager;
+import org.geysermc.geyser.network.BedrockPingHandler;
 import org.geysermc.geyser.network.RaknetServer;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.nethernet.NetherNetServer;
@@ -100,6 +102,7 @@ import org.geysermc.geyser.session.SessionDisconnectListener;
 import org.geysermc.geyser.session.SessionManager;
 import org.geysermc.geyser.session.auth.GatedLoginImpl;
 import org.geysermc.geyser.skin.FloodgateSkinUploader;
+import org.geysermc.geyser.skin.SkinManager;
 import org.geysermc.geyser.skin.ProvidedSkins;
 import org.geysermc.geyser.skin.SkinProvider;
 import org.geysermc.geyser.text.CustomTranslations;
@@ -135,6 +138,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -312,6 +316,13 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
 
     private void startInstance() {
         this.scheduledThread = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("Geyser Scheduled Thread"));
+        // MINEZ：每分钟在日志中写一行基岩版端口收到的查询（ping）的汇总，见 BedrockPingStats。
+        this.scheduledThread.scheduleAtFixedRate(() -> {
+            String summary = BedrockPingHandler.STATS.drainSummary();
+            if (summary != null) {
+                getLogger().info(summary);
+            }
+        }, 1, 1, TimeUnit.MINUTES);
 
         if (isReloading) {
             // If we're reloading, the default locale in the config might have changed.
@@ -655,6 +666,57 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
     @Override
     public @Nullable GeyserSession connectionByProxySessionId(@NonNull UUID proxySessionId) {
         return DirectConnections.get(proxySessionId);
+    }
+
+    @Override
+    public byte @Nullable [] bedrockSkin(@NonNull UUID uuid) {
+        if (connectionByUuid(uuid) == null) {
+            return null;
+        }
+        org.geysermc.geyser.api.skin.Skin skin = SkinProvider.bedrockSkin(uuid);
+        return skin == null ? null : skin.skinData().clone();
+    }
+
+    @Override
+    public boolean bedrockSkinSlim(@NonNull UUID uuid) {
+        return SkinProvider.bedrockSkinSlim(uuid);
+    }
+
+    @Override
+    public void provideSkin(@NonNull UUID uuid, byte @Nullable [] rgba, boolean slim) {
+        Objects.requireNonNull(uuid, "uuid");
+        if (rgba != null && !validSkinImage(rgba.length)) {
+            throw new IllegalArgumentException("Skin image has an unsupported size: " + rgba.length + " bytes");
+        }
+        SkinProvider.provideSkin(uuid, rgba == null ? null : rgba.clone(), slim);
+        if (rgba == null) {
+            return;
+        }
+        // 已经看到这名玩家的基岩版玩家随即更新：重新取皮肤，档案中没有材质属性时用的正是刚提供的皮肤。
+        for (GeyserSession session : sessionManager.getAllSessions()) {
+            session.ensureInEventLoop(() -> {
+                PlayerEntity entity = session.getEntityCache().getPlayerEntity(uuid);
+                if (entity != null && entity.getTextures() == null) {
+                    SkinManager.requestAndHandleSkinAndCape(entity, session, null);
+                }
+            });
+        }
+    }
+
+    /**
+     * MINEZ：皮肤图的长度是否对应一个可以接受的尺寸：宽为 64 的整数倍（不超过 1024），高与宽相同或为一半。
+     */
+    static boolean validSkinImage(int length) {
+        if (length <= 0 || length % 4 != 0) {
+            return false;
+        }
+        int pixels = length / 4;
+        for (int width = 64; width <= 1024; width += 64) {
+            if (pixels == width * width || pixels * 2 == width * width) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

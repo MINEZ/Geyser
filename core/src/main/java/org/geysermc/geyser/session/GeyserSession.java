@@ -83,6 +83,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.crafting.recipe.CraftingRecipeData;
 import org.cloudburstmc.protocol.bedrock.packet.AvailableEntityIdentifiersPacket;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.PlayerListPacket;
 import org.cloudburstmc.protocol.bedrock.packet.BiomeDefinitionListPacket;
 import org.cloudburstmc.protocol.bedrock.packet.CameraPresetsPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ChunkRadiusUpdatedPacket;
@@ -168,6 +169,8 @@ import org.geysermc.geyser.level.JavaDimension;
 import org.geysermc.geyser.level.gamerule.GameRuleHandler;
 import org.geysermc.geyser.level.physics.CollisionManager;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
+import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseSkinConfirmation;
 import org.geysermc.geyser.network.java.LocalSession;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.java.JavaRegistries;
@@ -2276,6 +2279,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     public void sendUpstreamPacket(BedrockPacket packet) {
         minezClientUi.beforeSend(packet);
         upstream.sendPacket(packet);
+        confirmNeteaseSkins(packet, false);
     }
 
     /**
@@ -2286,6 +2290,27 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     public void sendUpstreamPacketImmediately(BedrockPacket packet) {
         minezClientUi.beforeSend(packet);
         upstream.sendPacketImmediately(packet);
+        confirmNeteaseSkins(packet, true);
+    }
+
+    /**
+     * MINEZ：网易客户端要等服务器确认玩家列表中的皮肤才显示，见 {@link NeteaseSkinConfirmation}。每次发出加入玩家的玩家列表后，
+     * 紧接着发出这些皮肤的确认；所有玩家列表都经过这里（登录时的整份列表、新玩家、皮肤更新、NPC），一处即可。
+     */
+    private void confirmNeteaseSkins(BedrockPacket packet, boolean immediately) {
+        if (!(packet instanceof PlayerListPacket list) || list.getAction() != PlayerListPacket.Action.ADD
+                || !GameProtocol.isNeteaseCodec(upstream.getSession().getCodec())) {
+            return;
+        }
+        NeteasePacket.ConfirmSkin confirm = NeteaseSkinConfirmation.packet(list.getEntries());
+        if (confirm == null) {
+            return;
+        }
+        if (immediately) {
+            upstream.sendPacketImmediately(confirm);
+        } else {
+            upstream.sendPacket(confirm);
+        }
     }
 
     /**

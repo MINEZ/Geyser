@@ -182,6 +182,37 @@ public interface GeyserApi extends GeyserApiBase {
     @Nullable GeyserConnection connectionByProxySessionId(UUID proxySessionId);
 
     /**
+     * MINEZ：基岩版玩家自己的皮肤图，即登录时客户端发来的皮肤（Persona 皮肤没有）。用于让 Java 版玩家看到基岩版玩家的皮肤。
+     *
+     * @param uuid 玩家在 Java 端的 UUID。
+     * @return RGBA 像素（宽 × 高 × 4 字节，常见为 64×64 或 128×128），不是本服在线的基岩版玩家或没有皮肤图时为 null。
+     */
+    default byte @Nullable [] bedrockSkin(UUID uuid) {
+        return null;
+    }
+
+    /**
+     * MINEZ：基岩版玩家自己的皮肤是否为纤细模型，见 {@link #bedrockSkin(UUID)}。
+     *
+     * @param uuid 玩家在 Java 端的 UUID。
+     * @return 是否为纤细模型，未知时为 false。
+     */
+    default boolean bedrockSkinSlim(UUID uuid) {
+        return false;
+    }
+
+    /**
+     * MINEZ：为档案中没有材质属性的玩家（例如 Java 版玩家：网易验证不返回材质）提供皮肤，基岩版玩家看到的是这个皮肤，而不是默认皮肤。
+     * 已经看到这名玩家的基岩版玩家随即更新。玩家离开时以 null 移除。
+     *
+     * @param uuid 玩家 UUID。
+     * @param rgba RGBA 像素，宽 × 高 × 4 字节（64×64、64×32 或宽为 64 的整数倍的高清皮肤）；null 表示移除。
+     * @param slim 是否为纤细模型。
+     */
+    default void provideSkin(UUID uuid, byte @Nullable [] rgba, boolean slim) {
+    }
+
+    /**
      * Gets the current {@link GeyserApiBase} instance.
      *
      * @return the current geyser api instance

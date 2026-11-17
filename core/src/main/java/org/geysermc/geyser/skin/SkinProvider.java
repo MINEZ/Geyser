@@ -230,6 +230,15 @@ public class SkinProvider {
         }
 
         if (skin == null) {
+            // MINEZ：插件提供的皮肤（Java 版玩家由客户端上传的网易皮肤，见 GeyserApi#provideSkin）。
+            ProvidedSkin provided = PROVIDED_SKINS.get(uuid);
+            if (provided != null) {
+                skin = provided.skin();
+                geometry = provided.slim() ? SkinGeometry.SLIM : SkinGeometry.WIDE;
+            }
+        }
+
+        if (skin == null) {
             // We don't have a skin for the player right now. Fall back to a default.
             ProvidedSkins.ProvidedSkin providedSkin = ProvidedSkins.getDefaultPlayerSkin(uuid);
             skin = providedSkin.getData();
@@ -392,6 +401,54 @@ public class SkinProvider {
             CACHED_JAVA_CAPES.put(capeUrl, cape);
         }
         return future;
+    }
+
+    /**
+     * MINEZ：插件提供的皮肤，见 {@link #provideSkin}。
+     *
+     * @param skin 皮肤
+     * @param slim 是否为纤细模型
+     */
+    record ProvidedSkin(Skin skin, boolean slim) {
+    }
+
+    /** MINEZ：插件提供的皮肤，以玩家 UUID 为键；玩家离开时由插件移除。 */
+    private static final Map<UUID, ProvidedSkin> PROVIDED_SKINS = new ConcurrentHashMap<>();
+
+    /**
+     * MINEZ：记下插件为一名玩家提供的皮肤。档案中没有材质属性、也不是本服基岩版玩家的玩家（例如 Java 版玩家，网易验证不返回材质），
+     * 基岩版玩家看到的是这个皮肤，而不是默认皮肤。
+     *
+     * @param uuid 玩家 UUID
+     * @param rgba 像素，宽 × 高 × 4 字节（RGBA）；为 null 时移除
+     * @param slim 是否为纤细模型
+     */
+    public static void provideSkin(UUID uuid, byte @Nullable [] rgba, boolean slim) {
+        if (rgba == null) {
+            PROVIDED_SKINS.remove(uuid);
+            return;
+        }
+        // 皮肤 ID 取内容的哈希：同一张皮肤在客户端只存一份，换了皮肤时 ID 不同。
+        String skinId = "minez_provided_" + Integer.toHexString(java.util.Arrays.hashCode(rgba)) + (slim ? "_slim" : "");
+        PROVIDED_SKINS.put(uuid, new ProvidedSkin(new Skin(skinId, rgba), slim));
+    }
+
+    /**
+     * MINEZ：基岩版玩家自己的皮肤（登录时客户端发来的、不是 Persona 的皮肤）。
+     *
+     * @param uuid 玩家在 Java 端的 UUID
+     * @return 皮肤，没有时为 null
+     */
+    public static @Nullable Skin bedrockSkin(UUID uuid) {
+        return CACHED_BEDROCK_SKINS.getIfPresent(uuid);
+    }
+
+    /**
+     * MINEZ：基岩版玩家自己的皮肤是否为纤细模型（几何名称中带有 slim）。
+     */
+    public static boolean bedrockSkinSlim(UUID uuid) {
+        SkinGeometry geometry = cachedGeometry.get(uuid);
+        return geometry != null && geometry.geometryName().toLowerCase(java.util.Locale.ROOT).contains("slim");
     }
 
     static void storeBedrockSkin(UUID playerID, String skinId, byte[] skinData) {

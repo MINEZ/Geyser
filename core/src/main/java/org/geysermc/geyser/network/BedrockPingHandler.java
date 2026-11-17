@@ -60,6 +60,9 @@ public final class BedrockPingHandler {
 
     private final GeyserImpl geyser;
 
+    /** MINEZ：基岩版端口收到的查询的统计，见 {@link BedrockPingStats}。所有回复查询的地方共用一份。 */
+    public static final BedrockPingStats STATS = new BedrockPingStats();
+
     /**
      * The port to broadcast in the pong. This can be different from the port the server is bound to, e.g. due to port forwarding.
      */
@@ -171,6 +174,9 @@ public final class BedrockPingHandler {
             pong.maximumPlayerCount(pong.playerCount() + 1);
         }
 
+        // MINEZ：记下来源与回复的人数，见 BedrockPingStats。不记录 IP 时只计次数。
+        STATS.record(inetSocketAddress == null || !geyser.config().logPlayerIpAddresses() ? null : inetSocketAddress.getAddress(),
+            pong.playerCount(), pong.maximumPlayerCount());
         return pong;
     }
 }
