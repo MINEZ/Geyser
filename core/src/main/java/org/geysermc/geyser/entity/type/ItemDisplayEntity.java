@@ -55,11 +55,13 @@ import java.util.concurrent.TimeUnit;
  * 其余的由实体数据传给客户端，由实体的渲染控制器与动画（见 MINEZ/CraftengineResources 的生成工具）使用：
  * <ul>
  *     <li>染色（dyed_color，例如降落伞）：变种（VARIANT，0xRRGGBB），给模型中染色的面上色；</li>
- *     <li>朝向：基岩版实体自身的朝向一律为 0，Java 版的朝向写进标记变种（MARK_VARIANT，0~359 度），动画按它转动模型。骑在载具上时
+ *     <li>朝向：基岩版实体自身的朝向一律为 0，Java 版的朝向与俯仰写进标记变种（MARK_VARIANT，朝向 + 360 × (俯仰 + 90)，朝向 0~359 度，
+ *     俯仰 -90~90 度取整），动画按它先绕竖直轴转朝向、再绕横轴转俯仰，与 Java 版展示实体（固定朝向时 rotationYXZ(-朝向, 俯仰, 0)）
+ *     相同；投出的皮肤三叉戟（CraftEngine 以展示实体显示，朝向与俯仰随飞行方向）因此朝着飞行的方向。骑在载具上时
  *     （例如翅膀骑在玩家身上），基岩版按座位的设置把骑乘者的朝向锁定为载具身体的朝向（原版玩家的座位锁定为 0 度，肩上的鹦鹉即如此），
  *     服务器发来的转向不起作用，因此以座位把实体的朝向锁定为载具的朝向（偏移 0，见
  *     {@link org.geysermc.geyser.util.EntityUtils#updateRiderRotationLock}），标记变种为 0：模型随载具转动，不必等服务器同步。本服骑乘中的
- *     展示实体都朝着载具的方向（Java 版由脚本把翅膀的朝向同步为玩家的朝向，有 3 度的阈值与延迟）；</li>
+ *     展示实体都朝着载具的方向（Java 版由脚本把翅膀的朝向同步为玩家的朝向，有 3 度的阈值与延迟），俯仰照旧；</li>
  *     <li>缩放：实体的缩放（SCALE）为变换中水平两轴的平均，竖直方向与之的比值乘以 1000 写进皮肤编号（SKIN_ID），动画按它在竖直方向
  *     缩放模型（例如降落伞落地后塌下：竖直方向缩到 0.15）。变换有插值时间（interpolation_duration）时与 Java 版一样逐刻过渡。</li>
  * </ul>
@@ -84,15 +86,17 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
     private @Nullable CustomBedrockEntityDefinition shown;
     private int color = WHITE;
     /**
-     * Java 版的朝向（度），以标记变种发给客户端；正在显示的缩放；正在进行的缩放插值。
+     * Java 版的朝向与俯仰（度），以标记变种发给客户端；正在显示的缩放；正在进行的缩放插值。
      */
     private float displayYaw;
+    private float displayPitch;
     private Vector3f displayScale = Vector3f.ONE;
     private @Nullable ScheduledFuture<?> scaleInterpolation;
 
     public ItemDisplayEntity(EntitySpawnContext context) {
         super(context);
         this.displayYaw = this.yaw;
+        this.displayPitch = this.pitch;
         this.yaw = 0;
         this.pitch = 0;
         this.headYaw = 0;
@@ -136,19 +140,20 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
 
     @Override
     public void moveRelativeRaw(double relX, double relY, double relZ, float yaw, float pitch, float headYaw, boolean isOnGround) {
-        setDisplayYaw(yaw);
+        setDisplayRotation(yaw, pitch);
         super.moveRelativeRaw(relX, relY, relZ, 0, 0, 0, isOnGround);
     }
 
     @Override
     public void moveAbsoluteRaw(Vector3f position, float yaw, float pitch, float headYaw, boolean isOnGround, boolean teleported) {
-        setDisplayYaw(yaw);
+        setDisplayRotation(yaw, pitch);
         super.moveAbsoluteRaw(position, 0, 0, 0, isOnGround, teleported);
     }
 
-    private void setDisplayYaw(float yaw) {
+    private void setDisplayRotation(float yaw, float pitch) {
         int before = markVariant();
         this.displayYaw = yaw;
+        this.displayPitch = pitch;
         if (markVariant() != before) {
             this.metadata.put(EntityDataTypes.MARK_VARIANT, markVariant());
             if (valid) {
@@ -158,10 +163,16 @@ public class ItemDisplayEntity extends DisplayBaseEntity {
     }
 
     /**
-     * 模型在实体自身朝向之外再转的角度（0~359 度）：骑乘中为 0（朝向锁定为载具的朝向），否则为 Java 版的朝向。
+     * 模型在实体自身朝向之外再转的角度：朝向 + 360 × (俯仰 + 90)。朝向骑乘中为 0（锁定为载具的朝向），否则为 Java 版的朝向（0~359 度）；
+     * 俯仰为 Java 版的俯仰，取整并限制在 -90~90 度。
      */
-    private int markVariant() {
-        return vehicle != null ? 0 : Math.floorMod(Math.round(displayYaw), 360);
+    int markVariant() {
+        return markVariant(vehicle != null ? 0 : displayYaw, displayPitch);
+    }
+
+    static int markVariant(float yaw, float pitch) {
+        int pitchCode = Math.max(-90, Math.min(90, Math.round(pitch))) + 90;
+        return Math.floorMod(Math.round(yaw), 360) + 360 * pitchCode;
     }
 
     @Override
