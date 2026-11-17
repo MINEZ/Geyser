@@ -119,9 +119,13 @@ public abstract class Dialog {
             // MINEZ：正文按 Markdown 排版。
             String content = labels.stream().map(holder::convertBody).collect(Collectors.joining("\n\n"));
             // MINEZ：按钮的提示写在按钮文字的下一行，各按钮共同的一行只在正文之后写一次。
-            String tooltipNotes = holder.convertTooltipNotes(holder.commonTooltipLines(buttonsWithTooltips(holder)));
-            if (!tooltipNotes.isEmpty()) {
-                content = content.isEmpty() ? tooltipNotes : content + "\n\n" + tooltipNotes;
+            // 按钮上一行写不下的提示也写在正文之后，免得被截断。
+            List<DialogButton> buttons = buttonsWithTooltips(holder);
+            List<String> common = holder.commonTooltipLines(buttons);
+            for (String notes : List.of(holder.convertTooltipNotes(common), holder.convertOverflowNotes(buttons, common, false))) {
+                if (!notes.isEmpty()) {
+                    content = content.isEmpty() ? notes : content + "\n\n" + notes;
+                }
             }
             builder.content(content);
 
@@ -133,6 +137,14 @@ public abstract class Dialog {
                 .title(holder.convertTitle(title));
             for (Component label : labels) {
                 builder.label(holder.convertBody(label));
+            }
+            // MINEZ：有输入框的对话框，按钮显示为下拉框的选项，只有名称；各按钮的提示写在正文之后。
+            List<DialogButton> buttons = buttonsWithTooltips(holder);
+            List<String> common = holder.commonTooltipLines(buttons);
+            for (String notes : List.of(holder.convertTooltipNotes(common), holder.convertOverflowNotes(buttons, common, true))) {
+                if (!notes.isEmpty()) {
+                    builder.label(notes);
+                }
             }
 
             restored.ifPresentOrElse(last -> last.restore(holder, builder), () -> inputs.forEach(input -> input.addComponent(builder, holder)));

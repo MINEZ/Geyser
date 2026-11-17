@@ -34,6 +34,7 @@ import org.geysermc.geyser.registry.java.JavaRegistryProvider;
 import org.geysermc.geyser.session.dialog.input.ParsedInputs;
 import org.geysermc.geyser.util.MinecraftKey;
 
+import java.util.List;
 import java.util.Optional;
 
 public class NoticeDialog extends Dialog {
@@ -50,6 +51,12 @@ public class NoticeDialog extends Dialog {
     @Override
     protected Optional<DialogButton> onCancel() {
         return button;
+    }
+
+    /** MINEZ：唯一的按钮也可能有提示，写不下时写在正文之后，见 {@link DialogHolder#convertOverflowNotes}。 */
+    @Override
+    protected List<DialogButton> buttonsWithTooltips(DialogHolder holder) {
+        return button.map(List::of).orElse(List.of());
     }
 
     @Override

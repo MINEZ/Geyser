@@ -155,17 +155,75 @@ public final class DialogHolder implements TextTranslator {
     }
 
     /**
+     * MINEZ：基岩版表单按钮每行能完整显示的宽度，按 {@link #displayWidth(String)} 计（全角字符算 2）。按钮固定宽度、不折行，超出的部分
+     * 以省略号截掉（2026-11-18 实测，电脑端：商城的“出售超值礼包，礼包中的物品与冷却重置次数仅限当…”在第 22 个字处截断，
+     * “出售仅限当前周目、当前分区使用的物品。”19 个字完整显示）。取 40，即 20 个汉字。
+     */
+    static final int BUTTON_LINE_WIDTH = 40;
+
+    /**
      * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，最多也只显示两行：有提示时把提示的各行以全角空格连成一行，写在按钮文字的下一行，
      * 免得其中的说明（例如在线人数）看不到。{@code common} 中的行（各按钮共同的一行，见 {@link #commonTooltipLines(List)}）不写在按钮上，
-     * 由 {@link #convertTooltipNotes(List)} 在正文之后写一次。
+     * 由 {@link #convertTooltipNotes(List)} 在正文之后写一次。提示在按钮上一行写不下时（{@link #BUTTON_LINE_WIDTH}），按钮只写名称，
+     * 提示由 {@link #convertOverflowNotes(List, List, boolean)} 完整地写在正文之后，免得被截断。
      */
     public String convertButton(DialogButton button, List<String> common) {
         // 按钮是浅色的，颜色按 FormColors#onLight 替换。
         String label = convertText(button.label());
-        String detail = button.tooltip()
+        String detail = buttonDetail(button, common);
+        return FormColors.onLight(detail.isEmpty() || !fitsButtonLine(detail) ? label : label + "\n" + detail);
+    }
+
+    /** 按钮上写在名称下一行的提示：不在 {@code common} 中的各行，以全角空格连成一行；没有时为空文本。 */
+    private String buttonDetail(DialogButton button, List<String> common) {
+        return button.tooltip()
             .map(tooltip -> Arrays.stream(tooltipLines(tooltip)).filter(line -> !common.contains(line)).collect(Collectors.joining("　")))
             .orElse("");
-        return FormColors.onLight(detail.isEmpty() ? label : label + "\n" + detail);
+    }
+
+    /**
+     * MINEZ：按钮上一行写不下的提示（见 {@link #convertButton(DialogButton, List)}），每个按钮一行“• 名称：提示”，写在正文之后；
+     * {@code all} 为 true 时不论写不写得下都列出，用于下拉框（选项只显示名称，见 {@link #convertOption(DialogButton)}）。没有时为空文本。
+     */
+    public String convertOverflowNotes(List<DialogButton> buttons, List<String> common, boolean all) {
+        List<String> lines = new ArrayList<>();
+        for (DialogButton button : buttons) {
+            String detail = buttonDetail(button, common);
+            if (!detail.isEmpty() && (all || !fitsButtonLine(detail))) {
+                lines.add("§r• " + convertText(button.label()) + "§r：" + detail);
+            }
+        }
+        return FormColors.onDark(String.join("\n", lines));
+    }
+
+    /** 文字能否在按钮的一行中完整显示，见 {@link #BUTTON_LINE_WIDTH}。 */
+    static boolean fitsButtonLine(String text) {
+        return displayWidth(text) <= BUTTON_LINE_WIDTH;
+    }
+
+    /**
+     * 文字显示的宽度：颜色代码（§ 与其后一个字符）不计，全角字符（汉字、假名、谚文、全角标点与符号）算 2，其余算 1。
+     */
+    static int displayWidth(String text) {
+        int width = 0;
+        for (int i = 0; i < text.length(); ) {
+            int c = text.codePointAt(i);
+            i += Character.charCount(c);
+            if (c == '§') {
+                if (i < text.length()) {
+                    i += Character.charCount(text.codePointAt(i));
+                }
+                continue;
+            }
+            width += isWide(c) ? 2 : 1;
+        }
+        return width;
+    }
+
+    private static boolean isWide(int c) {
+        return (c >= 0x1100 && c <= 0x115F) || (c >= 0x2E80 && c <= 0xA4CF) || (c >= 0xAC00 && c <= 0xD7A3)
+            || (c >= 0xF900 && c <= 0xFAFF) || (c >= 0xFE30 && c <= 0xFE4F) || (c >= 0xFF00 && c <= 0xFF60)
+            || (c >= 0xFFE0 && c <= 0xFFE6) || (c >= 0xE000 && c <= 0xF8FF) || c >= 0x1F300;
     }
 
     /** MINEZ：按钮的文字，提示的各行都写在按钮上，见 {@link #convertButton(DialogButton, List)}。 */
