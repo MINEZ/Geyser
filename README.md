@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.53-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.54-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -86,6 +86,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | MINEZ client mod required | Behaviour | Added |
 | Real addresses of players behind NetEase's relays | Config | Added |
 | Raising custom tridents | Behaviour | Fixed |
+| Blocking with a shield in each hand | Behaviour | Fixed |
 | Dialogs on Bedrock | Behaviour | Changed |
 | Reopening a dialog after a click | Behaviour | Changed |
 | Forms the client is too busy to open | Behaviour | Changed |
@@ -146,6 +147,8 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 **Real addresses of players behind NetEase's relays.** China Edition players reach the server through NetEase's relays, so Geyser, Velocity and ban plugins all saw a relay's address, shared by many players: banning one player's address shut out everyone behind the same relay. Before forwarding a connection, a relay sends a separate 60-byte UDP packet from the same address and port, giving the player's real address. It is NetEase's own format, not HAPROXY protocol, so `haproxy-protocol-whitelisted-ips` cannot read it and has to stay empty. Geyser now reads these packets from the addresses listed in `bedrock.netease.relay-addresses` (by default `7.136.137.0/24`), only when the relay named inside is the one that sent it, and remembers the address for that relay's address and port for 30 seconds. A connection that follows takes the player's real address, so the Java server, Velocity and plugins see it, and Geyser logs the relay after it. Packets from other addresses go on to RakNet, which drops them, and connections without such a packet, such as on servers NetEase has not turned it on for, join under the relay's address as before. The relays also send one every two seconds or so to check that the server is up, naming one of NetEase's probes; no connection follows, and the address expires. RakNet's limit of connections per address still counts the relay. The format, worked out from captured packets, is `7f 00`, the length `00 38`, the relay's and the server's addresses in 16 bytes each, their ports, `02` for IPv4, the player's address in 16 bytes and port, and `02`; IPv4 addresses take the first 4 bytes of a field.
 
 **Raising custom tridents.** Geyser gives custom items mapped onto a trident the trident's use animation, so Bedrock players raise their arm while charging a throw, but the table of Bedrock use animation IDs only listed the spear's, so the animation was never sent and the arm stayed down. The trident now has the same ID, 6, as upstream does since GeyserMC/Geyser#6759.
+
+**Blocking with a shield in each hand.** Bedrock players block by sneaking. With a shield in each hand, upstream raised the main hand's, while the Bedrock client, following vanilla Bedrock, draws the off hand's raised, so the player saw one shield up and Java players and the server another. Geyser now raises the off hand's shield first, as vanilla Bedrock does.
 
 **Dialogs on Bedrock.** Geyser shows Java dialogs as Bedrock forms. Several things are now carried over that were lost:
 

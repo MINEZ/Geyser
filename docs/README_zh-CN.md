@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.53-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.54-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -86,6 +86,7 @@ git submodule update --init --recursive
 | 须载入 MINEZ 客户端模组 | 行为 | 新增 |
 | 网易中转后的玩家真实地址 | 配置 | 新增 |
 | 自定义三叉戟举手 | 行为 | 修正 |
+| 两只手都拿盾牌时的格挡 | 行为 | 修正 |
 | 基岩版中的对话框 | 行为 | 修改 |
 | 点击后重新打开对话框 | 行为 | 修改 |
 | 客户端正忙、无法打开的表单 | 行为 | 修改 |
@@ -140,6 +141,8 @@ git submodule update --init --recursive
 **网易中转后的玩家真实地址。** 中国版玩家经网易的中转进入，Geyser、Velocity 与封禁插件原本看到的都是中转的地址，许多玩家共用，封禁一名玩家的地址就会挡住同一中转后的所有人。中转在转发一条连接之前，先从同一个地址与端口另发一个 60 字节的 UDP 包，写明玩家的真实地址。这是网易自己的格式，不是 HAProxy 的 PROXY protocol，`haproxy-protocol-whitelisted-ips` 读不了它，须保持为空。现在 Geyser 读取 `bedrock.netease.relay-addresses`（默认 `7.136.137.0/24`）中的地址发来的这种包，包中写的中转须与实际发来的相同，并按中转的地址与端口记下真实地址 30 秒。随后的连接以玩家的真实地址进入，Java 服务器、Velocity 与插件看到的都是它，Geyser 的日志在后面注明中转。其他地址发来的包交给 RakNet 丢弃；没有这种包的连接（例如网易没有开启的服务器）照旧以中转的地址进入。中转每隔约 2 秒还会发一个检查本服是否在线的包，其中写的是网易的探测机，不会随后建立连接，记下的地址到时作废。RakNet 按地址限制的连接数仍按中转计算。格式由抓到的包得出：`7f 00`、长度 `00 38`、中转与本服的地址（各 16 字节）、两者的端口、`02`（IPv4）、玩家的地址（16 字节）与端口、`02`；IPv4 地址占 16 字节中的前 4 字节。
 
 **自定义三叉戟举手。** Geyser 给映射到三叉戟上的自定义物品设置三叉戟的使用动画，基岩版玩家蓄力投掷时才会举起手臂；但基岩版使用动画 ID 的对照表中只有矛，没有三叉戟，动画没有发给客户端，手臂不举起。现在三叉戟也对应 6，与上游自 GeyserMC/Geyser#6759 起相同。
+
+**两只手都拿盾牌时的格挡。** 基岩版玩家潜行即格挡。两只手都拿着盾牌时，上游举起主手的盾牌，而基岩版客户端照原版画副手的举起，玩家自己看到的与 Java 版玩家、服务器上的不是同一面盾牌。现在与原版基岩版一样先举副手的。
 
 **基岩版中的对话框。** Geyser 把 Java 版的对话框显示为基岩版的表单。现在补上了原先丢失的几样内容：
 

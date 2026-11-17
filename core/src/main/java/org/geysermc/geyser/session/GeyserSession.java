@@ -1730,14 +1730,16 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         final GeyserItemStack mainHandItem = playerInventoryHolder.inventory().getItemInHand();
         final GeyserItemStack offhandItem = playerInventoryHolder.inventory().getOffhand();
 
-        if (mainHandItem.is(Items.SHIELD) && !worldCache.hasCooldown(mainHandItem)) {
-            useItem(Hand.MAIN_HAND);
+        // MINEZ：两只手都拿着盾牌时先举副手的，与基岩版原版相同（原版玩家动画控制器中副手是盾牌时只播放副手的格挡姿势）。
+        // 此前先举主手的，基岩版客户端按原版画副手举起，Java 版与服务器却是主手在格挡。
+        if (offhandItem.is(Items.SHIELD) && !worldCache.hasCooldown(offhandItem)) {
+            useItem(Hand.OFF_HAND);
             playerEntity.setFlag(EntityFlag.BLOCKING, true);
             return true;
         }
 
-        if (offhandItem.is(Items.SHIELD) && !worldCache.hasCooldown(offhandItem)) {
-            useItem(Hand.OFF_HAND);
+        if (mainHandItem.is(Items.SHIELD) && !worldCache.hasCooldown(mainHandItem)) {
+            useItem(Hand.MAIN_HAND);
             playerEntity.setFlag(EntityFlag.BLOCKING, true);
             return true;
         }
