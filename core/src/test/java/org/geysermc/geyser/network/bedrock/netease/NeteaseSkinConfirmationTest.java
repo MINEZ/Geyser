@@ -121,4 +121,10 @@ class NeteaseSkinConfirmationTest {
         buf.readBytes(bytes);
         return new String(bytes, StandardCharsets.UTF_8);
     }
+
+    @Test
+    void offUnlessTurnedOnAtStartup() {
+        // b1280.56~58 发了确认后，正式服出现“透明人”与看不见的物品，默认不发
+        assertFalse(NeteaseSkinConfirmation.ENABLED);
+    }
 }

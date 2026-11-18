@@ -2296,9 +2296,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     /**
      * MINEZ：网易客户端要等服务器确认玩家列表中的皮肤才显示，见 {@link NeteaseSkinConfirmation}。每次发出加入玩家的玩家列表后，
      * 紧接着发出这些皮肤的确认；所有玩家列表都经过这里（登录时的整份列表、新玩家、皮肤更新、NPC），一处即可。
+     * <p>
+     * 默认不发（{@link NeteaseSkinConfirmation#ENABLED}）：b1280.56 起在正式服发了以后，玩家反映看到“透明人”、部分物品看不见。
      */
     private void confirmNeteaseSkins(BedrockPacket packet, boolean immediately) {
-        if (!(packet instanceof PlayerListPacket list) || list.getAction() != PlayerListPacket.Action.ADD
+        if (!NeteaseSkinConfirmation.ENABLED
+                || !(packet instanceof PlayerListPacket list) || list.getAction() != PlayerListPacket.Action.ADD
                 || !GameProtocol.isNeteaseCodec(upstream.getSession().getCodec())) {
             return;
         }

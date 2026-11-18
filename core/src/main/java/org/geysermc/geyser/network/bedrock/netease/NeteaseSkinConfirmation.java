@@ -50,6 +50,14 @@ import java.util.UUID;
  * 皮肤图（VarInt 长度 + 字节）；然后每个条目一个 uid（字符串，VarInt 长度 + UTF-8）；最后每个条目一个几何数据（字符串）。
  */
 public final class NeteaseSkinConfirmation {
+    /**
+     * 是否发送皮肤确认，默认不发，启动参数 {@code -DGeyser.NeteaseConfirmSkin=true} 时才发。b1280.56~58 一直发，正式服的玩家随即反映
+     * 看到“透明人”（看不见的玩家与 NPC）、部分手持物品与盔甲看不见，而自己与别人的皮肤仍看不到；本机没有网易客户端可以核实，
+     * 先停发，回到 b1280.55 的样子（看到默认皮肤），留着开关供测试服试验。嫌疑：uid 不是网易账号的编号而是 UUID 的散列，
+     * 客户端可能据此向网易核对皮肤失败；不在玩家列表中的实体（NPC、离线假人等）更新皮肤时是先加入再立即移出列表，确认夹在中间。
+     */
+    public static final boolean ENABLED = Boolean.getBoolean("Geyser.NeteaseConfirmSkin");
+
     private static final String NONSYNC_CUSTOM = ".NonsyncCustom";
     private static final String NONSYNC_CUSTOM_SLIM = ".NonsyncCustomSlim";
 
