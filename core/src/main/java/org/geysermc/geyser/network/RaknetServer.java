@@ -50,6 +50,7 @@ import org.geysermc.geyser.api.event.connection.ConnectionRequestEvent;
 import org.geysermc.geyser.configuration.GeyserConfig;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseClients;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseRealAddress;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseShortPingHandler;
 import org.geysermc.geyser.network.bedrock.raknet.Bootstraps;
 import org.geysermc.geyser.network.bedrock.raknet.RakConnectionRequestHandler;
 import org.geysermc.geyser.network.bedrock.raknet.RakPingHandler;
@@ -84,6 +85,8 @@ public final class RaknetServer {
     private final boolean proxied;
     /** MINEZ：向网易的 noa 内核模块查询玩家的真实地址，见 NeteaseRealAddress。没有列出中转时为 null。 */
     private final @Nullable NeteaseRealAddress neteaseRelays;
+    /** MINEZ：回复网易中转发来的 9 字节服务器列表查询，见 NeteaseShortPingHandler。没有列出中转时为 null。 */
+    private final @Nullable NeteaseShortPingHandler neteaseShortPings;
     private EventLoopGroup group;
     // Split childGroup may improve IO
     private EventLoopGroup childGroup;
@@ -107,6 +110,7 @@ public final class RaknetServer {
         this.proxied = listsProxies(listed);
         List<String> relays = geyser.config().bedrock().netease().relayAddresses();
         this.neteaseRelays = listsProxies(relays) ? NeteaseRealAddress.open(relays) : null;
+        this.neteaseShortPings = listsProxies(relays) ? new NeteaseShortPingHandler(relays) : null;
         if (this.neteaseRelays != null && this.neteaseRelays.unavailable() != null) {
             geyser.getLogger().debug("Real addresses behind NetEase's relays cannot be looked up: " + this.neteaseRelays.unavailable());
         }
@@ -152,6 +156,10 @@ public final class RaknetServer {
             channel.pipeline()
                 .addBefore(RakServerOfflineHandler.NAME, RakConnectionRequestHandler.NAME, new RakConnectionRequestHandler(this))
                 .addAfter(RakServerOfflineHandler.NAME, RakPingHandler.NAME, new RakPingHandler(this.pingResponder));
+            if (this.neteaseShortPings != null) {
+                // MINEZ：在 RakNet 核对 magic 之前认出网易的简短查询，换成标准的 RakPing，由 RakPingHandler 回复
+                channel.pipeline().addFirst(NeteaseShortPingHandler.NAME, this.neteaseShortPings);
+            }
         });
     }
 
