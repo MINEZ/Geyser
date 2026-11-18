@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.57-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.58-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -89,6 +89,7 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Blocking with a shield in each hand | Behaviour | Fixed |
 | Player skins on China Edition clients | Behaviour | Fixed |
 | Log of Bedrock pings | Behaviour | Added |
+| Log of Netty's direct memory | Behaviour | Added |
 | Dialogs on Bedrock | Behaviour | Changed |
 | Reopening a dialog after a click | Behaviour | Changed |
 | Forms the client is too busy to open | Behaviour | Changed |
@@ -155,6 +156,8 @@ Decoding is bounded: a payload over 64 KiB, nesting deeper than 16 levels, more 
 NetEase's login gives Java players no textures, so Bedrock players saw them in the default skin, and Java players saw Bedrock players the same way. Two API methods let a proxy plugin (MINEZ's Velocity plugin) pass skins between the two: `GeyserApi#bedrockSkin` (with `bedrockSkinSlim`) returns an online Bedrock player's own skin as RGBA pixels, and `GeyserApi#provideSkin` sets the skin Bedrock players see for a player whose profile has no textures, updating those who already see the player; `null` removes it. Only vanilla sizes and HD skins whose width is a multiple of 64 (up to 1024) are taken.
 
 **Log of Bedrock pings.** China Edition's server list shows a server's player count, which is taken by pinging it. The Java port's pings appear in Velocity's log, but the Bedrock port's were not logged at all, so there was no way to tell whether NetEase pinged it or what it was told. Once a minute, Geyser now logs one line with the pings the Bedrock port answered in that minute: how many, from how many addresses, the player count of the last reply, and the ten busiest addresses with their counts (addresses are left out when `log-player-ip-addresses` is off). Minutes without pings are not logged.
+
+**Log of Netty's direct memory.** When Netty's direct memory runs out, connections can no longer send or receive data: on 2026-11-18 the production proxy ran out after five hours, and from then on every Bedrock player was disconnected for not loading MINEZ's client mod, with nothing earlier in the log to show it coming. At startup Geyser now logs the Netty allocator in use and the direct memory limit, and every 10 minutes the direct memory in use and the number of Bedrock sessions, as a warning once it passes 80% of the limit. This shows whether the usage keeps growing, which points to a leak, or rises and falls with the player count. Netty 4.2's default adaptive allocator is known to exhaust direct memory under Geyser and Velocity (netty/netty#15850); start the proxy with `-Dio.netty.allocator.type=pooled` to use the pooled allocator instead.
 
 **Blocking with a shield in each hand.** Bedrock players block by sneaking. With a shield in each hand, upstream raised the main hand's, while the Bedrock client, following vanilla Bedrock, draws the off hand's raised, so the player saw one shield up and Java players and the server another. Geyser now raises the off hand's shield first, as vanilla Bedrock does.
 

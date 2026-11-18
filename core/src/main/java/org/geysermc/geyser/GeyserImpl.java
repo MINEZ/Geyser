@@ -86,6 +86,7 @@ import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.level.BedrockDimension;
 import org.geysermc.geyser.level.WorldManager;
 import org.geysermc.geyser.network.BedrockPingHandler;
+import org.geysermc.geyser.network.NettyMemoryLog;
 import org.geysermc.geyser.network.RaknetServer;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseRelayAddressHandler;
@@ -329,6 +330,19 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
                 getLogger().info(relays);
             }
         }, 1, 1, TimeUnit.MINUTES);
+        // MINEZ：Netty 直接内存的用量，见 NettyMemoryLog。启动时写一次分配器与上限，之后每 10 分钟写一次用量。
+        getLogger().info(NettyMemoryLog.startupLine());
+        this.scheduledThread.scheduleAtFixedRate(() -> {
+            String usage = NettyMemoryLog.usageLine(sessionManager.size());
+            if (usage == null) {
+                return;
+            }
+            if (NettyMemoryLog.nearLimit()) {
+                getLogger().warning(usage);
+            } else {
+                getLogger().info(usage);
+            }
+        }, 10, 10, TimeUnit.MINUTES);
 
         if (isReloading) {
             // If we're reloading, the default locale in the config might have changed.

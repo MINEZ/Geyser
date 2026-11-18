@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.57-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.58-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -89,6 +89,7 @@ git submodule update --init --recursive
 | 两只手都拿盾牌时的格挡 | 行为 | 修正 |
 | 中国版客户端上的玩家皮肤 | 行为 | 修正 |
 | 基岩版端口查询的日志 | 行为 | 新增 |
+| Netty 直接内存的日志 | 行为 | 新增 |
 | 基岩版中的对话框 | 行为 | 修改 |
 | 点击后重新打开对话框 | 行为 | 修改 |
 | 客户端正忙、无法打开的表单 | 行为 | 修改 |
@@ -149,6 +150,8 @@ git submodule update --init --recursive
 网易登录不给 Java 版玩家材质，基岩版玩家看 Java 版玩家是默认皮肤，Java 版玩家看基岩版玩家同样如此。新增两个接口，由代理端的插件（MINEZ 的 Velocity 插件）在两边之间传递皮肤：`GeyserApi#bedrockSkin`（以及 `bedrockSkinSlim`）取得在线基岩版玩家自己的皮肤（RGBA 像素）；`GeyserApi#provideSkin` 为档案中没有材质的玩家设定基岩版玩家看到的皮肤，已经看到这名玩家的随即更新，传入 `null` 时移除。只接受原版的尺寸与宽为 64 的整数倍的高清皮肤（最大 1024）。
 
 **基岩版端口查询的日志。** 中国版的服务器列表显示服务器的在线人数，人数由查询（ping）服务器得到。Java 版端口的查询在 Velocity 的日志中看得到，基岩版端口的查询却完全没有记录，无从知道网易是否来查、查到的是多少。Geyser 现在每分钟在日志中写一行这一分钟内基岩版端口回复的查询：次数、来源地址的个数、最后一次回复的在线人数，以及次数最多的十个地址与各自的次数（`log-player-ip-addresses` 关闭时不写地址）。没有查询的那一分钟不写。
+
+**Netty 直接内存的日志。** Netty 的直接内存用完后，连接就收发不了数据：2026-11-18 正式服的代理运行 5 小时后用完，此后每名基岩版玩家都因载入不了 MINEZ 客户端模组被断开，而此前的日志中看不出任何征兆。现在 Geyser 启动时在日志中写出所用的 Netty 分配器与直接内存的上限，之后每 10 分钟写一次直接内存的用量与基岩版会话数，超过上限的 80% 时改为警告。由此可以看出用量是在持续增长（说明有泄漏），还是随人数起落。Netty 4.2 默认的自适应分配器（adaptive）在 Geyser 与 Velocity 下已知会耗尽直接内存（netty/netty#15850），启动代理时加上 `-Dio.netty.allocator.type=pooled` 即改用池化分配器。
 
 **两只手都拿盾牌时的格挡。** 基岩版玩家潜行即格挡。两只手都拿着盾牌时，上游举起主手的盾牌，而基岩版客户端照原版画副手的举起，玩家自己看到的与 Java 版玩家、服务器上的不是同一面盾牌。现在与原版基岩版一样先举副手的。
 
