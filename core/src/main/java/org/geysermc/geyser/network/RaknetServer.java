@@ -253,6 +253,15 @@ public final class RaknetServer {
         return this.neteaseRelays == null ? null : this.neteaseRelays.clientAddress(relay);
     }
 
+    /**
+     * MINEZ：与 {@link #neteaseClientAddress} 相同，另计入每分钟的汇总；只在建立会话时调用。
+     *
+     * @param remote RakNet 连接的对端
+     */
+    public @Nullable InetSocketAddress neteaseSessionAddress(InetSocketAddress remote) {
+        return this.neteaseRelays == null ? null : this.neteaseRelays.sessionAddress(remote);
+    }
+
     /** Whether any proxy is listed, parsed or not, so a list of typos or unreachable URLs fails closed. */
     static boolean listsProxies(@Nullable List<String> listed) {
         return listed != null && listed.stream().anyMatch(entry -> entry != null && !entry.isBlank());

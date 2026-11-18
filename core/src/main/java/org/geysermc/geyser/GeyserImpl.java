@@ -88,6 +88,7 @@ import org.geysermc.geyser.level.WorldManager;
 import org.geysermc.geyser.network.BedrockPingHandler;
 import org.geysermc.geyser.network.RaknetServer;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseRelayAddressHandler;
 import org.geysermc.geyser.network.bedrock.nethernet.NetherNetServer;
 import org.geysermc.geyser.network.java.DirectConnections;
 import org.geysermc.geyser.ping.GeyserLegacyPingPassthrough;
@@ -316,11 +317,16 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
 
     private void startInstance() {
         this.scheduledThread = Executors.newSingleThreadScheduledExecutor(new DefaultThreadFactory("Geyser Scheduled Thread"));
-        // MINEZ：每分钟在日志中写一行基岩版端口收到的查询（ping）的汇总，见 BedrockPingStats。
+        // MINEZ：每分钟在日志中写一行基岩版端口收到的查询（ping）的汇总，见 BedrockPingStats；
+        // 以及网易中转的地址包与连接是否取到真实地址的汇总，见 NeteaseRelayStats。
         this.scheduledThread.scheduleAtFixedRate(() -> {
             String summary = BedrockPingHandler.STATS.drainSummary();
             if (summary != null) {
                 getLogger().info(summary);
+            }
+            String relays = NeteaseRelayAddressHandler.STATS.drainSummary();
+            if (relays != null) {
+                getLogger().info(relays);
             }
         }, 1, 1, TimeUnit.MINUTES);
 

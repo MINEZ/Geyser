@@ -28,6 +28,7 @@ package org.geysermc.geyser.network.bedrock.netease;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -63,11 +64,14 @@ import java.util.concurrent.TimeUnit;
  * 是否在线，其中的“真实地址”是网易的探测机，随后发服务器列表的 ping，不会建立连接，记下的地址到时自动作废。
  * <p>
  * 只接受 {@code relay-addresses} 中的地址发来的包（任何人都能伪造一个），按中转的地址与端口记下真实地址，建立会话时取用
- * （{@link #clientAddress}）。收不到这种包的连接（例如网易没有开启的服务器）照旧以中转的地址进入。
+ * （{@link #sessionAddress}）。收不到这种包的连接（例如网易没有开启的服务器）照旧以中转的地址进入。
+ * 收到的包与连接是否取到真实地址每分钟汇总一次写进日志（{@link #STATS}）。
  */
 @ChannelHandler.Sharable
 public final class NeteaseRelayAddressHandler extends ChannelInboundHandlerAdapter {
     public static final String NAME = "minez-netease-relay-address";
+    /** 每分钟的汇总，见 {@link NeteaseRelayStats}。 */
+    public static final NeteaseRelayStats STATS = new NeteaseRelayStats();
 
     static final int PACKET_ID = 0x7f;
     static final int PACKET_LENGTH = 60;
@@ -87,12 +91,20 @@ public final class NeteaseRelayAddressHandler extends ChannelInboundHandlerAdapt
 
     @Override
     public void channelRead(@NonNull ChannelHandlerContext ctx, @NonNull Object msg) {
-        if (msg instanceof DatagramPacket packet && isAddressPacket(packet.content())
-                && this.relays.contains(packet.sender().getAddress())) {
+        if (msg instanceof DatagramPacket packet && isAddressPacket(packet.content())) {
+            if (!this.relays.contains(packet.sender().getAddress())) {
+                STATS.addressPacketFromUnlisted();
+                ctx.fireChannelRead(msg);
+                return;
+            }
             try {
-                InetSocketAddress client = parse(packet.content(), packet.sender());
+                String[] problem = new String[1];
+                InetSocketAddress client = parse(packet.content(), packet.sender(), problem);
                 if (client != null) {
                     this.clients.put(packet.sender(), client);
+                    STATS.addressPacketRead();
+                } else {
+                    STATS.addressPacketUnreadable(problem[0]);
                 }
             } finally {
                 packet.release();
@@ -110,6 +122,24 @@ public final class NeteaseRelayAddressHandler extends ChannelInboundHandlerAdapt
         return this.clients.getIfPresent(relay);
     }
 
+    /**
+     * 与 {@link #clientAddress} 相同，另把这条连接计入每分钟的汇总。每条连接只在建立会话时调用一次。
+     *
+     * @param remote RakNet 连接的对端
+     * @return 这条连接的玩家的真实地址，不是经名单中的中转、或没有收到地址包时为 null
+     */
+    public @Nullable InetSocketAddress sessionAddress(InetSocketAddress remote) {
+        if (!this.relays.contains(remote.getAddress())) {
+            STATS.directConnection();
+            return null;
+        }
+        InetSocketAddress client = this.clients.getIfPresent(remote);
+        boolean otherPort = client == null && this.clients.asMap().keySet().stream()
+            .anyMatch(relay -> relay.getAddress().equals(remote.getAddress()));
+        STATS.relayedConnection(client != null, otherPort);
+        return client;
+    }
+
     static boolean isAddressPacket(ByteBuf buf) {
         return buf.readableBytes() >= 1 && buf.getUnsignedByte(buf.readerIndex()) == PACKET_ID;
     }
@@ -119,20 +149,39 @@ public final class NeteaseRelayAddressHandler extends ChannelInboundHandlerAdapt
      * @return 包中写的玩家地址，格式不对时为 null
      */
     static @Nullable InetSocketAddress parse(ByteBuf buf, InetSocketAddress sender) {
+        return parse(buf, sender, new String[1]);
+    }
+
+    /**
+     * @param problem 读不了时在 [0] 写下原因（不含地址，可以写进日志）
+     */
+    static @Nullable InetSocketAddress parse(ByteBuf buf, InetSocketAddress sender, String[] problem) {
         int start = buf.readerIndex();
-        if (buf.readableBytes() != PACKET_LENGTH
-                || buf.getUnsignedByte(start) != PACKET_ID || buf.getUnsignedByte(start + 1) != 0
-                || buf.getUnsignedShort(start + 2) != PACKET_LENGTH - 4
-                || buf.getUnsignedByte(start + 40) != FAMILY_IPV4) {
+        if (buf.readableBytes() != PACKET_LENGTH) {
+            problem[0] = buf.readableBytes() + " bytes instead of " + PACKET_LENGTH;
+            return null;
+        }
+        if (buf.getUnsignedByte(start + 1) != 0 || buf.getUnsignedShort(start + 2) != PACKET_LENGTH - 4) {
+            problem[0] = "unexpected header " + ByteBufUtil.hexDump(buf, start, 4);
+            return null;
+        }
+        if (buf.getUnsignedByte(start + 40) != FAMILY_IPV4) {
+            problem[0] = "address family " + buf.getUnsignedByte(start + 40);
             return null;
         }
         InetAddress relay = ipv4(buf, start + 4);
-        if (relay == null || !relay.equals(sender.getAddress()) || buf.getUnsignedShort(start + 36) != sender.getPort()) {
+        if (relay == null || !relay.equals(sender.getAddress())) {
+            problem[0] = "the relay address in the packet is not the sender's";
+            return null;
+        }
+        if (buf.getUnsignedShort(start + 36) != sender.getPort()) {
+            problem[0] = "the relay port in the packet is not the sender's";
             return null;
         }
         InetAddress client = ipv4(buf, start + 41);
         int port = buf.getUnsignedShort(start + 57);
         if (client == null || client.isAnyLocalAddress()) {
+            problem[0] = "no player address";
             return null;
         }
         return new InetSocketAddress(client, port);

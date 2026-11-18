@@ -107,6 +107,42 @@ class NeteaseRelayAddressHandlerTest {
         channel.finishAndReleaseAll();
     }
 
+    @Test
+    void explainsUnreadablePackets() {
+        String[] problem = new String[1];
+        assertNull(NeteaseRelayAddressHandler.parse(packet(PLAYER), new InetSocketAddress("7.136.137.174", 11362), problem));
+        assertEquals("the relay port in the packet is not the sender's", problem[0]);
+        assertNull(NeteaseRelayAddressHandler.parse(packet(PLAYER + "00"), RELAY, problem));
+        assertEquals("61 bytes instead of 60", problem[0]);
+        assertNull(NeteaseRelayAddressHandler.parse(packet(replaceByte(PLAYER, 40, "0a")), RELAY, problem));
+        assertEquals("address family 10", problem[0]);
+    }
+
+    @Test
+    void summarisesEachMinute() {
+        NeteaseRelayAddressHandler handler = new NeteaseRelayAddressHandler(List.of("7.136.137.0/24"));
+        EmbeddedChannel channel = new EmbeddedChannel(handler);
+        NeteaseRelayAddressHandler.STATS.drainSummary();
+
+        channel.writeInbound(new DatagramPacket(packet(PLAYER), SERVER, RELAY));
+        channel.writeInbound(new DatagramPacket(packet(PLAYER + "00"), SERVER, RELAY));
+        InetSocketAddress stranger = new InetSocketAddress("203.0.113.7", 11361);
+        channel.writeInbound(new DatagramPacket(packet(PLAYER), SERVER, stranger));
+        DatagramPacket passed = channel.readInbound();
+        passed.release();
+
+        assertEquals(new InetSocketAddress("116.7.1.88", 2961), handler.sessionAddress(RELAY));
+        assertNull(handler.sessionAddress(new InetSocketAddress("7.136.137.174", 11362)), "同一中转的另一端口没有地址包");
+        assertNull(handler.sessionAddress(new InetSocketAddress("7.136.137.175", 11361)));
+        assertNull(handler.sessionAddress(stranger));
+        assertEquals("NetEase relay in the last minute: 1 address packets read, 1 unreadable (last: 61 bytes instead of 60), "
+            + "1 from unlisted addresses; Bedrock connections: 1 with the player's address, 2 via a relay without it "
+            + "(1 of them with an address packet from the same relay on another port), 1 not via a listed relay",
+            NeteaseRelayAddressHandler.STATS.drainSummary());
+        assertNull(NeteaseRelayAddressHandler.STATS.drainSummary(), "取出后清零，没有新的内容时不写");
+        channel.finishAndReleaseAll();
+    }
+
     private static ByteBuf packet(String hex) {
         return Unpooled.wrappedBuffer(ByteBufUtil.decodeHexDump(hex));
     }
