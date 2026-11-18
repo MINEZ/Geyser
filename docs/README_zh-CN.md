@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.61-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.62-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -150,9 +150,9 @@ git submodule update --init --recursive
 
 网易登录不给 Java 版玩家材质，基岩版玩家看 Java 版玩家是默认皮肤，Java 版玩家看基岩版玩家同样如此。新增两个接口，由代理端的插件（MINEZ 的 Velocity 插件）在两边之间传递皮肤：`GeyserApi#bedrockSkin`（以及 `bedrockSkinSlim`）取得在线基岩版玩家自己的皮肤（RGBA 像素）；`GeyserApi#provideSkin` 为档案中没有材质的玩家设定基岩版玩家看到的皮肤，已经看到这名玩家的随即更新，传入 `null` 时移除。只接受原版的尺寸与宽为 64 的整数倍的高清皮肤（最大 1024）。
 
-**基岩版端口查询的日志。** 中国版的服务器列表显示服务器的在线人数，人数由查询（ping）服务器得到。Java 版端口的查询在 Velocity 的日志中看得到，基岩版端口的查询却完全没有记录，无从知道网易是否来查、查到的是多少。Geyser 现在每分钟在日志中写一行这一分钟内基岩版端口回复的查询：次数、来源地址的个数、最后一次回复的在线人数，以及次数最多的十个地址与各自的次数（`log-player-ip-addresses` 关闭时不写地址）。没有查询的那一分钟不写。
+**基岩版端口查询的日志。** 中国版的服务器列表显示服务器的在线人数，人数由查询（ping）服务器得到。Java 版端口的查询在 Velocity 的日志中看得到，基岩版端口的查询却完全没有记录，无从知道网易是否来查、查到的是多少。Geyser 现在每分钟统计一次基岩版端口回复的查询：次数、来源地址的个数、最后一次回复的在线人数，以及次数最多的十个地址与各自的次数（`log-player-ip-addresses` 关闭时不写地址）。网易每分钟固定来查约 10 次，每分钟写一行会刷满日志，因此只在情况变化时写：开始收到查询的那一分钟写一行以 `Answering Bedrock pings;` 开头的汇总，确认在回复；之后照常收到时不写，偶尔一分钟没有也不写；收到过查询之后连续两分钟一次都没有，写一条以 `No Bedrock pings for the last 2 minutes` 开头的警告，这时中国版服务器列表中的人数可能不显示；恢复时写一行以 `Bedrock pings resumed after` 开头的汇总，注明停了几分钟。从未收到过查询的服务器（例如没有网易中转的）什么都不写。
 
-**中国版服务器列表中的在线人数。** 中国版服务器列表中 MINEZ 的在线人数一直是 0。网易的服务器列表查询服务器时，用的不是 RakNet 标准的 33 字节 unconnected ping，而是省去了 RakNet 16 字节 magic 与客户端 GUID 的 9 字节查询：ID `0x01` 加 8 字节时间。RakNet 丢弃一切没有 magic 的离线包，这些查询因此从来得不到回复；而网易以通常方式查询的 Java 版端口则有回复。现在 `bedrock.netease.relay-addresses` 中的地址发来的 9 字节查询（`0x01` 加时间），在 RakNet 核对 magic 之前换成标准的查询，与其他查询一样以标准的 unconnected pong 回复，也记入基岩版端口查询的日志。其他地址发来的这种查询照旧丢弃：谁都可以伪造来源地址发送 9 字节的包，以大出许多倍的回复回应它，就会被人用来把流量引向别人。
+**中国版服务器列表中的在线人数。** 中国版服务器列表中 MINEZ 的在线人数一直是 0。网易的服务器列表查询服务器时，用的不是 RakNet 标准的 33 字节 unconnected ping，而是省去了 RakNet 16 字节 magic 与客户端 GUID 的 9 字节查询：ID `0x01` 加 8 字节时间。RakNet 丢弃一切没有 magic 的离线包，这些查询因此从来得不到回复；而网易以通常方式查询的 Java 版端口则有回复。现在 `bedrock.netease.relay-addresses` 中的地址发来的 9 字节查询（`0x01` 加时间），在 RakNet 核对 magic 之前换成标准的查询，与其他查询一样以标准的 unconnected pong 回复，也计入基岩版端口查询的统计。其他地址发来的这种查询照旧丢弃：谁都可以伪造来源地址发送 9 字节的包，以大出许多倍的回复回应它，就会被人用来把流量引向别人。
 
 **Netty 直接内存的日志。** Netty 的直接内存用完后，连接就收发不了数据：2026-11-18 正式服的代理运行 5 小时后用完，此后每名基岩版玩家都因载入不了 MINEZ 客户端模组被断开，而此前的日志中看不出任何征兆。现在 Geyser 启动时在日志中写出所用的 Netty 分配器与直接内存的上限，之后每 10 分钟写一次直接内存的用量与基岩版会话数，超过上限的 80% 时改为警告。由此可以看出用量是在持续增长（说明有泄漏），还是随人数起落。Netty 4.2 默认的自适应分配器（adaptive）在 Geyser 与 Velocity 下已知会耗尽直接内存（netty/netty#15850），启动代理时加上 `-Dio.netty.allocator.type=pooled` 即改用池化分配器。
 

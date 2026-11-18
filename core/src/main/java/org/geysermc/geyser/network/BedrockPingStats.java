@@ -37,12 +37,28 @@ import java.util.concurrent.atomic.AtomicInteger;
  * MINEZ：基岩版端口收到的状态查询（ping）的统计，用于排查网易“网络游戏”专区的在线人数。
  * <p>
  * 网易专区的人数为 0，而 Java 版端口的查询在 Velocity 的日志中可以看到网易的中转定时来查，基岩版端口的查询却没有任何记录，
- * 无从知道网易是否来查、查到的人数是多少。这里按来源地址记下查询的次数与最后一次回复的人数，每分钟在日志中写一行汇总，
- * 没有查询的那一分钟不写。
+ * 无从知道网易是否来查、查到的人数是多少。这里按来源地址记下查询的次数与最后一次回复的人数，每分钟汇总一次。
+ * <p>
+ * 网易每分钟固定来查约 10 次，每分钟写一行会刷满日志，所以只在情况变化时写（{@link #nextReport}）：开始收到查询时写一行汇总，
+ * 确认在回复；之后保持安静；连续 {@value #QUIET_MINUTES_BEFORE_WARNING} 分钟一次都没有时写一条警告（列表中的人数可能因此不显示）；
+ * 恢复时再写一行。从未收到过查询的服务器（例如没有网易中转的）什么都不写。
  */
 public final class BedrockPingStats {
     /** 每分钟的汇总中最多列出的来源，其余只计入总数。 */
     static final int MAX_SOURCES = 10;
+    /** 收到过查询之后，连续多少分钟没有查询才警告：偶尔一分钟没有不算异常。 */
+    static final int QUIET_MINUTES_BEFORE_WARNING = 2;
+
+    /** 要写进日志的一行，{@code warning} 为 true 时以警告级别写。 */
+    public record Report(boolean warning, String line) {
+    }
+
+    /** 当前是否在正常收到查询；只由定时任务的线程读写。 */
+    private boolean answering;
+    /** 是否曾经收到过查询。 */
+    private boolean everAnswered;
+    /** 连续没有查询的分钟数。 */
+    private int quietMinutes;
 
     private final Map<InetAddress, AtomicInteger> counts = new ConcurrentHashMap<>();
     /** 来源未知（或不记录 IP）的查询次数。 */
@@ -65,6 +81,39 @@ public final class BedrockPingStats {
         }
         lastPlayerCount = playerCount;
         lastMaxPlayers = maxPlayers;
+    }
+
+    /**
+     * 每分钟调用一次：取出这一分钟的汇总并清零，按情况的变化给出要写的一行，没有变化时为 null。
+     */
+    public Report nextReport() {
+        String summary = drainSummary();
+        if (summary != null) {
+            int quiet = this.quietMinutes;
+            this.quietMinutes = 0;
+            if (this.answering) {
+                return null;
+            }
+            this.answering = true;
+            if (!this.everAnswered) {
+                this.everAnswered = true;
+                return new Report(false, "Answering Bedrock pings; from now on only a stop or a resumption is logged. " + summary);
+            }
+            return new Report(false, "Bedrock pings resumed after " + quiet + " minutes without any. " + summary);
+        }
+        if (!this.answering) {
+            if (this.everAnswered) {
+                this.quietMinutes++;
+            }
+            return null;
+        }
+        this.quietMinutes++;
+        if (this.quietMinutes < QUIET_MINUTES_BEFORE_WARNING) {
+            return null;
+        }
+        this.answering = false;
+        return new Report(true, "No Bedrock pings for the last " + this.quietMinutes + " minutes, after they had been answered;"
+            + " China Edition's server list may show no player count until they resume");
     }
 
     /**
