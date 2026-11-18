@@ -277,13 +277,13 @@ public interface GeyserConfig {
         @DefaultBoolean(true)
         boolean requireClientMod();
 
-        // MINEZ：网易中转在转发的连接前另发的地址包，见 NeteaseRelayAddressHandler。
+        // MINEZ：经网易中转进入的玩家的真实地址，向网易的 noa 内核模块查询，见 NeteaseRealAddress。
         @Comment("""
-            NetEase's relays that forward China Edition players to this server, as addresses or CIDR ranges. Before forwarding a
-            connection, a listed relay sends a separate packet telling the player's real address, and Geyser then uses that
-            address for the player instead of the relay's, for example in Velocity and in bans. Packets from unlisted addresses
-            are ignored, as anyone could send one. Connections without such a packet, for example on servers NetEase has not
-            turned it on for, still join under the relay's address. This is not HAPROXY protocol: leave
+            NetEase's relays that forward China Edition players to this server, as addresses or CIDR ranges. For a connection
+            from a listed relay, Geyser asks NetEase's "noa" kernel module, which NetEase installs on its game servers, for the
+            player's real address, and uses it for the player instead of the relay's, for example in Velocity and in bans.
+            noa has to have UDP turned on (/proc/net/noa/uoa_on is 1). Connections that noa knows nothing about, for example on
+            a server without noa, still join under the relay's address. This is not HAPROXY protocol: leave
             "haproxy-protocol-whitelisted-ips" empty, as NetEase does not send HAPROXY headers.""")
         default List<String> relayAddresses() {
             return List.of("7.136.137.0/24");

@@ -49,7 +49,7 @@ import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.event.connection.ConnectionRequestEvent;
 import org.geysermc.geyser.configuration.GeyserConfig;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseClients;
-import org.geysermc.geyser.network.bedrock.netease.NeteaseRelayAddressHandler;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseRealAddress;
 import org.geysermc.geyser.network.bedrock.raknet.Bootstraps;
 import org.geysermc.geyser.network.bedrock.raknet.RakConnectionRequestHandler;
 import org.geysermc.geyser.network.bedrock.raknet.RakPingHandler;
@@ -82,8 +82,8 @@ public final class RaknetServer {
     private final IpRangeSet trustedProxies;
     /** Whether proxies are listed, which turns HAProxy protocol on even when none of them parsed. */
     private final boolean proxied;
-    /** MINEZ：网易中转的地址包，见 NeteaseRelayAddressHandler。没有列出中转时为 null。 */
-    private final @Nullable NeteaseRelayAddressHandler neteaseRelays;
+    /** MINEZ：向网易的 noa 内核模块查询玩家的真实地址，见 NeteaseRealAddress。没有列出中转时为 null。 */
+    private final @Nullable NeteaseRealAddress neteaseRelays;
     private EventLoopGroup group;
     // Split childGroup may improve IO
     private EventLoopGroup childGroup;
@@ -106,7 +106,10 @@ public final class RaknetServer {
         this.trustedProxies = TrustedProxies.parse(listed);
         this.proxied = listsProxies(listed);
         List<String> relays = geyser.config().bedrock().netease().relayAddresses();
-        this.neteaseRelays = listsProxies(relays) ? new NeteaseRelayAddressHandler(relays) : null;
+        this.neteaseRelays = listsProxies(relays) ? NeteaseRealAddress.open(relays) : null;
+        if (this.neteaseRelays != null && this.neteaseRelays.unavailable() != null) {
+            geyser.getLogger().debug("Real addresses behind NetEase's relays cannot be looked up: " + this.neteaseRelays.unavailable());
+        }
         if (this.proxied && this.trustedProxies.isEmpty()) {
             geyser.getLogger().warning("None of the proxies in \"haproxy-protocol-whitelisted-ips\" could be read, "
                 + "so every RakNet connection is refused until the list is fixed.");
@@ -149,10 +152,6 @@ public final class RaknetServer {
             channel.pipeline()
                 .addBefore(RakServerOfflineHandler.NAME, RakConnectionRequestHandler.NAME, new RakConnectionRequestHandler(this))
                 .addAfter(RakServerOfflineHandler.NAME, RakPingHandler.NAME, new RakPingHandler(this.pingResponder));
-            if (this.neteaseRelays != null) {
-                // MINEZ：在限速之前取走网易中转的地址包，它不是 RakNet 的包
-                channel.pipeline().addFirst(NeteaseRelayAddressHandler.NAME, this.neteaseRelays);
-            }
         });
     }
 
@@ -170,6 +169,9 @@ public final class RaknetServer {
             futurePlayerGroup.sync();
         } catch (InterruptedException e) {
             GeyserImpl.getInstance().getLogger().severe("Exception in shutdown process", e);
+        }
+        if (this.neteaseRelays != null) {
+            this.neteaseRelays.close();
         }
         for (ChannelFuture f : bootstrapFutures) {
             f.channel().closeFuture().syncUninterruptibly();
@@ -236,30 +238,19 @@ public final class RaknetServer {
         if (!admitsSender(this.proxied, this.trustedProxies, inetSocketAddress.getAddress())) {
             return false;
         }
-        InetSocketAddress relayed = this.neteaseClientAddress(inetSocketAddress);
-        if (relayed != null) {
-            return ConnectionRequests.accept(geyser, relayed, inetSocketAddress, "NetEase relay");
-        }
         return ConnectionRequests.accept(geyser, clientAddress, this.proxied ? inetSocketAddress : null);
     }
 
     /**
-     * MINEZ：网易中转在这条连接之前发来的玩家真实地址。
+     * MINEZ：向网易的 noa 内核模块查询经中转进入的玩家的真实地址，并计入每分钟的汇总；每条连接只在建立会话时调用一次。
+     * noa 查询一次后约 2 秒内就删掉这条记录，所以不在更早的连接请求中查询。
      *
-     * @param relay RakNet 连接的对端，即中转的地址与端口
-     * @return 玩家的真实地址，不是经网易中转、或中转没有发地址包时为 null
+     * @param remote RakNet 连接的对端，即中转的地址与端口
+     * @param local  连接上的本机地址与端口
+     * @return 玩家的真实地址；不经中转、或 noa 中没有这条连接时为 null
      */
-    public @Nullable InetSocketAddress neteaseClientAddress(InetSocketAddress relay) {
-        return this.neteaseRelays == null ? null : this.neteaseRelays.clientAddress(relay);
-    }
-
-    /**
-     * MINEZ：与 {@link #neteaseClientAddress} 相同，另计入每分钟的汇总；只在建立会话时调用。
-     *
-     * @param remote RakNet 连接的对端
-     */
-    public @Nullable InetSocketAddress neteaseSessionAddress(InetSocketAddress remote) {
-        return this.neteaseRelays == null ? null : this.neteaseRelays.sessionAddress(remote);
+    public @Nullable InetSocketAddress neteaseSessionAddress(InetSocketAddress remote, InetSocketAddress local) {
+        return this.neteaseRelays == null ? null : this.neteaseRelays.lookup(remote, local);
     }
 
     /** Whether any proxy is listed, parsed or not, so a list of typos or unreachable URLs fails closed. */

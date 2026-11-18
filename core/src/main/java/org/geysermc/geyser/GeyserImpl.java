@@ -89,7 +89,7 @@ import org.geysermc.geyser.network.BedrockPingHandler;
 import org.geysermc.geyser.network.NettyMemoryLog;
 import org.geysermc.geyser.network.RaknetServer;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
-import org.geysermc.geyser.network.bedrock.netease.NeteaseRelayAddressHandler;
+import org.geysermc.geyser.network.bedrock.netease.NeteaseRealAddress;
 import org.geysermc.geyser.network.bedrock.nethernet.NetherNetServer;
 import org.geysermc.geyser.network.java.DirectConnections;
 import org.geysermc.geyser.ping.GeyserLegacyPingPassthrough;
@@ -325,7 +325,7 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
             if (summary != null) {
                 getLogger().info(summary);
             }
-            String relays = NeteaseRelayAddressHandler.STATS.drainSummary();
+            String relays = NeteaseRealAddress.STATS.drainSummary();
             if (relays != null) {
                 getLogger().info(relays);
             }

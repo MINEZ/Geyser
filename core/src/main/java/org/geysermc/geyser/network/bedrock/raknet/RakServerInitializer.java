@@ -50,9 +50,9 @@ public class RakServerInitializer extends GeyserServerInitializer {
     @Override
     protected BedrockPeer createPeer(Channel channel) {
         BedrockPeer peer = super.createPeer(channel);
-        // MINEZ：经网易中转的连接，以中转发来的玩家真实地址作为会话的地址（Velocity、封禁等都用它）
+        // MINEZ：经网易中转的连接，以 noa 查到的玩家真实地址作为会话的地址（Velocity、封禁等都用它）
         if (channel instanceof RakChildChannel child && peer instanceof GeyserBedrockPeer geyserPeer) {
-            InetSocketAddress client = this.server.neteaseSessionAddress(child.remoteOrProxyAddress());
+            InetSocketAddress client = this.server.neteaseSessionAddress(child.remoteOrProxyAddress(), child.localAddress());
             if (client != null) {
                 geyserPeer.setProxiedAddress(client);
             }
