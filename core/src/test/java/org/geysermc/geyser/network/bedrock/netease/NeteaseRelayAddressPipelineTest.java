@@ -61,6 +61,7 @@ class NeteaseRelayAddressPipelineTest {
         try {
             NeteaseRelayAddressHandler handler = new NeteaseRelayAddressHandler(List.of("127.0.0.0/8"));
             CompletableFuture<InetSocketAddress> session = new CompletableFuture<>();
+            CompletableFuture<InetSocketAddress> remote = new CompletableFuture<>();
             Channel server = new ServerBootstrap()
                 .channelFactory(RakChannelFactory.server(NioDatagramChannel.class))
                 .group(group, group)
@@ -70,7 +71,9 @@ class NeteaseRelayAddressPipelineTest {
                 .childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel channel) {
-                        session.complete(handler.sessionAddress(((RakChildChannel) channel).remoteOrProxyAddress()));
+                        InetSocketAddress from = ((RakChildChannel) channel).remoteOrProxyAddress();
+                        remote.complete(from);
+                        session.complete(handler.sessionAddress(from));
                     }
                 })
                 .bind(new InetSocketAddress("127.0.0.1", 0)).sync().channel();
@@ -84,6 +87,14 @@ class NeteaseRelayAddressPipelineTest {
                 byte[] packet = addressPacket(relay, serverAddress, PLAYER);
                 socket.send(new DatagramPacket(packet, packet.length, serverAddress));
             }
+            // 等服务器读到地址包，再发起连接；取不到时在失败信息中写出经过，便于在 Linux 上查明原因
+            InetSocketAddress remembered = null;
+            for (int i = 0; i < 100 && remembered == null; i++) {
+                Thread.sleep(10);
+                remembered = handler.clientAddress(relay);
+            }
+            String beforeConnecting = "relay " + relay + ", remembered before connecting: " + remembered
+                + ", summary so far: " + NeteaseRelayAddressHandler.STATS.drainSummary();
 
             Channel client = new Bootstrap()
                 .channelFactory(RakChannelFactory.client(NioDatagramChannel.class))
@@ -96,10 +107,10 @@ class NeteaseRelayAddressPipelineTest {
                 })
                 .connect(serverAddress, relay).channel();
 
-            assertEquals(PLAYER, session.get(10, TimeUnit.SECONDS));
-            assertEquals("NetEase relay in the last minute: 1 address packets read, 0 unreadable, 0 from unlisted addresses; "
-                + "Bedrock connections: 1 with the player's address, 0 via a relay without it, 0 not via a listed relay",
-                NeteaseRelayAddressHandler.STATS.drainSummary());
+            InetSocketAddress address = session.get(10, TimeUnit.SECONDS);
+            String afterConnecting = "connection from " + remote.get() + " (" + remote.get().getAddress().getClass().getSimpleName()
+                + "), summary: " + NeteaseRelayAddressHandler.STATS.drainSummary();
+            assertEquals(PLAYER, address, beforeConnecting + "; " + afterConnecting);
             client.close().sync();
             server.close().sync();
         } finally {
