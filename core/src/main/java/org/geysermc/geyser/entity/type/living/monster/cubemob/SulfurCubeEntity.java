@@ -35,6 +35,7 @@ import org.cloudburstmc.protocol.bedrock.data.entity.EntityLinkData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MobEquipmentPacket;
+import org.cloudburstmc.protocol.bedrock.packet.MoveEntityAbsolutePacket;
 import org.cloudburstmc.protocol.bedrock.packet.SetEntityLinkPacket;
 import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.entity.VanillaEntities;
@@ -81,14 +82,16 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
      * vanilla/overrides/minecart）。矿车把显示的方块缩到 0.75 倍，矿车放大 4/3 倍后方块为 1×1×1。
      */
     private static final int HIDDEN_MINECART_MARK_VARIANT = 7351;
-    private static final float CONTAINED_BLOCK_MINECART_SCALE = 4f / 3f;
-    private static final int CONTAINED_BLOCK_DISPLAY_OFFSET = 8;
     /**
-     * 按上面的放大与显示偏移，基岩版矿车显示的方块的底面比矿车（骑乘时即座位）高这么多；矿车按硫方怪身体的朝向转动时，
-     * 方块的朝向与 Java 版硫方怪体内的方块相差的角度（照 Java 版 AbstractMinecartRenderer 推算，以实测校正）。
+     * 矿车的参数，待实测校正（校正期间可由 /geyser sulfurcube 临时调整，见 SulfurCubeCommand；校正后定为常量并删去该命令）：
+     * 座位高度（不含 CONTAINED_BLOCK_Y，乘以硫方怪的缩放）、矿车朝向相对硫方怪身体朝向的偏移（度）、矿车的缩放、
+     * 矿车显示的方块的偏移（像素）、矿车是否设 NO_AI。b1305.12 实测：座位 0.031 时方块明显偏高，大小接近 1。
      */
-    private static final float MINECART_BLOCK_BOTTOM = 0.033f;
-    private static final float MINECART_ROTATION_OFFSET = -90f;
+    public static volatile float tuneSeatY = -0.5f;
+    public static volatile float tuneRotationOffset = -90f;
+    public static volatile float tuneScale = 4f / 3f;
+    public static volatile int tuneDisplayOffset = 8;
+    public static volatile boolean tuneNoAi = false;
 
     private int previousFuseTickTime = -1;
     private int fuseTickTime = -1;
@@ -100,6 +103,10 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
      * 但基岩版的下落方块不按朝向绘制，硫方怪转身时方块不转。）
      */
     private @Nullable MinecartEntity containedBlock;
+    /**
+     * 正在显示的方块（Java 版方块状态编号，-1 为没有），供重新生成矿车。
+     */
+    private int containedBlockJavaId = -1;
 
     public SulfurCubeEntity(EntitySpawnContext context) {
         super(context);
@@ -151,24 +158,30 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
     }
 
     private void updateContainedBlock(GeyserItemStack stack) {
+        BlockState state = GameProtocol.is26_40orHigher(session.protocolVersion()) ? null : containedBlockState(stack); // 26.40 起客户端自己画
+        containedBlockJavaId = state == null ? -1 : state.javaId();
+        refreshContainedBlock();
+    }
+
+    /**
+     * 按当前的方块与参数重新生成矿车。
+     */
+    public void refreshContainedBlock() {
         if (containedBlock != null) {
             containedBlock.despawnEntity();
             containedBlock = null;
         }
-        if (GameProtocol.is26_40orHigher(session.protocolVersion())) {
-            return; // 客户端自己画
-        }
-        BlockState state = containedBlockState(stack);
-        if (state == null) {
+        if (containedBlockJavaId == -1) {
             return;
         }
         containedBlock = new MinecartEntity(EntitySpawnContext.inherited(session, VanillaEntities.MINECART, this, position));
         containedBlock.getMetadata().put(EntityDataTypes.CUSTOM_DISPLAY, (byte) 1);
-        containedBlock.getMetadata().put(EntityDataTypes.DISPLAY_BLOCK_STATE, session.getBlockMappings().getBedrockBlock(state.javaId()));
-        containedBlock.getMetadata().put(EntityDataTypes.DISPLAY_OFFSET, CONTAINED_BLOCK_DISPLAY_OFFSET);
+        containedBlock.getMetadata().put(EntityDataTypes.DISPLAY_BLOCK_STATE, session.getBlockMappings().getBedrockBlock(containedBlockJavaId));
+        containedBlock.getMetadata().put(EntityDataTypes.DISPLAY_OFFSET, tuneDisplayOffset);
         containedBlock.getMetadata().put(EntityDataTypes.MARK_VARIANT, HIDDEN_MINECART_MARK_VARIANT);
         containedBlock.setFlag(EntityFlag.HAS_GRAVITY, false);
-        containedBlock.setFlag(EntityFlag.NO_AI, true);
+        // 骑乘中的实体不按自身的物理移动；NO_AI 的实体不理会移动包（b1305.10 的下落方块），朝向要靠移动包更新
+        containedBlock.setFlag(EntityFlag.NO_AI, tuneNoAi);
         containedBlock.setFlag(EntityFlag.HAS_COLLISION, false);
         containedBlock.getMetadata().put(EntityDataTypes.WIDTH, 0.0f);
         containedBlock.getMetadata().put(EntityDataTypes.HEIGHT, 0.0f);
@@ -188,14 +201,45 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
         }
         float entityScale = scale * attributeScale;
         float y = getFlag(EntityFlag.INVISIBLE) ? CONTAINED_BLOCK_Y_INVISIBLE : CONTAINED_BLOCK_Y;
-        containedBlock.setScale(CONTAINED_BLOCK_MINECART_SCALE * entityScale);
+        containedBlock.setScale(tuneScale * entityScale);
         containedBlock.setFlag(EntityFlag.RIDING, true);
-        containedBlock.setRiderSeatPosition(Vector3f.from(0, (y - MINECART_BLOCK_BOTTOM) * entityScale, 0));
-        // 朝向锁定为硫方怪身体的朝向（与 ItemDisplayEntity 骑在载具上时相同），另加矿车画方块时的转角差
-        containedBlock.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION, true);
-        containedBlock.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION_DEGREES, 0f);
-        containedBlock.getMetadata().put(EntityDataTypes.SEAT_HAS_ROTATION, true);
-        containedBlock.getMetadata().put(EntityDataTypes.SEAT_ROTATION_OFFSET_DEGREES, MINECART_ROTATION_OFFSET);
+        containedBlock.setRiderSeatPosition(Vector3f.from(0, (y + tuneSeatY) * entityScale, 0));
+        // b1305.12 实测：座位的朝向锁定对矿车不起作用（方块不随硫方怪转动），改由 sendContainedBlockRotation 发朝向
+        containedBlock.setYaw(yaw + tuneRotationOffset);
+    }
+
+    /**
+     * 把矿车的朝向设为硫方怪的朝向加上偏移。骑乘中的实体，位置由客户端按座位决定，这里只为朝向。
+     */
+    private void sendContainedBlockRotation() {
+        if (containedBlock == null || !containedBlock.isValid()) {
+            return;
+        }
+        float minecartYaw = yaw + tuneRotationOffset;
+        if (minecartYaw == containedBlock.getYaw()) {
+            return;
+        }
+        containedBlock.setYaw(minecartYaw);
+        containedBlock.setPosition(position);
+        MoveEntityAbsolutePacket packet = new MoveEntityAbsolutePacket();
+        packet.setRuntimeEntityId(containedBlock.geyserId());
+        packet.setPosition(containedBlock.bedrockPosition());
+        packet.setRotation(containedBlock.bedrockRotation());
+        packet.setOnGround(false);
+        packet.setTeleported(false);
+        session.sendUpstreamPacket(packet);
+    }
+
+    @Override
+    public void moveRelativeRaw(double relX, double relY, double relZ, float yaw, float pitch, float headYaw, boolean isOnGround) {
+        super.moveRelativeRaw(relX, relY, relZ, yaw, pitch, headYaw, isOnGround);
+        sendContainedBlockRotation();
+    }
+
+    @Override
+    public void moveAbsoluteRaw(Vector3f position, float yaw, float pitch, float headYaw, boolean isOnGround, boolean teleported) {
+        super.moveAbsoluteRaw(position, yaw, pitch, headYaw, isOnGround, teleported);
+        sendContainedBlockRotation();
     }
 
     private void spawnContainedBlock() {

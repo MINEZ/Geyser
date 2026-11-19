@@ -58,6 +58,7 @@ import org.geysermc.geyser.command.defaults.ReloadCommand;
 import org.geysermc.geyser.command.defaults.SettingsCommand;
 import org.geysermc.geyser.command.defaults.StatisticsCommand;
 import org.geysermc.geyser.command.defaults.StopCommand;
+import org.geysermc.geyser.command.defaults.SulfurCubeCommand;
 import org.geysermc.geyser.command.defaults.VersionCommand;
 import org.geysermc.geyser.event.type.GeyserDefineCommandsEventImpl;
 import org.geysermc.geyser.extension.command.GeyserExtensionCommand;
@@ -174,6 +175,8 @@ public class CommandRegistry implements EventRegistrar {
         registerBuiltInCommand(new QuickActionsCommand("quickactions", "geyser.commands.quickactions.desc", "geyser.command.quickactions"));
         registerBuiltInCommand(new GameruleCommand("gamerules", "geyser.commands.gamerules.desc", "geyser.command.gamerules"));
         registerBuiltInCommand(new NetherNetCommand(geyser, "nethernet", "Shows NetherNet signaling status and diagnostics", "geyser.command.nethernet"));
+        // MINEZ：临时的硫方怪体内方块校正命令，校正后删去。
+        registerBuiltInCommand(new SulfurCubeCommand(geyser, "sulfurcube", "调整硫方怪体内方块的显示（临时校正用）", "geyser.command.sulfurcube"));
 
         if (this.geyser.platformType() == PlatformType.STANDALONE) {
             registerBuiltInCommand(new StopCommand(geyser, "stop", "geyser.commands.stop.desc", "geyser.command.stop"));
