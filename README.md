@@ -11,7 +11,7 @@ A fork of [Geyser](https://github.com/GeyserMC/Geyser) maintained for the MINEZ 
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1280.63-4caf50" alt="version"></a>
+<a href="#versioning"><img src="https://img.shields.io/badge/version-2.12.1--b1305.1-4caf50" alt="version"></a>
 <a href="#supported-versions"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -54,7 +54,7 @@ Its purpose is to let players of NetEase's Minecraft China Edition, whose client
 | Edition | Supported Versions |
 | --- | --- |
 | China Edition | 3.10, on Bedrock 1.21.130 (added by this fork) |
-| Bedrock | 1.21.130, 1.21.131, 1.21.132 (added by this fork), 26.40, 26.41, 26.42, 26.43, 26.44, 26.45, 26.50, 26.51, 26.52, 26.60 |
+| Bedrock | 1.21.130, 1.21.131, 1.21.132 (added by this fork), 26.40, 26.41, 26.42, 26.43, 26.44, 26.45, 26.50, 26.51, 26.52, 26.60, 26.61, 26.62, 26.63, 26.64, 26.65 |
 | Java | 26.3 |
 
 By default only China Edition clients may join, and every other Bedrock client is refused while logging in. Set `bedrock.netease.only-netease-clients` to `false` to let the Bedrock versions above join as well.
@@ -94,7 +94,6 @@ Merging keeps our commit hashes unchanged. After each merge, update the version 
 | Dialogs on Bedrock | Behaviour | Changed |
 | Reopening a dialog after a click | Behaviour | Changed |
 | Forms the client is too busy to open | Behaviour | Changed |
-| Entities Bedrock cannot show | Behaviour | Changed |
 | Falling while changing dimension | Behaviour | Changed |
 | Inline sprites and player heads | Behaviour | Changed |
 | Sprite glyphs from custom mappings | Config | Added |
@@ -171,8 +170,6 @@ NetEase's login gives Java players no textures, so Bedrock players saw them in t
 - Java draws dialogs over the dimmed game, so their text is mostly light, such as white or yellow; on Bedrock the title bar, buttons and dropdown are light grey, where such text can hardly be read, and the body is dark. Colours are now swapped for the background they sit on, keeping the hue where possible: on the title, buttons and dropdown options, white and grey become black (a hovered button turns green, where dark grey can hardly be read), yellow and gold become copper (`§n`, which clients without it show in the default dark colour), and light green, aqua and light purple become their dark shades; in the body, black and dark grey become grey. Formatting codes are kept.
 
 **Reopening a dialog after a click.** A Java dialog whose `after_action` is `none` stays on screen after a click until the server shows another dialog, while a Bedrock form is gone once clicked, so upstream reopened the dialog at once. When the click was handled by the server (a command or a custom action), the dialog the server opened next, such as the one a Back button leads to, arrived almost together with it: the client could not close the reopened form in time and kept it under the new one, so the dialog seemed to open twice, and the stale form left after closing the new one did nothing when clicked. After such a click, Geyser now waits a second before reopening the dialog, and does not reopen it if the server has opened or closed a dialog meanwhile. As on Java, a container the server opens also closes the dialog that was open, so a click that opens one (such as a storage button) is not followed a second later by the dialog coming back and closing the container.
-
-**Entities Bedrock cannot show.** Upstream logs an error with a stack trace for every entity of a vanilla type it has no Bedrock counterpart for, such as block displays. Such entities are now skipped with a debug message; Bedrock players still do not see them. Item displays are shown where a custom mappings file names an entity for them, see below.
 
 **Forms the client is too busy to open.** A Bedrock client that is still closing a screen, for example the previous form, refuses to open a form and answers that it is busy. Upstream took that answer as the player closing the form, so a dialog the server opened right away (such as the one a Back button leads to) ran its close action at once, and usually just closed. Such a form is now sent again, every 250 milliseconds for the first 20 times and every second after that, and only treated as closed once the client has stayed busy for ten minutes, the default time limit of MINEZ's login gate for creating a role. A client can stay busy far longer than a moment: a NetEase account entering the server for the first time refused the role creation form for six seconds, while its own screens were still open, and the earlier limit of about five seconds turned that into the player closing the form, so the login gate disconnected the account. With `debug-mode` on, the first 20 retries and every 60th after them are logged.
 
@@ -264,13 +261,13 @@ Take the jar for your platform:
 
 | Platform | File |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.43.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.43.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.43.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.43.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.43.jar` |
-| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.43.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.43.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1305.1.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1305.1.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1305.1.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1305.1.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1305.1.jar` |
+| Standalone | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1305.1.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1305.1.jar` |
 
 The same folders also hold intermediate jars, such as `velocity-2.12.1-SNAPSHOT.jar`, which are not meant to be installed.
 

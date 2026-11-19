@@ -48,6 +48,8 @@ public class JavaStartConfigurationTranslator extends PacketTranslator<Clientbou
         // Reset code of conduct being accepted
         session.hasAcceptedCodeOfConduct(false);
 
+        session.setReconfigCount(session.getReconfigCount() + 1);
+
         ChunkUtils.sendEmptyChunks(session, session.getPlayerEntity().position().toInt(), session.getServerRenderDistance(), false);
         if (session.isSpawned()) {
             // MINEZ：代理换服时先重新进入配置阶段，上面已清空周围的区块，玩家此时还在原来的世界中，照常下坠、看到世界消失，

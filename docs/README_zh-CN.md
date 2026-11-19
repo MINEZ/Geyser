@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1280.63-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.1-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -54,7 +54,7 @@
 | 版本 | 受支持的版本 |
 | --- | --- |
 | 中国版 | 3.10，内核为基岩版 1.21.130（本 Fork 新增） |
-| 基岩版 | 1.21.130、1.21.131、1.21.132（本 Fork 新增），26.40、26.41、26.42、26.43、26.44、26.45、26.50、26.51、26.52、26.60 |
+| 基岩版 | 1.21.130、1.21.131、1.21.132（本 Fork 新增），26.40、26.41、26.42、26.43、26.44、26.45、26.50、26.51、26.52、26.60、26.61、26.62、26.63、26.64、26.65 |
 | Java 版 | 26.3 |
 
 默认只允许中国版客户端加入，其他基岩版客户端会在登录时被拒绝。把 `bedrock.netease.only-netease-clients` 改为 `false`，上表中的基岩版也能加入。
@@ -94,7 +94,6 @@ git submodule update --init --recursive
 | 基岩版中的对话框 | 行为 | 修改 |
 | 点击后重新打开对话框 | 行为 | 修改 |
 | 客户端正忙、无法打开的表单 | 行为 | 修改 |
-| 基岩版无法显示的实体 | 行为 | 修改 |
 | 切换维度时的下坠 | 行为 | 修改 |
 | 文本中内联的图标与玩家头像 | 行为 | 修改 |
 | 映射文件中的文字图标字形 | 配置 | 新增 |
@@ -166,8 +165,6 @@ git submodule update --init --recursive
 
 **点击后重新打开对话框。** Java 版中 `after_action` 为 `none` 的对话框，点了按钮后仍留在屏幕上，直到服务器打开别的对话框；基岩版的表单点了就已关闭，上游因此立即重新打开它。按钮交给服务器处理时（执行命令或自定义动作），服务器紧接着打开的对话框（例如“返回”通向的那个）几乎与它同时到达，客户端来不及关掉重新打开的表单，把它留在新对话框之下：看起来像是同一个对话框打开了两次，关掉新对话框后露出的旧表单点什么都没有反应。现在这样的点击之后，Geyser 先等 1 秒再重新打开，期间服务器打开或关闭了对话框就不再打开。与 Java 版相同，服务器打开容器时，原先打开的对话框也随之关闭；点了会打开容器的按钮（例如“打开物品栏”）后，不会再过 1 秒重新打开对话框、把刚打开的容器关掉。
 
-**基岩版无法显示的实体。** 上游遇到没有对应基岩版实体的原版实体（例如物品展示实体与方块展示实体）时，每生成一个就记一条带堆栈的错误。现在这类实体记一条 debug 日志后跳过，基岩版玩家仍然看不到它们。
-
 **客户端正忙、无法打开的表单。** 基岩版客户端还在关闭某个界面（例如上一个表单）时，会拒绝打开表单，回复自己正忙。上游把这个回复当作玩家关闭了表单，于是服务器紧接着打开的对话框（例如“返回”按钮通向的那个）立即执行了关闭的动作，多半就直接关闭了。现在这样的表单每 250 毫秒重新发送一次，最多 20 次，之后才当作关闭。开启 `debug-mode` 时，每次重新发送都记一条日志。
 
 **切换维度时的下坠。** 玩家切换维度时（Geyser 在代理后为玩家换服也是这样做的），Geyser 把玩家放在 (0, 32767, 0) 的空区块上，直到 Java 服务器给出玩家的位置。期间客户端照常计算重力，玩家看起来像是坠入了虚空，新的世界才出现。现在位置到达之前，玩家没有重力、不能移动，两者随位置一起恢复，Java 服务器自己设定的无重力照旧保留。在代理后换服时还要更早：客户端先重新进入配置阶段，Geyser 在这时就清空了玩家周围的区块，而玩家还在原来的世界中，于是在新服务器的登录包到达之前就已开始下坠、看到世界消失；现在从这里起就定身。新的世界还要过一会儿才加载出来，期间看起来空无一物，因此整个换服期间还给玩家一个只在客户端的失明效果，位置到达时再加一次（以防客户端在切换维度时把它清掉），1.5 秒后移除；Java 服务器自己给了失明时不移除，最长 10 秒后也会自行消失。
@@ -229,13 +226,13 @@ Windows 上改用 `gradlew.bat build`。构建需要 JDK 21 及以上版本；Fa
 
 | 平台 | 文件 |
 | --- | --- |
-| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1280.20.jar` |
-| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1280.20.jar` |
-| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1280.20.jar` |
-| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1280.20.jar` |
-| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1280.20.jar` |
-| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1280.20.jar` |
-| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1280.20.jar` |
+| Velocity | `bootstrap/velocity/build/libs/Geyser-Velocity-2.12.1-b1305.1.jar` |
+| Spigot / Paper | `bootstrap/spigot/build/libs/Geyser-Spigot-2.12.1-b1305.1.jar` |
+| BungeeCord | `bootstrap/bungeecord/build/libs/Geyser-BungeeCord-2.12.1-b1305.1.jar` |
+| Fabric | `bootstrap/mod/fabric/build/libs/Geyser-Fabric-2.12.1-b1305.1.jar` |
+| NeoForge | `bootstrap/mod/neoforge/build/libs/Geyser-NeoForge-2.12.1-b1305.1.jar` |
+| 独立运行 | `bootstrap/standalone/build/libs/Geyser-Standalone-2.12.1-b1305.1.jar` |
+| ViaProxy | `bootstrap/viaproxy/build/libs/Geyser-ViaProxy-2.12.1-b1305.1.jar` |
 
 同一文件夹中还有构建过程的中间产物，例如 `velocity-2.12.1-SNAPSHOT.jar`，不要安装它们。
 
