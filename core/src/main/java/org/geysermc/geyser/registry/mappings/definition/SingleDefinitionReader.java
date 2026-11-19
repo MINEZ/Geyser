@@ -36,6 +36,7 @@ import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserItemDataCom
 import org.geysermc.geyser.api.predicate.MinecraftPredicate;
 import org.geysermc.geyser.api.predicate.context.item.ItemPredicateContext;
 import org.geysermc.geyser.api.util.Identifier;
+import org.geysermc.geyser.item.custom.GeyserCustomItemDefinition;
 import org.geysermc.geyser.item.exception.InvalidCustomMappingsFileException;
 import org.geysermc.geyser.registry.mappings.components.DataComponentReaders;
 import org.geysermc.geyser.registry.mappings.predicate.ItemConditionProperty;
@@ -175,7 +176,13 @@ public class SingleDefinitionReader implements ItemDefinitionReader {
             String[] placerContext = {"block placer", "bedrock options", baseContext};
             Identifier block = MappingsUtil.readOrThrow(blockPlacer, "block", NodeReader.IDENTIFIER, placerContext);
             boolean useBlockIcon = MappingsUtil.readOrDefault(blockPlacer, "use_block_icon", NodeReader.BOOLEAN, false, placerContext);
-            definitionBuilder.component(GeyserItemDataComponents.BLOCK_PLACER, GeyserBlockPlacer.of(block, useBlockIcon));
+            // 以原版物品为底材的自定义物品不能经 API 加 Geyser 的组件（component 会抛出异常，2026-11-19 测试服因此启动失败），
+            // 与自定义头颅的物品相同，改用实现类的 geyserComponent。
+            if (definitionBuilder instanceof GeyserCustomItemDefinition.Builder vanillaBuilder) {
+                vanillaBuilder.geyserComponent(GeyserItemDataComponents.BLOCK_PLACER, GeyserBlockPlacer.of(block, useBlockIcon));
+            } else {
+                definitionBuilder.component(GeyserItemDataComponents.BLOCK_PLACER, GeyserBlockPlacer.of(block, useBlockIcon));
+            }
         }
 
         definitionBuilder.bedrockOptions(builder);

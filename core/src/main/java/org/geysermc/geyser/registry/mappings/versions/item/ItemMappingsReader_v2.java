@@ -51,6 +51,10 @@ public class ItemMappingsReader_v2 implements MappingsReader<Identifier, CustomI
                     } catch (InvalidCustomMappingsFileException exception) {
                         GeyserImpl.getInstance().getLogger().error(
                             "Error reading definition(s) for vanilla Java item " + entry.getKey() + " in custom mappings file: " + file.toString(), exception);
+                    } catch (RuntimeException exception) {
+                        // MINEZ：其余异常（例如 API 拒绝某个组件）也只跳过这一项，不让整个 Geyser 启动失败（2026-11-19 测试服曾因此无法启动）。
+                        GeyserImpl.getInstance().getLogger().error(
+                            "Error reading definition(s) for vanilla Java item " + entry.getKey() + " in custom mappings file: " + file.toString(), exception);
                     }
                 });
             } else {

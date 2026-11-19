@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.6-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.7-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -187,7 +187,7 @@ git submodule update --init --recursive
 **按方块绘制的自定义物品。** 基岩版的原版方块拿在手上、放在物品栏中与掉在地上时，由客户端按方块的画法画出；自定义物品只能用图标或附着物，附着物按 Java 版的显示设置摆放，与原版方块总有细小偏差（两版显示设置的数值相同，套用的手部空间不同）。现在映射文件可以让自定义物品直接按一个方块绘制（b1305.5 起）：
 
 - `blocks` 中写 `"item_only": true` 的一项注册一个只用于显示的方块，不对应任何 Java 版方块状态，键可以是任意标识（例如 `minez:item/base_core`），其余写法与 `state_overrides` 中的一项相同（`geometry`、`material_instances` 等），碰撞箱与选取框按完整方块，标识为 `geyser_custom:<name>`。
-- 物品定义的 `bedrock_options` 中写 `"block_placer": {"block": "geyser_custom:<name>", "use_block_icon": true}`，即基岩版物品的 `minecraft:block_placer`：`use_block_icon` 为 true 时不发图标，客户端以这个方块的样子画这件物品的图标。只是这样，拿在手上仍是平面的贴图（2026-11-19 实测），所以 b1305.6 起转换给基岩版的不再是这个自定义物品，而是它放置的方块的方块物品（与自定义头颅相同），手上、物品栏与掉落物都由客户端按原版方块的画法画出。玩家放置时，客户端可能先按这个方块预测，随即被服务器发来的真实方块替换。
+- 物品定义的 `bedrock_options` 中写 `"block_placer": {"block": "geyser_custom:<name>", "use_block_icon": true}`，即基岩版物品的 `minecraft:block_placer`：`use_block_icon` 为 true 时不发图标，客户端以这个方块的样子画这件物品的图标。以原版物品为底材的自定义物品也可以写（与自定义头颅的物品相同，b1305.7 起；b1305.5、b1305.6 读到这样的物品时抛出异常，Geyser 无法启动）。读物品定义时出现的任何异常现在都只跳过那一项并记一条错误，不再让 Geyser 启动失败。只是这样，拿在手上仍是平面的贴图（2026-11-19 实测），所以 b1305.6 起转换给基岩版的不再是这个自定义物品，而是它放置的方块的方块物品（与自定义头颅相同），手上、物品栏与掉落物都由客户端按原版方块的画法画出。玩家放置时，客户端可能先按这个方块预测，随即被服务器发来的真实方块替换。
 
 MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResources 的生成工具按此写出，拿在手上与原版方块完全一致。
 
