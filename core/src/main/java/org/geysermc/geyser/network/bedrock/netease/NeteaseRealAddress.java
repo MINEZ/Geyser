@@ -44,7 +44,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * MINEZ：向网易的 noa 内核模块查询经中转进入的玩家的真实地址。
@@ -64,6 +68,12 @@ import java.util.List;
  * 查询用哪个套接字都可以（noa 只按五元组查），这里另开一个不绑定的 IPv4 UDP 套接字专门用于查询。noa 默认保存 30 秒，
  * 查询一次后约 2 秒内删除，所以每条连接只在建立会话时查询一次。
  * <p>
+ * 中转只在一条中转会话开始时发地址包。玩家断开后很快重连时，中转沿用原来的会话（中转的地址与端口不变），不再发地址包，
+ * noa 中已经没有记录（2026-11-19 正式服：两名玩家两三分钟内重连，第二次 noa 都查不到，只能以中转的地址进入）。因此每次从 noa
+ * 查到时都记下“中转地址:端口 → 真实地址”，noa 查不到时用 {@value #REMEMBER_MINUTES} 分钟内同一中转地址:端口记下的地址，
+ * 用一次重新计时。noa 查得到时始终以 noa 为准：中转开始新的会话时一定会发新的地址包，所以 noa 查不到时，这个中转端口
+ * 仍是原来那名玩家的会话。
+ * <p>
  * 前提：主机装有 noa 并开启 uoa（/proc/net/noa/uoa_on 为 1）；用了 ufw 时，校验和错误的包会先被 conntrack 判为 INVALID 丢弃、
  * 到不了 noa，须在 prerouting（priority -300）把这些包的 UDP 校验和置 0（0 仍不等于正确值，noa 照样认得），见 README。
  * 没有 noa、不是 Linux、或查不到时一律返回 null，玩家照旧以中转的地址进入。
@@ -79,6 +89,11 @@ public final class NeteaseRealAddress implements AutoCloseable {
     private static final int REAL_PORT = 53;
     private static final int REAL_FAMILY = 55;
 
+    /** noa 查不到时，同一中转地址:端口记下的真实地址在多少分钟内可用。 */
+    static final long REMEMBER_MINUTES = 30;
+    /** 最多记下多少个中转地址:端口，超出时去掉最久没用的。 */
+    static final int REMEMBER_MAX = 20_000;
+
     /** 每分钟的汇总，见 {@link NeteaseRelayStats}。 */
     public static final NeteaseRelayStats STATS = new NeteaseRelayStats();
 
@@ -87,6 +102,18 @@ public final class NeteaseRealAddress implements AutoCloseable {
     private final @Nullable String unavailable;
     /** 本机的 IPv4 地址，查询时依次作为本服地址；启动时取一次。 */
     private final List<Inet4Address> localAddresses;
+    /** 中转地址:端口 → 从 noa 查到的真实地址，按最近使用排序；访问时加锁。 */
+    private final Map<InetSocketAddress, Remembered> remembered = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<InetSocketAddress, Remembered> eldest) {
+            return size() > REMEMBER_MAX;
+        }
+    };
+    /** 毫秒时钟，测试时替换。 */
+    LongSupplier clock = System::currentTimeMillis;
+
+    private record Remembered(InetSocketAddress real, long at) {
+    }
 
     private NeteaseRealAddress(IpRangeSet relays, @Nullable Socket socket, @Nullable String unavailable,
                                List<Inet4Address> localAddresses) {
@@ -153,8 +180,42 @@ public final class NeteaseRealAddress implements AutoCloseable {
         }
         String[] problem = new String[1];
         InetSocketAddress real = query(remote, local, problem);
-        STATS.relayedConnection(real != null, problem[0]);
-        return real;
+        if (real != null) {
+            remember(remote, real);
+            STATS.relayedConnection(true, null);
+            return real;
+        }
+        InetSocketAddress earlier = recall(remote);
+        if (earlier != null) {
+            STATS.rememberedConnection();
+            return earlier;
+        }
+        STATS.relayedConnection(false, problem[0]);
+        return null;
+    }
+
+    /** 记下从 noa 查到的真实地址。 */
+    void remember(InetSocketAddress relay, InetSocketAddress real) {
+        synchronized (this.remembered) {
+            this.remembered.put(relay, new Remembered(real, this.clock.getAsLong()));
+        }
+    }
+
+    /** 同一中转地址:端口在 {@value #REMEMBER_MINUTES} 分钟内记下的真实地址，用一次重新计时；没有或已过期时为 null。 */
+    @Nullable InetSocketAddress recall(InetSocketAddress relay) {
+        long now = this.clock.getAsLong();
+        synchronized (this.remembered) {
+            Remembered entry = this.remembered.get(relay);
+            if (entry == null) {
+                return null;
+            }
+            if (now - entry.at() > TimeUnit.MINUTES.toMillis(REMEMBER_MINUTES)) {
+                this.remembered.remove(relay);
+                return null;
+            }
+            this.remembered.put(relay, new Remembered(entry.real(), now));
+            return entry.real();
+        }
     }
 
     private @Nullable InetSocketAddress query(InetSocketAddress remote, InetSocketAddress local, String[] problem) {

@@ -36,6 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class NeteaseRelayStats {
     /** 经名单中的中转、查到了玩家地址的连接。 */
     private final AtomicInteger matched = new AtomicInteger();
+    /** 经名单中的中转、noa 查不到，用了同一中转地址:端口此前查到的玩家地址的连接（多为断开后很快重连）。 */
+    private final AtomicInteger remembered = new AtomicInteger();
     /** 经名单中的中转、没有查到玩家地址的连接。 */
     private final AtomicInteger unmatched = new AtomicInteger();
     /** 不经名单中的中转的连接。 */
@@ -50,6 +52,10 @@ public final class NeteaseRelayStats {
         }
     }
 
+    void rememberedConnection() {
+        remembered.incrementAndGet();
+    }
+
     void directConnection() {
         direct.incrementAndGet();
     }
@@ -61,15 +67,17 @@ public final class NeteaseRelayStats {
      */
     public @Nullable String drainSummary() {
         int matched = this.matched.getAndSet(0);
+        int remembered = this.remembered.getAndSet(0);
         int unmatched = this.unmatched.getAndSet(0);
         int direct = this.direct.getAndSet(0);
         String problem = this.lastProblem;
         this.lastProblem = null;
-        if (matched + unmatched + direct == 0) {
+        if (matched + remembered + unmatched + direct == 0) {
             return null;
         }
         StringBuilder line = new StringBuilder("NetEase relay in the last minute: Bedrock connections: ")
             .append(matched).append(" with the player's address from noa, ")
+            .append(remembered).append(" with the address noa gave earlier for the same relay port, ")
             .append(unmatched).append(" via a relay without it");
         if (unmatched > 0 && problem != null) {
             line.append(" (last: ").append(problem).append(')');
