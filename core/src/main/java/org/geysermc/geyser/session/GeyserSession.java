@@ -313,6 +313,10 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      */
     private final MinezClientUi minezClientUi = new MinezClientUi(this);
     /**
+     * MINEZ：已加入玩家列表并确认了皮肤、尚未移除的条目（网易客户端），见 {@link #confirmNeteaseSkins}。
+     */
+    private final Set<UUID> neteaseConfirmedEntries = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /**
      * MINEZ：登录闸门放行时的结果，见 {@link #loginGateResult()}。
      */
     @Getter(AccessLevel.NONE)
@@ -2287,6 +2291,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      */
     public void sendUpstreamPacket(BedrockPacket packet) {
         minezClientUi.beforeSend(packet);
+        removeNeteaseEntriesBeforeReAdding(packet, false);
         upstream.sendPacket(packet);
         confirmNeteaseSkins(packet, false);
     }
@@ -2298,6 +2303,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      */
     public void sendUpstreamPacketImmediately(BedrockPacket packet) {
         minezClientUi.beforeSend(packet);
+        removeNeteaseEntriesBeforeReAdding(packet, true);
         upstream.sendPacketImmediately(packet);
         confirmNeteaseSkins(packet, true);
     }
@@ -2314,15 +2320,46 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
                 || !GameProtocol.isNeteaseCodec(upstream.getSession().getCodec())) {
             return;
         }
-        NeteasePacket.ConfirmSkin confirm = NeteaseSkinConfirmation.packet(list.getEntries());
+        NeteasePacket.ConfirmSkin confirm = NeteaseSkinConfirmation.packet(list.getEntries(), this::neteaseUid);
         if (confirm == null) {
             return;
         }
+        NeteaseSkinConfirmation.recordConfirmed(list, neteaseConfirmedEntries);
         if (immediately) {
             upstream.sendPacketImmediately(confirm);
         } else {
             upstream.sendPacket(confirm);
         }
+    }
+
+    /**
+     * MINEZ：网易客户端在同一个条目没有先移除、又被加入并确认一次时，会把这个实体隐藏（“透明人”，见 {@link NeteaseSkinConfirmation}）。
+     * 发出加入之前，对已加入并确认、尚未移除的条目先补发一个移除；发出移除时把条目从记录中去掉。
+     */
+    private void removeNeteaseEntriesBeforeReAdding(BedrockPacket packet, boolean immediately) {
+        if (!NeteaseSkinConfirmation.ENABLED || !(packet instanceof PlayerListPacket list)
+                || !GameProtocol.isNeteaseCodec(upstream.getSession().getCodec())) {
+            return;
+        }
+        PlayerListPacket remove = NeteaseSkinConfirmation.removalBeforeAdding(list, neteaseConfirmedEntries);
+        if (remove == null) {
+            return;
+        }
+        if (immediately) {
+            upstream.sendPacketImmediately(remove);
+        } else {
+            upstream.sendPacket(remove);
+        }
+    }
+
+    /**
+     * MINEZ：玩家列表条目对应的网易账号编号：自己的条目（以登录时的 UUID）为自己的，其他网易玩家为其会话中的；没有时为 null。
+     */
+    private @Nullable String neteaseUid(UUID uuid) {
+        AuthData auth = getAuthData();
+        GeyserSession owner = auth != null && uuid.equals(auth.uuid()) ? this : geyser.connectionByUuid(uuid);
+        NeteaseProfile profile = owner == null ? null : owner.getNeteaseProfile();
+        return profile == null ? null : profile.uid();
     }
 
     /**

@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.1-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.2-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -145,7 +145,7 @@ git submodule update --init --recursive
 
 **自定义三叉戟举手。** Geyser 给映射到三叉戟上的自定义物品设置三叉戟的使用动画，基岩版玩家蓄力投掷时才会举起手臂；但基岩版使用动画 ID 的对照表中只有矛，没有三叉戟，动画没有发给客户端，手臂不举起。现在三叉戟也对应 6，与上游自 GeyserMC/Geyser#6759 起相同。
 
-**中国版客户端上的玩家皮肤。** 中国版客户端收到玩家列表中的皮肤后，要等服务器以网易专有的皮肤确认包（ConfirmSkin，228）确认，才显示这个皮肤；没有确认时，所有玩家（包括自己）都显示为默认皮肤。网易的《皮肤反作弊方案》要求服务器先向网易查询每个皮肤是否合法，只确认合法的；这个查询只认得网易商城的皮肤，而本服的皮肤都来自网易客户端或启动器，因此与其他中国版服务器相同，Geyser 现在在每次发出加入玩家的玩家列表后，紧接着确认其中有皮肤图的各项。按文档，Persona 皮肤与皮肤 ID 以 `.NonsyncCustom`、`.NonsyncCustomSlim` 结尾的不用确认。每项包含 UUID、皮肤图、uid（UUID 去掉连字符后的散列值，取非负）与几何数据。只发给中国版客户端的会话。**b1280.59 起默认不发**：b1280.56 开始发送后，正式服的玩家反映看到“透明人”（看不见的玩家与 NPC）、部分手持物品与盔甲看不见，而皮肤仍然看不到；本机没有中国版客户端可以核实，所以只在代理以 `-DGeyser.NeteaseConfirmSkin=true` 启动时才发，供测试服试验。
+**中国版客户端上的玩家皮肤。** 中国版客户端收到玩家列表中的皮肤后，要等服务器以网易专有的皮肤确认包（ConfirmSkin，228）确认，才显示这个皮肤；没有确认时，所有玩家（包括自己）都显示为默认皮肤。网易的《皮肤反作弊方案》要求服务器先向网易查询每个皮肤是否合法，只确认合法的；这个查询只认得网易商城的皮肤，而本服的皮肤都来自网易客户端或启动器，因此与其他中国版服务器相同，Geyser 现在在每次发出加入玩家的玩家列表后，紧接着确认其中有皮肤图的各项。按文档，Persona 皮肤与皮肤 ID 以 `.NonsyncCustom`、`.NonsyncCustomSlim` 结尾的不用确认。每项包含 UUID、皮肤图、uid 与几何数据；uid 对中国版玩家为其网易账号编号，其余为 UUID 去掉连字符后的散列值，取非负（b1305.2 起；此前一律为散列值）。只发给中国版客户端的会话。**b1280.59 起默认不发**：b1280.56 开始发送后，正式服的玩家反映看到“透明人”（看不见的玩家与 NPC）、部分手持物品与盔甲看不见，而皮肤仍然看不到；本机没有中国版客户端可以核实，所以只在代理以 `-DGeyser.NeteaseConfirmSkin=true` 启动时才发，供测试服试验。可能的原因见于另一家服务器开源的中国版 Geyser（mc-dreamland/Geyser 的 netease/1.21.130 分支）：同一个玩家列表条目没有先移除、又被加入并确认一次时，中国版客户端会把这个实体隐藏，而 Geyser 常对同一名玩家再发加入（取到皮肤后、列表中的名字改变后）。b1305.2 起 Geyser 记下已加入并确认、尚未移除的条目，再次加入之前先发一个移除。包的格式与那家的相同（皮肤图为长度加字节，不带宽高）。在测试服试过之前仍默认不发。
 
 网易登录不给 Java 版玩家材质，基岩版玩家看 Java 版玩家是默认皮肤，Java 版玩家看基岩版玩家同样如此。新增两个接口，由代理端的插件（MINEZ 的 Velocity 插件）在两边之间传递皮肤：`GeyserApi#bedrockSkin`（以及 `bedrockSkinSlim`）取得在线基岩版玩家自己的皮肤（RGBA 像素）；`GeyserApi#provideSkin` 为档案中没有材质的玩家设定基岩版玩家看到的皮肤，已经看到这名玩家的随即更新，传入 `null` 时移除。只接受原版的尺寸与宽为 64 的整数倍的高清皮肤（最大 1024）。
 

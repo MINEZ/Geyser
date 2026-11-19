@@ -34,7 +34,9 @@ import org.cloudburstmc.protocol.common.util.VarInts;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -126,5 +128,58 @@ class NeteaseSkinConfirmationTest {
     void offUnlessTurnedOnAtStartup() {
         // b1280.56~58 发了确认后，正式服出现“透明人”与看不见的物品，默认不发
         assertFalse(NeteaseSkinConfirmation.ENABLED);
+    }
+
+    private static PlayerListPacket list(PlayerListPacket.Action action, PlayerListPacket.Entry... entries) {
+        PlayerListPacket packet = new PlayerListPacket();
+        packet.setAction(action);
+        packet.getEntries().addAll(List.of(entries));
+        return packet;
+    }
+
+    /**
+     * 同一个条目没有先移除、又被加入并确认时，网易客户端会把实体隐藏（透明人）：再次加入之前须先移除。移除过的、或不用确认的条目
+     * 再加入时不必先移除。
+     */
+    @Test
+    void reAddingAConfirmedEntryRemovesItFirst() {
+        Set<UUID> confirmed = new HashSet<>();
+        UUID a = UUID.randomUUID();
+        UUID persona = UUID.randomUUID();
+        PlayerListPacket add = list(PlayerListPacket.Action.ADD, entry(a, "a", false, IMAGE, ""), entry(persona, "p", true, IMAGE, ""));
+
+        assertNull(NeteaseSkinConfirmation.removalBeforeAdding(add, confirmed), "第一次加入不必先移除");
+        NeteaseSkinConfirmation.recordConfirmed(add, confirmed);
+        assertEquals(Set.of(a), confirmed, "只记下确认了的条目");
+
+        PlayerListPacket remove = NeteaseSkinConfirmation.removalBeforeAdding(add, confirmed);
+        assertNotNull(remove, "再次加入之前先移除");
+        assertEquals(PlayerListPacket.Action.REMOVE, remove.getAction());
+        assertEquals(List.of(a), remove.getEntries().stream().map(PlayerListPacket.Entry::getUuid).toList());
+        NeteaseSkinConfirmation.recordConfirmed(add, confirmed);
+
+        // 移除过（例如 NPC 的加入后立即移除）的条目，再加入时不必再移除。
+        assertNull(NeteaseSkinConfirmation.removalBeforeAdding(list(PlayerListPacket.Action.REMOVE, new PlayerListPacket.Entry(a)), confirmed));
+        assertTrue(confirmed.isEmpty());
+        assertNull(NeteaseSkinConfirmation.removalBeforeAdding(add, confirmed));
+    }
+
+    @Test
+    void neteasePlayersAreConfirmedWithTheirOwnUid() {
+        UUID netease = UUID.randomUUID();
+        UUID java = UUID.randomUUID();
+        NeteasePacket.ConfirmSkin packet = NeteaseSkinConfirmation.packet(
+            List.of(entry(netease, "n", false, IMAGE, ""), entry(java, "j", false, IMAGE, "")),
+            uuid -> uuid.equals(netease) ? "2230082046" : null);
+        assertNotNull(packet);
+        ByteBuf buf = Unpooled.wrappedBuffer(packet.payload());
+        assertEquals(2, VarInts.readUnsignedInt(buf));
+        for (int i = 0; i < 2; i++) {
+            buf.readBoolean();
+            buf.skipBytes(16);
+            buf.skipBytes(VarInts.readUnsignedInt(buf));
+        }
+        assertEquals("2230082046", readString(buf));
+        assertEquals(Long.toString(NeteaseSkinConfirmation.uid(java)), readString(buf));
     }
 }
