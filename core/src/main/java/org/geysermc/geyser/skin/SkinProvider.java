@@ -444,6 +444,15 @@ public class SkinProvider {
     }
 
     /**
+     * MINEZ：基岩版玩家自己的皮肤是否用标准人形模型（geometry.humanoid.custom 或 geometry.humanoid.customSlim），见
+     * {@link SkinModels#isStandardHumanoid}。几何体太大、没有缓存下来的，必定是自带模型的皮肤，视为不是。
+     */
+    public static boolean bedrockSkinStandardModel(UUID uuid) {
+        SkinGeometry geometry = cachedGeometry.get(uuid);
+        return geometry != null && SkinModels.isStandardHumanoid(geometry.geometryName());
+    }
+
+    /**
      * MINEZ：基岩版玩家自己的皮肤是否为纤细模型（几何名称中带有 slim）。
      */
     public static boolean bedrockSkinSlim(UUID uuid) {

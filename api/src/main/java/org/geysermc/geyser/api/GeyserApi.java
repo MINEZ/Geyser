@@ -183,9 +183,11 @@ public interface GeyserApi extends GeyserApiBase {
 
     /**
      * MINEZ：基岩版玩家自己的皮肤图，即登录时客户端发来的皮肤（Persona 皮肤没有）。用于让 Java 版玩家看到基岩版玩家的皮肤。
+     * 只提供标准人形模型（geometry.humanoid.custom、geometry.humanoid.customSlim）的皮肤：网易的 4D 皮肤等自带模型的皮肤，
+     * 贴图按其模型排布，套在 Java 版的人形上是一团错位的色块，不提供，Java 版看到的是默认皮肤。
      *
      * @param uuid 玩家在 Java 端的 UUID。
-     * @return RGBA 像素（宽 × 高 × 4 字节，常见为 64×64 或 128×128），不是本服在线的基岩版玩家或没有皮肤图时为 null。
+     * @return RGBA 像素（宽 × 高 × 4 字节，常见为 64×64 或 128×128），不是本服在线的基岩版玩家、没有皮肤图或不是标准人形模型时为 null。
      */
     default byte @Nullable [] bedrockSkin(UUID uuid) {
         return null;

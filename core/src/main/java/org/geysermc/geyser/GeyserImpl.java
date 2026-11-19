@@ -700,6 +700,10 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
         if (connectionByUuid(uuid) == null) {
             return null;
         }
+        // 网易的 4D 皮肤等自带模型的皮肤不提供：贴图套在 Java 版的人形上是一团错位的色块。
+        if (!SkinProvider.bedrockSkinStandardModel(uuid)) {
+            return null;
+        }
         org.geysermc.geyser.api.skin.Skin skin = SkinProvider.bedrockSkin(uuid);
         return skin == null ? null : skin.skinData().clone();
     }
