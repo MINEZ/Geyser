@@ -25,20 +25,34 @@
 
 package org.geysermc.geyser.entity.type.living.monster.cubemob;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MobEquipmentPacket;
 import org.geysermc.geyser.api.util.Identifier;
+import org.geysermc.geyser.entity.VanillaEntities;
 import org.geysermc.geyser.entity.properties.type.StringEnumProperty;
 import org.geysermc.geyser.entity.spawn.EntitySpawnContext;
+import org.geysermc.geyser.entity.type.FallingBlockEntity;
 import org.geysermc.geyser.inventory.GeyserItemStack;
+import org.geysermc.geyser.item.type.BlockItem;
 import org.geysermc.geyser.item.type.Item;
+import org.geysermc.geyser.level.block.property.Property;
+import org.geysermc.geyser.level.block.type.Block;
+import org.geysermc.geyser.level.block.type.BlockState;
+import org.geysermc.geyser.level.block.type.SkullBlock;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.session.cache.tags.ItemTag;
 import org.geysermc.geyser.session.cache.tags.Tag;
 import org.geysermc.geyser.translator.item.ItemTranslator;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.IntEntityMetadata;
+import org.geysermc.mcprotocollib.protocol.data.game.item.component.BlockStateProperties;
+import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponentTypes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,8 +68,20 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
         Identifier.of("minecraft", "sulfur_cube_archetype"), BEDROCK_ARCHETYPES, 0
     );
 
+    /**
+     * MINEZ: Java 版 SulfurCubeRenderer 把体内的方块画成 1×1×1 的方块，随硫方怪转动；方块底面比脚底高这么多
+     * （看得见时；隐身时低 1/16）。装着方块时硫方怪不压扁，方块不用跟着变形。
+     */
+    private static final float CONTAINED_BLOCK_Y = 0.064f;
+    private static final float CONTAINED_BLOCK_Y_INVISIBLE = 0.002f;
+
     private int previousFuseTickTime = -1;
     private int fuseTickTime = -1;
+    /**
+     * MINEZ: 网易 1.21.130 没有硫方怪的实体类，客户端中它只是个不画装备的通用实体，主手物品（吸收的方块）不显示。
+     * 26.40 之前的客户端改由这个跟随硫方怪的下落方块实体显示体内的方块：不受重力、不碰撞、没有碰撞箱。
+     */
+    private @Nullable FallingBlockEntity containedBlock;
 
     public SulfurCubeEntity(EntitySpawnContext context) {
         super(context);
@@ -101,6 +127,130 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
             if (archetype == null) archetype = "regular"; // Needs a value, this is the best default
 
             this.updateProperty(SULFUR_CUBE_ARCHETYPE_PROPERTY, archetype);
+        }
+
+        updateContainedBlock(stack);
+    }
+
+    private void updateContainedBlock(GeyserItemStack stack) {
+        if (containedBlock != null) {
+            containedBlock.despawnEntity();
+            containedBlock = null;
+        }
+        if (GameProtocol.is26_40orHigher(session.protocolVersion())) {
+            return; // 客户端自己画
+        }
+        BlockState state = containedBlockState(stack);
+        if (state == null) {
+            return;
+        }
+        containedBlock = new FallingBlockEntity(EntitySpawnContext.inherited(session, VanillaEntities.FALLING_BLOCK, this, containedBlockPosition()), state.javaId());
+        containedBlock.setFlag(EntityFlag.HAS_GRAVITY, false);
+        containedBlock.setFlag(EntityFlag.NO_AI, true);
+        containedBlock.setFlag(EntityFlag.HAS_COLLISION, false);
+        containedBlock.getMetadata().put(EntityDataTypes.WIDTH, 0.0f);
+        containedBlock.getMetadata().put(EntityDataTypes.HEIGHT, 0.0f);
+        containedBlock.getMetadata().put(EntityDataTypes.HITBOX, NbtMap.EMPTY);
+        containedBlock.setScale(scale * attributeScale);
+        containedBlock.setYaw(yaw);
+        containedBlock.setHeadYaw(yaw);
+        if (isValid()) {
+            containedBlock.spawnEntity();
+        }
+    }
+
+    /**
+     * 照 Java 版 SulfurCubeRenderer#extractRenderState：物品对应方块（Block.byItem）的默认状态，套用物品的 block_state 组件。
+     * 头颅由 Java 版画成戴着的头颅，这里不画；不是方块物品时不画。
+     */
+    private static @Nullable BlockState containedBlockState(GeyserItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        return containedBlockState(stack.asItem(), stack.getComponent(DataComponentTypes.BLOCK_STATE));
+    }
+
+    static @Nullable BlockState containedBlockState(Item item, @Nullable BlockStateProperties properties) {
+        if (!(item instanceof BlockItem blockItem)) {
+            return null;
+        }
+        Block block = blockItem.getBlock();
+        if (block instanceof SkullBlock) {
+            return null;
+        }
+        BlockState state = block.defaultBlockState();
+        Property<?>[] keys = block.propertyKeys();
+        if (properties != null && keys != null) {
+            for (Map.Entry<String, String> entry : properties.getProperties().entrySet()) {
+                for (Property<?> key : keys) {
+                    if (key.name().equals(entry.getKey())) {
+                        state = withValue(state, key, entry.getValue());
+                    }
+                }
+            }
+        }
+        return state;
+    }
+
+    private static <T extends Comparable<T>> BlockState withValue(BlockState state, Property<T> property, String value) {
+        return property.valueOf(value).map(v -> state.withValue(property, v)).orElse(state);
+    }
+
+    private Vector3f containedBlockPosition() {
+        float y = getFlag(EntityFlag.INVISIBLE) ? CONTAINED_BLOCK_Y_INVISIBLE : CONTAINED_BLOCK_Y;
+        return position.up(y * scale * attributeScale);
+    }
+
+    private void moveContainedBlock(boolean teleported) {
+        if (containedBlock != null && containedBlock.isValid()) {
+            containedBlock.moveAbsoluteRaw(containedBlockPosition(), yaw, 0, yaw, onGround, teleported);
+        }
+    }
+
+    @Override
+    public void spawnEntity() {
+        super.spawnEntity();
+        if (containedBlock != null && !containedBlock.isValid()) {
+            containedBlock.setPosition(containedBlockPosition());
+            containedBlock.spawnEntity();
+        }
+    }
+
+    @Override
+    public void despawnEntity() {
+        if (containedBlock != null) {
+            containedBlock.despawnEntity();
+        }
+        super.despawnEntity();
+    }
+
+    @Override
+    public void moveRelativeRaw(double relX, double relY, double relZ, float yaw, float pitch, float headYaw, boolean isOnGround) {
+        super.moveRelativeRaw(relX, relY, relZ, yaw, pitch, headYaw, isOnGround);
+        moveContainedBlock(false);
+    }
+
+    @Override
+    public void moveAbsoluteRaw(Vector3f position, float yaw, float pitch, float headYaw, boolean isOnGround, boolean teleported) {
+        super.moveAbsoluteRaw(position, yaw, pitch, headYaw, isOnGround, teleported);
+        moveContainedBlock(teleported);
+    }
+
+    @Override
+    protected void setInvisible(boolean value) {
+        super.setInvisible(value);
+        moveContainedBlock(true);
+    }
+
+    @Override
+    protected void applyScale() {
+        super.applyScale();
+        if (containedBlock != null) {
+            containedBlock.setScale(scale * attributeScale);
+            if (containedBlock.isValid()) {
+                containedBlock.updateBedrockMetadata();
+            }
+            moveContainedBlock(true);
         }
     }
 
