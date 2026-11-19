@@ -169,6 +169,7 @@ import org.geysermc.geyser.level.JavaDimension;
 import org.geysermc.geyser.level.gamerule.GameRuleHandler;
 import org.geysermc.geyser.level.physics.CollisionManager;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
+import org.geysermc.geyser.network.bedrock.LegacyEntityIdentifiers;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteaseSkinConfirmation;
 import org.geysermc.geyser.network.java.LocalSession;
@@ -1041,7 +1042,8 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         upstream.sendPacket(biomeDefinitionListPacket);
 
         AvailableEntityIdentifiersPacket entityPacket = new AvailableEntityIdentifiersPacket();
-        entityPacket.setIdentifiers(Registries.BEDROCK_ENTITY_IDENTIFIERS.get());
+        // MINEZ：26.40 之前的客户端没有的新实体，填上最接近的原版实体作为基础（见 LegacyEntityIdentifiers）。
+        entityPacket.setIdentifiers(LegacyEntityIdentifiers.forProtocol(protocolVersion(), Registries.BEDROCK_ENTITY_IDENTIFIERS.get()));
         upstream.sendPacket(entityPacket);
 
         CameraPresetsPacket cameraPresetsPacket = new CameraPresetsPacket();

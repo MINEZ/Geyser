@@ -30,12 +30,9 @@ import org.geysermc.geyser.level.block.type.Block;
 public class BlockItem extends Item {
     // If item is instanceof ItemNameBlockItem
     private final boolean treatLikeBlock;
-    // MINEZ: the block this item places (Java's BlockItem#getBlock), e.g. for the block inside a sulfur cube
-    private final Block block;
 
     public BlockItem(Builder builder, Block block, Block... otherBlocks) {
         super(block.javaIdentifier().value(), builder);
-        this.block = block;
 
         // Ensure this item can be looked up by its block(s)
         registerBlock(block, this);
@@ -48,17 +45,12 @@ public class BlockItem extends Item {
     // Use this constructor if the item name is not the same as its primary block
     public BlockItem(String javaIdentifier, Builder builder, Block block, Block... otherBlocks) {
         super(javaIdentifier, builder);
-        this.block = block;
 
         registerBlock(block, this);
         for (Block otherBlock : otherBlocks) {
             registerBlock(otherBlock, this);
         }
         treatLikeBlock = false;
-    }
-
-    public Block getBlock() {
-        return block;
     }
 
     @Override
