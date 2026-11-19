@@ -81,6 +81,13 @@ public class MessageTranslator {
 
     private static final String ERROR_MESSAGE = "§cReport to Geyser";
 
+    /**
+     * MINEZ：全角空格（U+3000）。基岩版的字形图把它画成一个写着“IDSP”的虚线方框（网易版同样如此，2026-11-19 见于切换服务器的按钮），
+     * 转换时一律换成两个半角空格（{@link #IDEOGRAPHIC_SPACE_REPLACEMENT}）。
+     */
+    static final char IDEOGRAPHIC_SPACE = '　';
+    static final String IDEOGRAPHIC_SPACE_REPLACEMENT = "  ";
+
     static {
         // Customize the formatting characters of our legacy serializer for bedrock edition
         List<CharacterAndFormat> formats = new ArrayList<>(CharacterAndFormat.defaults());
@@ -195,6 +202,12 @@ public class MessageTranslator {
                 if (legacyChar != ChatColor.ESCAPE || i == legacyLength - 1) {
                     // No special formatting for Bedrock needed, or we're at the end of the string.
                     // If the string ends with an escape then Java will silently ignore it. We don't have to remove it.
+                    if (legacyChar == IDEOGRAPHIC_SPACE) {
+                        // MINEZ：见 IDEOGRAPHIC_SPACE。
+                        finalLegacy.append(IDEOGRAPHIC_SPACE_REPLACEMENT);
+                        lastFormatReset = false;
+                        continue;
+                    }
                     finalLegacy.append(legacyChar);
                     lastFormatReset = false;
 

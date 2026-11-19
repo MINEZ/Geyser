@@ -162,7 +162,7 @@ public final class DialogHolder implements TextTranslator {
     static final int BUTTON_LINE_WIDTH = 40;
 
     /**
-     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，最多也只显示两行：有提示时把提示的各行以全角空格连成一行，写在按钮文字的下一行，
+     * MINEZ：按钮的文字。基岩版的按钮没有悬停提示，最多也只显示两行：有提示时把提示的各行以两个半角空格连成一行，写在按钮文字的下一行，
      * 免得其中的说明（例如在线人数）看不到。{@code common} 中的行（各按钮共同的一行，见 {@link #commonTooltipLines(List)}）不写在按钮上，
      * 由 {@link #convertTooltipNotes(List)} 在正文之后写一次。提示在按钮上一行写不下时（{@link #BUTTON_LINE_WIDTH}），按钮只写名称，
      * 提示由 {@link #convertOverflowNotes(List, List, boolean)} 完整地写在正文之后，免得被截断。
@@ -174,10 +174,10 @@ public final class DialogHolder implements TextTranslator {
         return FormColors.onLight(detail.isEmpty() || !fitsButtonLine(detail) ? label : label + "\n" + detail);
     }
 
-    /** 按钮上写在名称下一行的提示：不在 {@code common} 中的各行，以全角空格连成一行；没有时为空文本。 */
+    /** 按钮上写在名称下一行的提示：不在 {@code common} 中的各行，以两个半角空格连成一行（全角空格在基岩版显示为方框，见 MessageTranslator）；没有时为空文本。 */
     private String buttonDetail(DialogButton button, List<String> common) {
         return button.tooltip()
-            .map(tooltip -> Arrays.stream(tooltipLines(tooltip)).filter(line -> !common.contains(line)).collect(Collectors.joining("　")))
+            .map(tooltip -> Arrays.stream(tooltipLines(tooltip)).filter(line -> !common.contains(line)).collect(Collectors.joining("  ")))
             .orElse("");
     }
 

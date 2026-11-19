@@ -127,6 +127,8 @@ public class MessageTranslatorTest {
         messages.put(Component.text("§r§eGame Selector"), "§r§eGame Selector");
         // Duplicate/redundant reset removal
         messages.put(Component.text("§r§r§d[Test]§r"), "§r§d[Test]");
+        // MINEZ：全角空格在基岩版显示为写着“IDSP”的方框，换成两个半角空格。
+        messages.put(Component.text("在线：50　世界版本"), "§r在线：50  世界版本");
 
         MessageTranslator.init();
     }
