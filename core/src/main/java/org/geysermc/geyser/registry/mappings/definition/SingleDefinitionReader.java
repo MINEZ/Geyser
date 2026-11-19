@@ -31,6 +31,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.geyser.api.item.custom.v2.CustomItemBedrockOptions;
 import org.geysermc.geyser.api.item.custom.v2.CustomItemDefinition;
 import org.geysermc.geyser.api.item.custom.v2.CustomItemIcons;
+import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserBlockPlacer;
+import org.geysermc.geyser.api.item.custom.v2.component.geyser.GeyserItemDataComponents;
 import org.geysermc.geyser.api.predicate.MinecraftPredicate;
 import org.geysermc.geyser.api.predicate.context.item.ItemPredicateContext;
 import org.geysermc.geyser.api.util.Identifier;
@@ -163,6 +165,17 @@ public class SingleDefinitionReader implements ItemDefinitionReader {
         JsonElement dyeable = bedrockOptions.getAsJsonObject().get("dyeable");
         if (dyeable != null) {
             builder.dyeable(MappingsUtil.readOrThrow(dyeable, "default_color", NodeReader.HEX_INT, context));
+        }
+
+        // MINEZ：物品放置的方块（基岩版的 minecraft:block_placer）。use_block_icon 为 true 时，基岩版以这个方块的样子画这件物品：
+        // 物品栏中为方块的立体图标，手上与掉落物也按原版方块的画法，与拿着原版方块完全相同。方块须已注册（例如映射文件 blocks 中
+        // item_only 的方块，标识为 geyser_custom:<名称>）。
+        JsonElement blockPlacer = bedrockOptions.getAsJsonObject().get("block_placer");
+        if (blockPlacer != null) {
+            String[] placerContext = {"block placer", "bedrock options", baseContext};
+            Identifier block = MappingsUtil.readOrThrow(blockPlacer, "block", NodeReader.IDENTIFIER, placerContext);
+            boolean useBlockIcon = MappingsUtil.readOrDefault(blockPlacer, "use_block_icon", NodeReader.BOOLEAN, false, placerContext);
+            definitionBuilder.component(GeyserItemDataComponents.BLOCK_PLACER, GeyserBlockPlacer.of(block, useBlockIcon));
         }
 
         definitionBuilder.bedrockOptions(builder);

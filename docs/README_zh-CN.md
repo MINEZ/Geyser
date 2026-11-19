@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.4-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.5-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -102,6 +102,7 @@ git submodule update --init --recursive
 | 由 MINEZ 客户端模组播放的动态图标 | 行为 | 新增 |
 | 玩家列表中的显示名 | 行为 | 修改 |
 | 映射文件中的翻译 | 配置 | 新增 |
+| 按方块绘制的自定义物品 | 配置 | 新增 |
 | `bedrock.netease` | 配置 | 新增 |
 | `bedrock.transport: raknet` | 配置 | 保留 |
 | 客户端无法解码的数据包 | 行为 | 修改 |
@@ -181,6 +182,13 @@ git submodule update --init --recursive
 **玩家列表中的显示名。** Java 版服务器可以为玩家设置 TAB 列表中的显示名，例如带颜色与称号。基岩版暂停菜单中的玩家列表现在显示这个名字，与其他文字一样转换，不再只显示用户名；没有显示名的玩家照旧显示用户名。基岩版不能只改条目的名字，名字变化时，已列出的玩家的条目连同皮肤重发一次。
 
 **映射文件中的翻译。** Java 版客户端从服务器的资源包中取得其中的翻译，例如服务器新增魔咒的名称（`enchantment.minez.tunneling`），而 Geyser 只有原版的语言文件，原先把这类键原样显示。现在映射文件可以带一节 `translations`：`{"zh_cn": {"enchantment.minez.tunneling": "掘进"}}`，原版的翻译中找不到某个键时使用，依次找玩家的语言、`en_us` 与其他任意语言。不是字符串的项记一条错误后跳过。
+
+**按方块绘制的自定义物品。** 基岩版的原版方块拿在手上、放在物品栏中与掉在地上时，由客户端按方块的画法画出；自定义物品只能用图标或附着物，附着物按 Java 版的显示设置摆放，与原版方块总有细小偏差（两版显示设置的数值相同，套用的手部空间不同）。现在映射文件可以让自定义物品直接按一个方块绘制（b1305.5 起）：
+
+- `blocks` 中写 `"item_only": true` 的一项注册一个只用于显示的方块，不对应任何 Java 版方块状态，键可以是任意标识（例如 `minez:item/base_core`），其余写法与 `state_overrides` 中的一项相同（`geometry`、`material_instances` 等），碰撞箱与选取框按完整方块，标识为 `geyser_custom:<name>`。
+- 物品定义的 `bedrock_options` 中写 `"block_placer": {"block": "geyser_custom:<name>", "use_block_icon": true}`，即基岩版物品的 `minecraft:block_placer`：`use_block_icon` 为 true 时不发图标，客户端以这个方块的样子画这件物品。玩家放置时，客户端可能先按这个方块预测，随即被服务器发来的真实方块替换。
+
+MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResources 的生成工具按此写出，拿在手上与原版方块完全一致。
 
 **自定义物品的名称。** 被映射文件换成基岩版自定义物品、自身又没有名称的物品（例如换了 `item_model` 的钻石斧），原先在基岩版中显示自定义物品注册时的名称，默认为基岩版物品 ID。现在与 Java 版一样，显示原版物品在玩家语言中的名称。
 

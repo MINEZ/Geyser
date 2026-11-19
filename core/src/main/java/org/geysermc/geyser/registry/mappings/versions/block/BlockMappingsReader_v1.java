@@ -73,6 +73,9 @@ import java.util.stream.Collectors;
 
 public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBlockMapping> {
 
+    /** MINEZ：只用于显示的方块（item_only）按这个 Java 版方块状态取碰撞箱与选取框，即完整方块。 */
+    private static final String ITEM_ONLY_BOX_STATE = "minecraft:stone";
+
     @Override
     public void read(Path file, JsonObject mappings, BiConsumer<String, CustomBlockMapping> consumer) {
         mappings.entrySet().forEach(entry -> {
@@ -126,6 +129,16 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
             .includedInCreativeInventory(includedInCreativeInventory)
             .creativeCategory(creativeCategory)
             .creativeGroup(creativeGroup);
+
+        // MINEZ：只用于显示的方块（item_only），不对应任何 Java 版方块状态，键可以是任意标识（例如 minez:item/base_core）。
+        // 用于让自定义物品在基岩版中按方块绘制：物品的 bedrock_options 中以 block_placer 指向它并以方块作为图标，手上、物品栏与掉落物
+        // 都由客户端按原版方块的画法画出。碰撞箱与选取框按完整方块。
+        if (object.has("item_only") && object.get("item_only").getAsBoolean()) {
+            CustomBlockData blockData = customBlockDataBuilder
+                .components(createCustomBlockComponentsMapping(object, ITEM_ONLY_BOX_STATE, name))
+                .build();
+            return new CustomBlockMapping(blockData, Map.of(), identifier, false);
+        }
 
         if (BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.get().containsKey(identifier)) {
             // There is only one Java block state to override

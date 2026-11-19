@@ -39,6 +39,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * MINEZ：格式 2 的映射文件中的方块按格式 1 的写法读（MINEZ 资源包的 minez_resources.json 把物品与方块写在同一个文件中）。
@@ -127,6 +128,50 @@ class BlockMappingsFormatTest {
         assertEquals("geyser_custom:minez_brown_mushroom_block", mapping.data().identifier());
         assertEquals(2, mapping.states().size());
         assertEquals(2, mapping.data().permutations().size());
+        assertFalse(mapping.overrideItem());
+    }
+
+    @Test
+    void readsItemOnlyBlocks() throws Exception {
+        // MINEZ：方块物品的显示用方块（item_only），不对应任何 Java 版方块状态，键为任意标识。
+        Path file = dir.resolve("minez_resources.json");
+        Files.writeString(file, """
+            {
+              "format_version": 2,
+              "blocks": {
+                "minez:item/sentry_gun": {
+                  "name": "minez_item_sentry_gun",
+                  "item_only": true,
+                  "geometry": "minecraft:geometry.full_block",
+                  "material_instances": {
+                    "*": {
+                      "texture": "minez_block_sentry_gun_ready",
+                      "render_method": "opaque",
+                      "ambient_occlusion": true,
+                      "face_dimming": true
+                    }
+                  }
+                }
+              }
+            }
+            """);
+        Map<String, CustomBlockMapping> read = new HashMap<>();
+        BlockRegistries.COLLISIONS.set(new ArrayList<>());
+        BlockRegistries.SHAPES.set(new ArrayList<>());
+        try {
+            org.geysermc.geyser.scoreboard.network.util.GeyserMockContext.mockContext(() ->
+                MappingsConfigReader.readCustomMappings(MappingsType.BLOCKS, file, read::put));
+        } finally {
+            BlockRegistries.COLLISIONS.set(null);
+            BlockRegistries.SHAPES.set(null);
+        }
+
+        CustomBlockMapping mapping = read.get("minez:item/sentry_gun");
+        assertEquals("geyser_custom:minez_item_sentry_gun", mapping.data().identifier());
+        assertTrue(mapping.states().isEmpty());
+        assertTrue(mapping.data().permutations().isEmpty());
+        assertEquals("minecraft:geometry.full_block", mapping.data().components().geometry().identifier());
+        assertEquals("minez_block_sentry_gun_ready", mapping.data().components().materialInstances().get("*").texture());
         assertFalse(mapping.overrideItem());
     }
 }
