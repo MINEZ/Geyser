@@ -119,22 +119,36 @@ class NeteaseShortPingHandlerTest {
                     }
                 })
                 .bind(new InetSocketAddress("127.0.0.1", 0)).sync().channel();
-            server.pipeline().addAfter(RakServerOfflineHandler.NAME, "test-ping", new SimpleChannelInboundHandler<RakPing>() {
-                @Override
-                protected void channelRead0(ChannelHandlerContext ctx, RakPing ping) {
-                    ctx.writeAndFlush(ping.reply(42, Unpooled.copiedBuffer("MCPE;MINEZ;0;0;3;100", StandardCharsets.UTF_8)));
-                }
-            });
-            server.pipeline().addFirst(NeteaseShortPingHandler.NAME, new NeteaseShortPingHandler(List.of("127.0.0.0/8")));
+            // 在服务器的事件循环中加上处理器并等它完成：从别的线程加时，处理器要等事件循环执行完排队的任务才生效，
+            // 而事件循环先处理到达的数据包，早到的包会绕过它（Linux 上的 CI 曾因此超时）。
+            server.eventLoop().submit(() -> {
+                server.pipeline().addAfter(RakServerOfflineHandler.NAME, "test-ping", new SimpleChannelInboundHandler<RakPing>() {
+                    @Override
+                    protected void channelRead0(ChannelHandlerContext ctx, RakPing ping) {
+                        ctx.writeAndFlush(ping.reply(42, Unpooled.copiedBuffer("MCPE;MINEZ;0;0;3;100", StandardCharsets.UTF_8)));
+                    }
+                });
+                server.pipeline().addFirst(NeteaseShortPingHandler.NAME, new NeteaseShortPingHandler(List.of("127.0.0.0/8")));
+            }).sync();
             InetSocketAddress address = (InetSocketAddress) server.localAddress();
 
             try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress("127.0.0.1", 0))) {
-                socket.setSoTimeout(5000);
+                socket.setSoTimeout(2000);
                 byte[] ping = ByteBufUtil.decodeHexDump(NETEASE_PING);
-                socket.send(new java.net.DatagramPacket(ping, ping.length, address));
                 byte[] buffer = new byte[1500];
                 java.net.DatagramPacket answer = new java.net.DatagramPacket(buffer, buffer.length);
-                socket.receive(answer);
+                // UDP 可能丢包，没有回复时重发，至多三次
+                for (int attempt = 1; ; attempt++) {
+                    socket.send(new java.net.DatagramPacket(ping, ping.length, address));
+                    try {
+                        socket.receive(answer);
+                        break;
+                    } catch (java.net.SocketTimeoutException e) {
+                        if (attempt == 3) {
+                            throw e;
+                        }
+                    }
+                }
                 ByteBuf pong = Unpooled.wrappedBuffer(buffer, 0, answer.getLength());
                 // unconnected pong：1c、原样的时间、服务器 GUID、16 字节 magic、长度与内容
                 assertEquals(0x1c, pong.readUnsignedByte());
