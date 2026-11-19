@@ -61,6 +61,10 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
 
     private int previousFuseTickTime = -1;
     private int fuseTickTime = -1;
+    /**
+     * MINEZ: 体内装着的东西：0 没有、1 方块、2 TNT（见 legacyMarkVariant）。
+     */
+    private int contents = 0;
 
     public SulfurCubeEntity(EntitySpawnContext context) {
         super(context);
@@ -68,9 +72,13 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
 
     @Override
     public void setBody(GeyserItemStack stack) {
+        contents = stack.isEmpty() ? 0 : stack.asItem() == Items.TNT ? 2 : 1;
         MobEquipmentPacket handPacket = new MobEquipmentPacket();
         handPacket.setRuntimeEntityId(geyserId);
-        handPacket.setItem(ItemTranslator.translateToBedrock(session, stack));
+        // MINEZ: 基岩版原版吸收 TNT 时以 hide_held_items 隐藏手持的 TNT，改画内层的 TNT 贴图（引爆前闪白）；网易 1.21.130 不认
+        // hide_held_items，手持的 TNT 不发。MINEZ 资源包的客户端实体对所有版本相同，各版本一样处理。
+        boolean hideHeld = contents == 2;
+        handPacket.setItem(ItemTranslator.translateToBedrock(session, hideHeld ? GeyserItemStack.EMPTY : stack));
         handPacket.setHotbarSlot(0);
         handPacket.setInventorySlot(0);
         handPacket.setContainerId(ContainerId.INVENTORY);
@@ -108,10 +116,41 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
             this.updateProperty(SULFUR_CUBE_ARCHETYPE_PROPERTY, archetype);
         }
 
-        // MINEZ: 26.40 之前的客户端以史莱姆为硫方怪的基础实体（见 LegacyEntityIdentifiers），读不到上面的实体属性；以主手有无物品判断时，
-        // 不装方块的硫方怪的内层时有时无。改以标记变种告知资源包中的客户端实体：0 没有、1 装着方块、2 装着 TNT。
-        this.metadata.put(EntityDataTypes.MARK_VARIANT, stack.isEmpty() ? 0 : stack.asItem() == Items.TNT ? 2 : 1);
+        putLegacyMarkVariant();
         this.updateBedrockMetadata();
+    }
+
+    /**
+     * MINEZ: 26.40 之前的客户端以史莱姆为硫方怪的基础实体（见 LegacyEntityIdentifiers），读不到实体属性 sulfur_cube_archetype，
+     * 也不认 query.fuse_time。以标记变种告知 MINEZ 资源包中的客户端实体（对所有版本相同，各版本都发）：个位为体内装着的东西（0 没有、1 方块、2 TNT），引爆倒计时
+     * （FUSE_TIME，0 起）加 1 后乘 10 加上去，没有点燃时为 0。
+     */
+    static int legacyMarkVariant(int contents, int fuse) {
+        return contents + (fuse >= 0 ? (fuse + 1) * 10 : 0);
+    }
+
+    private void putLegacyMarkVariant() {
+        this.metadata.put(EntityDataTypes.MARK_VARIANT, legacyMarkVariant(contents, fuseTickTime));
+    }
+
+    /**
+     * MINEZ: 26.40 之前的客户端画手持物品时不按实体的缩放（SCALE）成比例缩放（缩放属性改过的硫方怪，体内的方块大小、位置都不对），
+     * 却按客户端实体的 scaleX/Y/Z 成比例缩放。因此不发缩放属性的缩放，改以皮肤编号（SKIN_ID，缩放 × 1000）告知资源包中的客户端实体，
+     * 由它乘进 scaleX/Y/Z；碰撞箱的宽高相应乘上（原先由客户端按 SCALE 放大）。MINEZ 资源包的客户端实体对所有版本相同，各版本都这样发。
+     */
+    private void putLegacyScale() {
+        // 父类的构造方法中调用时缩放属性还没有初始化（为 0）
+        float attribute = attributeScale > 0 ? attributeScale : 1f;
+        this.metadata.put(EntityDataTypes.SCALE, scale);
+        this.metadata.put(EntityDataTypes.SKIN_ID, Math.round(attribute * 1000));
+        this.metadata.put(EntityDataTypes.WIDTH, getBoundingBoxWidth() * attribute);
+        this.metadata.put(EntityDataTypes.HEIGHT, getBoundingBoxHeight() * attribute);
+    }
+
+    @Override
+    protected void applyScale() {
+        super.applyScale();
+        putLegacyScale();
     }
 
     @Override
@@ -128,6 +167,7 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
     public void setBaby(BooleanEntityMetadata entityMetadata) {
         super.setBaby(entityMetadata);
         this.metadata.put(EntityDataTypes.VARIANT, entityMetadata.getPrimitiveValue() ? BABY_VARIANT : ADULT_VARIANT);
+        putLegacyScale();
     }
 
     @Override
@@ -144,6 +184,7 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
 
         if (this.previousFuseTickTime != this.fuseTickTime) {
             this.metadata.put(EntityDataTypes.FUSE_TIME, fuseTickTime);
+            putLegacyMarkVariant();
             this.updateBedrockMetadata();
             this.previousFuseTickTime = this.fuseTickTime;
         }
@@ -157,6 +198,7 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
     public void setMaxFuse(IntEntityMetadata entityMetadata) {
         this.fuseTickTime = entityMetadata.getPrimitiveValue();
         this.metadata.put(EntityDataTypes.FUSE_TIME, fuseTickTime);
+        putLegacyMarkVariant();
     }
 
     static {
