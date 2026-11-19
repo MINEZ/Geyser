@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.14-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.15-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -197,7 +197,7 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 
 **CraftEngine 换名的原版方块声音。** CraftEngine 的方块声音系统把它借用的原版方块所属材质的声音（例如音符盒、蘑菇方块的木质声音）换成 `replaced.<原名>`，由它生成的 Java 版资源包把这些名字指回原版的声音。基岩版没有这些名字，放置、破坏、敲击木质方块时都听不到声音。现在这样的名字没有对应的映射时，去掉前缀，按原版的声音播放（b1305.9 起）。
 
-**网易客户端中的硫方怪。** 基岩版原版的硫方怪是行为包定义的生物：吸收的方块是主手物品，由客户端画在模型的 `rightItem` 骨骼上；体型以变种表示（`minecraft:variant`：幼年 1、成年 2），客户端实体按 `query.variant` 计算弹跳的压扁量。网易 1.21.130 没有硫方怪，发给它的实体列表中硫方怪的基础实体（`bid`）为空，客户端只把它当成通用实体，不画手持物品，体内的方块不显示。现在发给 26.40 之前的客户端的实体列表中，以史莱姆为硫方怪的基础实体（`LegacyEntityIdentifiers`），客户端按生物画手持物品；硫方怪的样子仍取资源包中 `minecraft:sulfur_cube` 的客户端实体（MINEZ/CraftengineResources 补上）。另外照行为包发变种：成年 2、幼年 1（所有版本，原先不发，客户端中恒为 0）（b1305.14 起；b1305.10~13 另以下落方块、矿车显示体内的方块，已撤去）。
+**网易客户端中的硫方怪。** 基岩版原版的硫方怪是行为包定义的生物：吸收的方块是主手物品，由客户端画在模型的 `rightItem` 骨骼上；体型以变种表示（`minecraft:variant`：幼年 1、成年 2），客户端实体按 `query.variant` 计算弹跳的压扁量。网易 1.21.130 没有硫方怪，发给它的实体列表中硫方怪的基础实体（`bid`）为空，客户端只把它当成通用实体，不画手持物品，体内的方块不显示。现在发给 26.40 之前的客户端的实体列表中，以史莱姆为硫方怪的基础实体（`LegacyEntityIdentifiers`），客户端按生物画手持物品；硫方怪的样子仍取资源包中 `minecraft:sulfur_cube` 的客户端实体（MINEZ/CraftengineResources 补上）。吸收或吐出方块时另以标记变种（MARK_VARIANT）告知是否装着方块：0 没有、1 方块、2 TNT（以史莱姆为基础实体后客户端读不到实体属性 `minecraft:sulfur_cube_archetype`，资源包的客户端实体据此画内层，b1305.15 起）。另外照行为包发变种：成年 2、幼年 1（所有版本，原先不发，客户端中恒为 0）（b1305.14 起；b1305.10~13 另以下落方块、矿车显示体内的方块，已撤去）。
 
 **自定义物品的名称。** 被映射文件换成基岩版自定义物品、自身又没有名称的物品（例如换了 `item_model` 的钻石斧），原先在基岩版中显示自定义物品注册时的名称，默认为基岩版物品 ID。现在与 Java 版一样，显示原版物品在玩家语言中的名称。
 

@@ -34,6 +34,7 @@ import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.entity.properties.type.StringEnumProperty;
 import org.geysermc.geyser.entity.spawn.EntitySpawnContext;
 import org.geysermc.geyser.inventory.GeyserItemStack;
+import org.geysermc.geyser.item.Items;
 import org.geysermc.geyser.item.type.Item;
 import org.geysermc.geyser.session.cache.tags.ItemTag;
 import org.geysermc.geyser.session.cache.tags.Tag;
@@ -106,6 +107,11 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
 
             this.updateProperty(SULFUR_CUBE_ARCHETYPE_PROPERTY, archetype);
         }
+
+        // MINEZ: 26.40 之前的客户端以史莱姆为硫方怪的基础实体（见 LegacyEntityIdentifiers），读不到上面的实体属性；以主手有无物品判断时，
+        // 不装方块的硫方怪的内层时有时无。改以标记变种告知资源包中的客户端实体：0 没有、1 装着方块、2 装着 TNT。
+        this.metadata.put(EntityDataTypes.MARK_VARIANT, stack.isEmpty() ? 0 : stack.asItem() == Items.TNT ? 2 : 1);
+        this.updateBedrockMetadata();
     }
 
     @Override
