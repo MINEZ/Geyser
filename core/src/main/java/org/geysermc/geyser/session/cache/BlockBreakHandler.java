@@ -388,6 +388,13 @@ public class BlockBreakHandler {
                 BlockUtils.restoreCorrectBlock(session, position, state);
             }
 
+            // MINEZ：按 Java 版的规则这一刻毫无进展（例如 CraftEngine 的自定义方块：CE 把玩家的方块破坏速度设为 0，由服务器计算进度并以
+            // ClientboundBlockDestructionPacket 发出裂纹阶段，见 JavaBlockDestructionTranslator），不再发裂纹的速度，否则每一刻都把服务器
+            // 发来的裂纹速度压回 0，基岩版挖这些方块时看不到裂纹（2026-11-19 实测）。
+            if (newProgress <= 0F) {
+                return;
+            }
+
             // Update the break time in the event that player conditions changed (jumping, effects applied)
             LevelEventPacket updateBreak = new LevelEventPacket();
             updateBreak.setType(LevelEvent.BLOCK_UPDATE_BREAK);

@@ -38,6 +38,8 @@ import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.geysermc.geyser.api.block.custom.CustomBlockData;
+import org.geysermc.geyser.item.BlockIconItems;
+import org.geysermc.geyser.item.GeyserCustomMappingData;
 import org.geysermc.geyser.entity.attribute.GeyserAttributeType;
 import org.geysermc.geyser.inventory.GeyserItemStack;
 import org.geysermc.geyser.inventory.item.Potion;
@@ -597,13 +599,20 @@ public final class ItemTranslator {
             }
         }
 
-        ItemDefinition definition = CustomItemTranslator.getCustomItem(session, itemStack.getAmount(), itemStack.getAllComponents(), mapping);
-        if (definition == null) {
+        GeyserCustomMappingData customMapping = CustomItemTranslator.getCustomMapping(session, itemStack.getAmount(), itemStack.getAllComponents(), mapping);
+        if (customMapping == null) {
             // No custom item
             return itemDefinition;
-        } else {
-            return definition;
         }
+        // MINEZ：按方块绘制的物品换成方块的方块物品，见 BlockIconItems
+        CustomBlockData blockIcon = BlockIconItems.block(customMapping.definition());
+        if (blockIcon != null) {
+            ItemDefinition blockItem = session.getItemMappings().getCustomBlockItemDefinitions().get(blockIcon);
+            if (blockItem != null) {
+                return blockItem;
+            }
+        }
+        return customMapping.itemDefinition();
     }
 
     /**
@@ -670,9 +679,15 @@ public final class ItemTranslator {
      * Translates the custom model data of an item
      */
     public static void translateCustomItem(GeyserSession session, int stackSize, DataComponents components, ItemData.Builder builder, ItemMapping mapping) {
-        ItemDefinition definition = CustomItemTranslator.getCustomItem(session, stackSize, components, mapping);
-        if (definition != null) {
-            builder.definition(definition);
+        GeyserCustomMappingData customMapping = CustomItemTranslator.getCustomMapping(session, stackSize, components, mapping);
+        if (customMapping != null) {
+            // MINEZ：按方块绘制的物品换成方块的方块物品（与自定义头颅相同），手上、物品栏与掉落物都由客户端按方块画出，见 BlockIconItems
+            CustomBlockData blockIcon = BlockIconItems.block(customMapping.definition());
+            if (blockIcon != null && session.getItemMappings().getCustomBlockItemDefinitions().containsKey(blockIcon)) {
+                translateCustomBlock(blockIcon, session, builder);
+                return;
+            }
+            builder.definition(customMapping.itemDefinition());
             builder.blockDefinition(null);
         }
     }

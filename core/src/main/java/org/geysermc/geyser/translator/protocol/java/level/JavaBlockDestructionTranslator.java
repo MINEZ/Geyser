@@ -61,10 +61,11 @@ public class JavaBlockDestructionTranslator extends PacketTranslator<Clientbound
             int ticksSince = (int) (session.getClientTicks() - lastUpdate.first());
             int stagesSince = packet.getStage().compareTo(lastUpdate.second());
             int ticksPerStage = stagesSince == 0 ? ticksSince : ticksSince / stagesSince;
-            int remainingStages = 10 - packet.getStage().ordinal();
 
             levelEventPacket.setType(LevelEvent.BLOCK_UPDATE_BREAK);
-            levelEventPacket.setData(65535 / Math.max(remainingStages, 1) * Math.max(ticksPerStage, 1));
+            // MINEZ：数据为每刻的进度（65535 为整块），与 BlockBreakHandler 的 65535 / 总刻数相同：十个阶段共 10 × 每阶段刻数。
+            // 上游写作 65535 / 剩余阶段数 × 每阶段刻数，每阶段的刻数越多反而越快，裂纹在第二个阶段包后几刻内就满了。
+            levelEventPacket.setData(65535 / (10 * Math.max(ticksPerStage, 1)));
         }
 
         session.getBlockBreakHandler().getDestructionStageCache().put(packet.getPosition(), Pair.of(session.getClientTicks(), packet.getStage()));

@@ -58,6 +58,16 @@ public final class CustomItemTranslator {
      */
     @Nullable
     public static ItemDefinition getCustomItem(GeyserSession session, int stackSize, DataComponents components, ItemMapping mapping) {
+        GeyserCustomMappingData customMapping = getCustomMapping(session, stackSize, components, mapping);
+        return customMapping == null ? null : customMapping.itemDefinition();
+    }
+
+    /**
+     * MINEZ：与 {@link #getCustomItem} 相同，但给出命中的整个映射（含物品定义），供按方块绘制的物品使用，见
+     * {@link org.geysermc.geyser.item.BlockIconItems}。
+     */
+    @Nullable
+    public static GeyserCustomMappingData getCustomMapping(GeyserSession session, int stackSize, DataComponents components, ItemMapping mapping) {
         if (components == null) {
             return null;
         }
@@ -96,7 +106,7 @@ public final class CustomItemTranslator {
                 boolean value = calculatedPredicates.computeIfAbsent(predicate, x -> predicate.test(context));
                 if (value) {
                     if (needsOnlyOneMatch) {
-                        return customMapping.itemDefinition();
+                        return customMapping;
                     }
                 } else {
                     allMatch = false;
@@ -107,7 +117,7 @@ public final class CustomItemTranslator {
                 }
             }
             if (allMatch) {
-                return customMapping.itemDefinition();
+                return customMapping;
             }
         }
         return null;
