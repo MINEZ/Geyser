@@ -69,6 +69,7 @@ import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponen
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.ToolData;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundAttackPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundPlayerActionPacket;
+import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundPunchPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.player.ServerboundUseItemOnPacket;
 
 import java.util.HashSet;
@@ -342,7 +343,11 @@ public class BlockBreakHandler {
             LevelEventPacket startBreak = new LevelEventPacket();
             startBreak.setType(LevelEvent.BLOCK_START_BREAK);
             startBreak.setPosition(position.toFloat());
-            startBreak.setData((int) (65535 / BlockUtils.reciprocal(breakProgress)));
+            // MINEZ：有自定义覆盖的方块（例如 CraftEngine 的自定义方块，Java 版看来是借用的原版方块状态）按原版规则算出的速度不可信：
+            // CE 在收到开始挖掘后才把玩家的方块破坏速度设为 0，这一刻用的仍是原来的属性，按借用的原版方块（棕色蘑菇方块，硬度 0.2）
+            // 算出的裂纹几刻就满了。这里先不给速度，由下一刻按当时的属性发出（原版方块的覆盖，例如 Geyser 内置的蘑菇方块，从下一刻起照常），
+            // 或由服务器发来的裂纹阶段驱动（见 JavaBlockDestructionTranslator）。
+            startBreak.setData(blockStateOverride != null ? 0 : (int) (65535 / BlockUtils.reciprocal(breakProgress)));
             session.sendUpstreamPacket(startBreak);
 
             BlockUtils.spawnBlockBreakParticles(session, blockFace, position, state);
@@ -367,6 +372,7 @@ public class BlockBreakHandler {
         // As of 1.21.100 it seems like this is in fact NOT done by BDS!
         if (currentBlockState != null && Objects.equals(position, currentBlockPos) && sameItemStack()) {
             this.currentBlockFace = blockFace;
+            swingWhileDestroying();
 
             final float newProgress = calculateBreakProgress(state, position, session.getPlayerInventory().getItemInHand());
             this.currentProgress = this.currentProgress + newProgress;
@@ -423,6 +429,20 @@ public class BlockBreakHandler {
 
             handleStartBreak(position, state, blockFace, tick);
         }
+    }
+
+    /**
+     * MINEZ：持续挖掘时每刻向服务器挥一次手，与 Java 版客户端相同（Minecraft#continueAttack 在 continueDestroyBlock 成立时每刻调用
+     * player.swing，每次都发出挥手包）。基岩版只在播放挥手动画时发 Animate，Geyser 据此转发的挥手每个动画周期只有一次；
+     * CraftEngine 只在有挥手的那一刻推进自定义方块的挖掘进度（BukkitServerPlayer#hasSwingHand），基岩版玩家因此挖得比 Java 版慢得多
+     * （2026-11-19 实测）。与 BedrockAnimateTranslator 相同，一刻至多一次（armAnimationTicks 为 0 即这一刻已经挥过）。
+     */
+    private void swingWhileDestroying() {
+        if (session.isInstabuild() || session.getGameMode() == GameMode.SPECTATOR || session.getArmAnimationTicks() == 0) {
+            return;
+        }
+        session.sendDownstreamGamePacket(ServerboundPunchPacket.INSTANCE);
+        session.activateArmAnimationTicking();
     }
 
     protected void handlePredictDestroy(Vector3i position, BlockState state, Direction blockFace, long tick) {
