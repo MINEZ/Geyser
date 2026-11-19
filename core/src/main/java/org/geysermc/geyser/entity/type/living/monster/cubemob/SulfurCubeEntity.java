@@ -40,7 +40,7 @@ import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.entity.VanillaEntities;
 import org.geysermc.geyser.entity.properties.type.StringEnumProperty;
 import org.geysermc.geyser.entity.spawn.EntitySpawnContext;
-import org.geysermc.geyser.entity.type.FallingBlockEntity;
+import org.geysermc.geyser.entity.type.MinecartEntity;
 import org.geysermc.geyser.inventory.GeyserItemStack;
 import org.geysermc.geyser.item.type.BlockItem;
 import org.geysermc.geyser.item.type.Item;
@@ -77,18 +77,29 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
     private static final float CONTAINED_BLOCK_Y = 0.064f;
     private static final float CONTAINED_BLOCK_Y_INVISIBLE = 0.002f;
     /**
-     * 骑乘中的下落方块，基岩版画在座位偏移之下这么多（与 EntityUtils#updateMountOffset 中下落方块乘客的修正相同）。
+     * 显示体内方块的矿车：标记变种为这个值时，MINEZ 资源包中矿车的渲染控制器不画车身（见 MINEZ/CraftengineResources 的
+     * vanilla/overrides/minecart）。矿车把显示的方块缩到 0.75 倍，矿车放大 4/3 倍后方块为 1×1×1。
      */
-    private static final float FALLING_BLOCK_SEAT_OFFSET = 0.995f;
+    private static final int HIDDEN_MINECART_MARK_VARIANT = 7351;
+    private static final float CONTAINED_BLOCK_MINECART_SCALE = 4f / 3f;
+    private static final int CONTAINED_BLOCK_DISPLAY_OFFSET = 8;
+    /**
+     * 按上面的放大与显示偏移，基岩版矿车显示的方块的底面比矿车（骑乘时即座位）高这么多；矿车按硫方怪身体的朝向转动时，
+     * 方块的朝向与 Java 版硫方怪体内的方块相差的角度（照 Java 版 AbstractMinecartRenderer 推算，以实测校正）。
+     */
+    private static final float MINECART_BLOCK_BOTTOM = 0.033f;
+    private static final float MINECART_ROTATION_OFFSET = -90f;
 
     private int previousFuseTickTime = -1;
     private int fuseTickTime = -1;
     /**
      * MINEZ: 网易 1.21.130 没有硫方怪的实体类，客户端中它只是个不画装备的通用实体，主手物品（吸收的方块）不显示。
-     * 26.40 之前的客户端改由这个下落方块实体显示体内的方块：不受重力、不碰撞、没有碰撞箱，作为乘客骑在硫方怪上，
-     * 由客户端按座位放在硫方怪体内并随它移动、转动（b1305.10 以移动包跟随，NO_AI 的下落方块不理会移动包，留在原地）。
+     * 26.40 之前的客户端改由这个矿车显示体内的方块：车身不画，只画矿车显示的方块；不受重力、不碰撞、没有碰撞箱，
+     * 作为乘客骑在硫方怪上，由客户端按座位放在硫方怪体内并随它移动，朝向锁定为硫方怪身体的朝向。
+     * （b1305.10 用不受重力的下落方块并以移动包跟随，下落方块不理会移动包；b1305.11 让下落方块骑上硫方怪，跟随了，
+     * 但基岩版的下落方块不按朝向绘制，硫方怪转身时方块不转。）
      */
-    private @Nullable FallingBlockEntity containedBlock;
+    private @Nullable MinecartEntity containedBlock;
 
     public SulfurCubeEntity(EntitySpawnContext context) {
         super(context);
@@ -151,7 +162,11 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
         if (state == null) {
             return;
         }
-        containedBlock = new FallingBlockEntity(EntitySpawnContext.inherited(session, VanillaEntities.FALLING_BLOCK, this, position), state.javaId());
+        containedBlock = new MinecartEntity(EntitySpawnContext.inherited(session, VanillaEntities.MINECART, this, position));
+        containedBlock.getMetadata().put(EntityDataTypes.CUSTOM_DISPLAY, (byte) 1);
+        containedBlock.getMetadata().put(EntityDataTypes.DISPLAY_BLOCK_STATE, session.getBlockMappings().getBedrockBlock(state.javaId()));
+        containedBlock.getMetadata().put(EntityDataTypes.DISPLAY_OFFSET, CONTAINED_BLOCK_DISPLAY_OFFSET);
+        containedBlock.getMetadata().put(EntityDataTypes.MARK_VARIANT, HIDDEN_MINECART_MARK_VARIANT);
         containedBlock.setFlag(EntityFlag.HAS_GRAVITY, false);
         containedBlock.setFlag(EntityFlag.NO_AI, true);
         containedBlock.setFlag(EntityFlag.HAS_COLLISION, false);
@@ -173,14 +188,14 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
         }
         float entityScale = scale * attributeScale;
         float y = getFlag(EntityFlag.INVISIBLE) ? CONTAINED_BLOCK_Y_INVISIBLE : CONTAINED_BLOCK_Y;
-        containedBlock.setScale(entityScale);
+        containedBlock.setScale(CONTAINED_BLOCK_MINECART_SCALE * entityScale);
         containedBlock.setFlag(EntityFlag.RIDING, true);
-        containedBlock.setRiderSeatPosition(Vector3f.from(0, y * entityScale + FALLING_BLOCK_SEAT_OFFSET, 0));
-        // 朝向锁定为硫方怪身体的朝向（与 ItemDisplayEntity 骑在载具上时相同）
+        containedBlock.setRiderSeatPosition(Vector3f.from(0, (y - MINECART_BLOCK_BOTTOM) * entityScale, 0));
+        // 朝向锁定为硫方怪身体的朝向（与 ItemDisplayEntity 骑在载具上时相同），另加矿车画方块时的转角差
         containedBlock.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION, true);
         containedBlock.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION_DEGREES, 0f);
         containedBlock.getMetadata().put(EntityDataTypes.SEAT_HAS_ROTATION, true);
-        containedBlock.getMetadata().put(EntityDataTypes.SEAT_ROTATION_OFFSET_DEGREES, 0f);
+        containedBlock.getMetadata().put(EntityDataTypes.SEAT_ROTATION_OFFSET_DEGREES, MINECART_ROTATION_OFFSET);
     }
 
     private void spawnContainedBlock() {
