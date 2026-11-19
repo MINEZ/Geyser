@@ -70,7 +70,7 @@ public final class SoundUtils {
      * @return a Bedrock sound
      */
     public static String translatePlaySound(String javaIdentifier) {
-        String soundIdentifier = removeMinecraftNamespace(javaIdentifier);
+        String soundIdentifier = withoutCraftEngineReplacement(removeMinecraftNamespace(javaIdentifier));
         SoundMapping soundMapping = Registries.SOUNDS.get(soundIdentifier);
         if (soundMapping == null || soundMapping.playsound() == null) {
             // no mapping
@@ -78,6 +78,20 @@ public final class SoundUtils {
             return soundIdentifier;
         }
         return soundMapping.playsound();
+    }
+
+    /**
+     * MINEZ：CraftEngine 的方块声音系统把它借用的原版方块（例如音符盒、蘑菇方块，均为木质）所属材质的声音换成 replaced.&lt;原名&gt;
+     * （例如 replaced.block.wood.place），由它生成的 Java 版资源包把这些名字指回原版的声音。基岩版没有这些名字，按自定义声音发出时
+     * 什么也听不到：放置、破坏、敲击任何木质方块都没有声音（2026-11-20 测试服日志）。没有对应映射时去掉前缀，按原版的声音播放。
+     */
+    static final String CRAFT_ENGINE_REPLACED_PREFIX = "replaced.";
+
+    static String withoutCraftEngineReplacement(String identifier) {
+        if (identifier.startsWith(CRAFT_ENGINE_REPLACED_PREFIX) && Registries.SOUNDS.get(identifier) == null) {
+            return identifier.substring(CRAFT_ENGINE_REPLACED_PREFIX.length());
+        }
+        return identifier;
     }
 
     private static String removeMinecraftNamespace(String identifier) {
@@ -106,7 +120,7 @@ public final class SoundUtils {
      * @param pitch the pitch
      */
     public static void playSound(GeyserSession session, Sound javaSound, Vector3f position, float volume, float pitch) {
-        String soundIdentifier = removeMinecraftNamespace(javaSound.getName());
+        String soundIdentifier = withoutCraftEngineReplacement(removeMinecraftNamespace(javaSound.getName()));
 
         SoundMapping soundMapping = Registries.SOUNDS.get(soundIdentifier);
         if (!GameProtocol.is26_40orHigher(session.protocolVersion())) {
