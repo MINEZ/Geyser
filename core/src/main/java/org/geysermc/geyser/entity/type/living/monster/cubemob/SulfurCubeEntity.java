@@ -31,9 +31,11 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityLinkData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MobEquipmentPacket;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityLinkPacket;
 import org.geysermc.geyser.api.util.Identifier;
 import org.geysermc.geyser.entity.VanillaEntities;
 import org.geysermc.geyser.entity.properties.type.StringEnumProperty;
@@ -74,12 +76,17 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
      */
     private static final float CONTAINED_BLOCK_Y = 0.064f;
     private static final float CONTAINED_BLOCK_Y_INVISIBLE = 0.002f;
+    /**
+     * 骑乘中的下落方块，基岩版画在座位偏移之下这么多（与 EntityUtils#updateMountOffset 中下落方块乘客的修正相同）。
+     */
+    private static final float FALLING_BLOCK_SEAT_OFFSET = 0.995f;
 
     private int previousFuseTickTime = -1;
     private int fuseTickTime = -1;
     /**
      * MINEZ: 网易 1.21.130 没有硫方怪的实体类，客户端中它只是个不画装备的通用实体，主手物品（吸收的方块）不显示。
-     * 26.40 之前的客户端改由这个跟随硫方怪的下落方块实体显示体内的方块：不受重力、不碰撞、没有碰撞箱。
+     * 26.40 之前的客户端改由这个下落方块实体显示体内的方块：不受重力、不碰撞、没有碰撞箱，作为乘客骑在硫方怪上，
+     * 由客户端按座位放在硫方怪体内并随它移动、转动（b1305.10 以移动包跟随，NO_AI 的下落方块不理会移动包，留在原地）。
      */
     private @Nullable FallingBlockEntity containedBlock;
 
@@ -144,19 +151,47 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
         if (state == null) {
             return;
         }
-        containedBlock = new FallingBlockEntity(EntitySpawnContext.inherited(session, VanillaEntities.FALLING_BLOCK, this, containedBlockPosition()), state.javaId());
+        containedBlock = new FallingBlockEntity(EntitySpawnContext.inherited(session, VanillaEntities.FALLING_BLOCK, this, position), state.javaId());
         containedBlock.setFlag(EntityFlag.HAS_GRAVITY, false);
         containedBlock.setFlag(EntityFlag.NO_AI, true);
         containedBlock.setFlag(EntityFlag.HAS_COLLISION, false);
         containedBlock.getMetadata().put(EntityDataTypes.WIDTH, 0.0f);
         containedBlock.getMetadata().put(EntityDataTypes.HEIGHT, 0.0f);
         containedBlock.getMetadata().put(EntityDataTypes.HITBOX, NbtMap.EMPTY);
-        containedBlock.setScale(scale * attributeScale);
-        containedBlock.setYaw(yaw);
-        containedBlock.setHeadYaw(yaw);
+        putContainedBlockSeat();
         if (isValid()) {
-            containedBlock.spawnEntity();
+            spawnContainedBlock();
         }
+    }
+
+    /**
+     * 骑乘、座位与缩放的实体数据。实体数据发出后即清空，改动时须整体再写一次。
+     */
+    private void putContainedBlockSeat() {
+        if (containedBlock == null) {
+            return;
+        }
+        float entityScale = scale * attributeScale;
+        float y = getFlag(EntityFlag.INVISIBLE) ? CONTAINED_BLOCK_Y_INVISIBLE : CONTAINED_BLOCK_Y;
+        containedBlock.setScale(entityScale);
+        containedBlock.setFlag(EntityFlag.RIDING, true);
+        containedBlock.setRiderSeatPosition(Vector3f.from(0, y * entityScale + FALLING_BLOCK_SEAT_OFFSET, 0));
+        // 朝向锁定为硫方怪身体的朝向（与 ItemDisplayEntity 骑在载具上时相同）
+        containedBlock.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION, true);
+        containedBlock.getMetadata().put(EntityDataTypes.SEAT_LOCK_RIDER_ROTATION_DEGREES, 0f);
+        containedBlock.getMetadata().put(EntityDataTypes.SEAT_HAS_ROTATION, true);
+        containedBlock.getMetadata().put(EntityDataTypes.SEAT_ROTATION_OFFSET_DEGREES, 0f);
+    }
+
+    private void spawnContainedBlock() {
+        if (containedBlock == null || containedBlock.isValid()) {
+            return;
+        }
+        containedBlock.setPosition(position);
+        containedBlock.spawnEntity();
+        SetEntityLinkPacket linkPacket = new SetEntityLinkPacket();
+        linkPacket.setEntityLink(new EntityLinkData(geyserId, containedBlock.geyserId(), EntityLinkData.Type.PASSENGER, false, false, 0f));
+        session.sendUpstreamPacket(linkPacket);
     }
 
     /**
@@ -196,24 +231,17 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
         return property.valueOf(value).map(v -> state.withValue(property, v)).orElse(state);
     }
 
-    private Vector3f containedBlockPosition() {
-        float y = getFlag(EntityFlag.INVISIBLE) ? CONTAINED_BLOCK_Y_INVISIBLE : CONTAINED_BLOCK_Y;
-        return position.up(y * scale * attributeScale);
-    }
-
-    private void moveContainedBlock(boolean teleported) {
+    private void updateContainedBlockSeat() {
         if (containedBlock != null && containedBlock.isValid()) {
-            containedBlock.moveAbsoluteRaw(containedBlockPosition(), yaw, 0, yaw, onGround, teleported);
+            putContainedBlockSeat();
+            containedBlock.updateBedrockMetadata();
         }
     }
 
     @Override
     public void spawnEntity() {
         super.spawnEntity();
-        if (containedBlock != null && !containedBlock.isValid()) {
-            containedBlock.setPosition(containedBlockPosition());
-            containedBlock.spawnEntity();
-        }
+        spawnContainedBlock();
     }
 
     @Override
@@ -225,33 +253,15 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
     }
 
     @Override
-    public void moveRelativeRaw(double relX, double relY, double relZ, float yaw, float pitch, float headYaw, boolean isOnGround) {
-        super.moveRelativeRaw(relX, relY, relZ, yaw, pitch, headYaw, isOnGround);
-        moveContainedBlock(false);
-    }
-
-    @Override
-    public void moveAbsoluteRaw(Vector3f position, float yaw, float pitch, float headYaw, boolean isOnGround, boolean teleported) {
-        super.moveAbsoluteRaw(position, yaw, pitch, headYaw, isOnGround, teleported);
-        moveContainedBlock(teleported);
-    }
-
-    @Override
     protected void setInvisible(boolean value) {
         super.setInvisible(value);
-        moveContainedBlock(true);
+        updateContainedBlockSeat();
     }
 
     @Override
     protected void applyScale() {
         super.applyScale();
-        if (containedBlock != null) {
-            containedBlock.setScale(scale * attributeScale);
-            if (containedBlock.isValid()) {
-                containedBlock.updateBedrockMetadata();
-            }
-            moveContainedBlock(true);
-        }
+        updateContainedBlockSeat();
     }
 
     @Override
