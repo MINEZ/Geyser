@@ -27,6 +27,7 @@ package org.geysermc.geyser.entity.type.living.monster.cubemob;
 
 import org.cloudburstmc.protocol.bedrock.data.SoundEvent;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerId;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MobEquipmentPacket;
@@ -65,6 +66,7 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
      * MINEZ: 体内装着的东西：0 没有、1 方块、2 TNT（见 legacyMarkVariant）。
      */
     private int contents = 0;
+    private boolean baby;
 
     public SulfurCubeEntity(EntitySpawnContext context) {
         super(context);
@@ -166,8 +168,17 @@ public class SulfurCubeEntity extends AbstractCubeEntity {
     @Override
     public void setBaby(BooleanEntityMetadata entityMetadata) {
         super.setBaby(entityMetadata);
-        this.metadata.put(EntityDataTypes.VARIANT, entityMetadata.getPrimitiveValue() ? BABY_VARIANT : ADULT_VARIANT);
+        baby = entityMetadata.getPrimitiveValue();
+        this.metadata.put(EntityDataTypes.VARIANT, baby ? BABY_VARIANT : ADULT_VARIANT);
+        // MINEZ: 不发幼年标志：网易 1.21.130 对幼年生物的手持物品另有处理，幼年硫方怪体内的方块被画到上方约一格处。
+        // MINEZ 资源包的客户端实体改按变种（1 为幼年）选幼年的几何体与贴图。
+        setFlag(EntityFlag.BABY, false);
         putLegacyScale();
+    }
+
+    @Override
+    public boolean isBaby() {
+        return baby;
     }
 
     @Override
