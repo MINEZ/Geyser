@@ -477,7 +477,9 @@ public class ItemRegistryPopulator {
                                 int customProtocolId = nextFreeBedrockId++;
                                 mappingItem = mappingItem.withBedrockData(customProtocolId);
                                 bedrockIdentifier = customBlockData.identifier();
-                                definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.DATA_DRIVEN, true, NbtMap.EMPTY);
+                                // 与下文登记自定义方块的方块物品相同：不按组件定义，客户端按方块画出。b1305.19~22 照上游这条分支写成按组件定义、
+                                // 组件为空，客户端不知道它对应哪个方块，物品栏与手上都是透明的（2026-11-21 测试服）。
+                                definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.NONE, false, null);
                                 registry.put(customProtocolId, definition);
                                 customBlockItemDefinitions.put(customBlockData, definition);
                                 customIdMappings.put(customProtocolId, bedrockIdentifier);

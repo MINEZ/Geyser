@@ -67,10 +67,12 @@ import org.geysermc.geyser.level.block.type.ButtonBlock;
 import org.geysermc.geyser.level.block.type.CauldronBlock;
 import org.geysermc.geyser.level.block.type.DoorBlock;
 import org.geysermc.geyser.level.block.type.FlowerPotBlock;
+import org.geysermc.geyser.level.block.type.TrapDoorBlock;
 import org.geysermc.geyser.level.physics.Direction;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.cache.tags.BlockTag;
 import org.geysermc.geyser.skin.FakeHeadProvider;
 import org.geysermc.geyser.translator.item.ItemTranslator;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
@@ -285,6 +287,21 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
                          */
 
                         BlockState blockState = session.getGeyser().getWorldManager().blockAt(session, packet.getBlockPosition());
+
+                        // MINEZ：按住使用键时，基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如杨木门）不断发来使用，
+                        // 门一开一关、按钮连按。门、活板门、栅栏门与按钮在同一位置的使用，与上一次收到的间隔不到 TOGGLE_REPEAT_MILLIS
+                        // 时视为按住、不再转发，松开后再按才算新的一次（与基岩版原版的门相同；潜行时不算交互，照常放置）。
+                        if (!session.isSneaking() && isToggleBlock(session, blockState)) {
+                            long now = System.currentTimeMillis();
+                            boolean held = packetBlockPosition.equals(session.getLastToggleBlockPosition())
+                                && now - session.getLastToggleTime() < TOGGLE_REPEAT_MILLIS;
+                            session.setLastToggleBlockPosition(packetBlockPosition);
+                            session.setLastToggleTime(now);
+                            if (held) {
+                                BlockUtils.restoreCorrectBlock(session, blockPos, packet.getHotbarSlot());
+                                break;
+                            }
+                        }
 
                         // Clear any pending bed interactions as we are interacting with a new block now - see the bed check below as well
                         session.getPlayerEntity().setPendingBedInteraction(null);
@@ -580,6 +597,17 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
                 }
             }
         }
+    }
+
+    /**
+     * MINEZ：见上文按住使用键的处理。
+     */
+    private static final long TOGGLE_REPEAT_MILLIS = 350;
+
+    private static boolean isToggleBlock(GeyserSession session, BlockState state) {
+        Block block = state.block();
+        return block instanceof DoorBlock || block instanceof TrapDoorBlock || block instanceof ButtonBlock
+            || block.is(session, BlockTag.FENCE_GATES);
     }
 
     public static boolean canInteractWithBlock(GeyserSession session, Vector3f playerPosition, Vector3i packetBlockPosition) {
