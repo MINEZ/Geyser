@@ -59,6 +59,7 @@ import org.geysermc.geyser.util.MinecraftKey;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -123,6 +124,13 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
         // If this is true, we will only register the states the user has specified rather than all the possible block states
         boolean onlyOverrideStates = object.has("only_override_states") && object.get("only_override_states").getAsBoolean();
 
+        // MINEZ：不影响外观与形状的 Java 版属性（例如含水、充能）。只差这些属性的 Java 版状态共用一个基岩版状态（取其中第一个的组件），
+        // 基岩版的方块不带这些属性，客户端的方块状态随之减少。MINEZ 资源包的生成工具为原版的非完整新方块写出。
+        Set<String> ignoredProperties = new HashSet<>();
+        if (object.get("ignored_properties") instanceof JsonArray ignored) {
+            ignored.forEach(property -> ignoredProperties.add(property.getAsString()));
+        }
+
         // Create the data for the overall block
         CustomBlockData.Builder customBlockDataBuilder = new GeyserCustomBlockData.Builder()
             .name(name)
@@ -183,20 +191,25 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
         String firstState = componentsMap.keySet().iterator().next();
         customBlockDataBuilder.components(createCustomBlockComponentsMapping(object, firstState, name));
 
-        return createCustomBlockMapping(customBlockDataBuilder, componentsMap, identifier, !onlyOverrideStates);
+        return createCustomBlockMapping(customBlockDataBuilder, componentsMap, identifier, !onlyOverrideStates, ignoredProperties);
     }
 
-    private CustomBlockMapping createCustomBlockMapping(CustomBlockData.Builder customBlockDataBuilder, Map<String, CustomBlockComponents> componentsMap, String identifier, boolean overrideItem) {
+    private CustomBlockMapping createCustomBlockMapping(CustomBlockData.Builder customBlockDataBuilder, Map<String, CustomBlockComponents> componentsMap, String identifier, boolean overrideItem,
+                                                        Set<String> ignoredProperties) {
         Map<String, LinkedHashSet<String>> valuesMap = new Object2ObjectOpenHashMap<>();
 
         List<CustomBlockPermutation> permutations = new ArrayList<>();
         Map<String, Function<CustomBlockState.Builder, CustomBlockState>> blockStateBuilders = new Object2ObjectOpenHashMap<>();
+        // MINEZ：去掉 ignoredProperties 后的条件 → 这个基岩版状态的 builder，见 readBlockMappingEntry
+        Map<String, Function<CustomBlockState.Builder, CustomBlockState>> buildersByCondition = new Object2ObjectOpenHashMap<>();
 
         // For each Java block state, extract the property values, create a CustomBlockPermutation,
         // and a CustomBlockState builder
         for (Map.Entry<String, CustomBlockComponents> entry : componentsMap.entrySet()) {
             String state = entry.getKey();
-            String[] pairs = splitStateString(state);
+            String[] pairs = Arrays.stream(splitStateString(state))
+                .filter(pair -> !ignoredProperties.contains(pair.split("=")[0]))
+                .toArray(String[]::new);
 
             String[] conditions = new String[pairs.length];
             Function<CustomBlockState.Builder, CustomBlockState.Builder> blockStateBuilder = Function.identity();
@@ -213,8 +226,16 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
                 blockStateBuilder = blockStateBuilder.andThen(builder -> builder.stringProperty(property, value));
             }
 
-            permutations.add(new CustomBlockPermutation(entry.getValue(), String.join(" && ", conditions)));
-            blockStateBuilders.put(state, blockStateBuilder.andThen(CustomBlockState.Builder::build));
+            String condition = String.join(" && ", conditions);
+            Function<CustomBlockState.Builder, CustomBlockState> finalBuilder = buildersByCondition.get(condition);
+            if (finalBuilder == null) {
+                finalBuilder = blockStateBuilder.andThen(CustomBlockState.Builder::build);
+                buildersByCondition.put(condition, finalBuilder);
+                if (!condition.isEmpty()) {
+                    permutations.add(new CustomBlockPermutation(entry.getValue(), condition));
+                }
+            }
+            blockStateBuilders.put(state, finalBuilder);
         }
 
         valuesMap.forEach((key, value) -> customBlockDataBuilder.stringProperty(key, new ArrayList<>(value)));

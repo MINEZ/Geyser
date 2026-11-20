@@ -37,6 +37,7 @@ import org.cloudburstmc.nbt.NbtMap;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.geysermc.geyser.Constants;
 import org.geysermc.geyser.api.block.custom.CustomBlockData;
 import org.geysermc.geyser.item.BlockIconItems;
 import org.geysermc.geyser.item.GeyserCustomMappingData;
@@ -225,9 +226,11 @@ public final class ItemTranslator {
 
         Rarity rarity = Rarity.fromId(components.getOrDefault(DataComponentTypes.RARITY, 0));
         String customName = getCustomName(session, customComponents, bedrockItem, rarity.getColor(), false, false);
-        if (customName == null && CustomItemTranslator.getCustomItem(session, count, components, bedrockItem) != null) {
+        if (customName == null && (CustomItemTranslator.getCustomItem(session, count, components, bedrockItem) != null
+            || bedrockItem.getBedrockIdentifier().startsWith(Constants.GEYSER_CUSTOM_NAMESPACE + ":"))) {
             // MINEZ：换成了自定义物品（例如应用了皮肤的钻石斧）、又没有自定义名称时，基岩版会显示自定义物品注册时的名称（映射文件中的
-            // display_name，默认为基岩版物品 ID）。Java 版显示的是原版物品的名称，这里同样写出它。
+            // display_name，默认为基岩版物品 ID）。Java 版显示的是原版物品的名称，这里同样写出它。换成了自定义方块的方块物品的原版物品
+            // （映射文件中 included_in_creative_inventory 的方块，例如 MINEZ 资源包的硫黄台阶）同样如此，否则显示为 minez_sulfur_slab。
             customName = ChatColor.RESET + ChatColor.ESCAPE + rarity.getColor()
                 + MinecraftLocale.getLocaleString(javaItem.translationKey(), session.locale());
         }

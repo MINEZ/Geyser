@@ -464,7 +464,36 @@ public class ItemRegistryPopulator {
                                 bedrockBlock = customBlockItemOverride;
                             }
 
-                            for (int j = 0; j < creativeItems.size(); j++) {
+                            if (customBlockItemOverride != null && customBlockData != null) {
+                                // MINEZ：换成自定义方块的方块物品时不再去找、替换创造物品栏中替身的那一格。上游只在找到替身的一格时才换，
+                                // 几个 Java 版物品共用一个替身时（例如 26.x 的硫黄、磨制硫黄、硫黄砖在 1.21.130 中都换成黄色混凝土），
+                                // 只有第一个换得成，其余仍显示替身，替身本身也从创造物品栏中消失。现在每个都直接换，创造物品栏中另加一格。
+                                if (palette.netease()) {
+                                    // MINEZ：跳过网易客户端自己的物品的编号，见 NeteasePalette。
+                                    nextFreeBedrockId = NeteasePalette.nextFreeItemId(nextFreeBedrockId);
+                                }
+                                int customProtocolId = nextFreeBedrockId++;
+                                mappingItem = mappingItem.withBedrockData(customProtocolId);
+                                bedrockIdentifier = customBlockData.identifier();
+                                definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.DATA_DRIVEN, true, NbtMap.EMPTY);
+                                registry.put(customProtocolId, definition);
+                                customBlockItemDefinitions.put(customBlockData, definition);
+                                customIdMappings.put(customProtocolId, bedrockIdentifier);
+
+                                CreativeItemCategory category = customBlockData.creativeCategory() == null ? CreativeItemCategory.UNDEFINED :
+                                    CreativeItemCategory.values()[customBlockData.creativeCategory().ordinal()];
+                                creativeItems.add(new CreativeItemData(ItemData.builder()
+                                    .definition(definition)
+                                    .blockDefinition(bedrockBlock)
+                                    .netId(creativeNetId.incrementAndGet())
+                                    .count(1)
+                                    .build(), creativeNetId.get(), getCreativeIndex(
+                                        customBlockData.creativeGroup(),
+                                        category,
+                                        creativeGroupIds,
+                                        lastCreativeGroupIds, creativeItemGroups)
+                                    ));
+                            } else for (int j = 0; j < creativeItems.size(); j++) {
                                 CreativeItemData itemData = creativeItems.get(j);
                                 if (itemData.getItem().getDefinition().equals(definition)) {
                                     if (itemData.getItem().getDamage() != 0) {

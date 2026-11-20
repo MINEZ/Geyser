@@ -35,6 +35,7 @@ import org.geysermc.geyser.entity.spawn.EntitySpawnContext;
 import org.geysermc.geyser.entity.vehicle.BoatVehicleComponent;
 import org.geysermc.geyser.entity.vehicle.ClientVehicle;
 import org.geysermc.geyser.entity.vehicle.VehicleComponent;
+import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.util.InteractionResult;
 import org.geysermc.geyser.util.InteractiveTag;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.metadata.type.BooleanEntityMetadata;
@@ -80,7 +81,7 @@ public class BoatEntity extends Entity implements Tickable, Leashable, ClientVeh
         setHeadYaw(headYaw + 90);
         this.variant = variant;
 
-        metadata.put(EntityDataTypes.VARIANT, variant.ordinal());
+        metadata.put(EntityDataTypes.VARIANT, bedrockVariant(variant, session.protocolVersion()));
 
         // Required to be able to move on land 1.16.200+ or apply gravity not in the water 1.16.100+
         metadata.put(EntityDataTypes.IS_BUOYANT, true);
@@ -239,6 +240,17 @@ public class BoatEntity extends Entity implements Tickable, Leashable, ClientVeh
     @Override
     public boolean canSimulateMovement() {
         return !session.isInClientPredictedVehicle() && !passengers.isEmpty() && this.session.getPlayerEntity() == passengers.getFirst();
+    }
+
+    /**
+     * MINEZ：发给客户端的船的变种。26.40 之前的客户端（网易 1.21.130）没有杨木船：船的样子由引擎按变种选贴图（实体定义中没有渲染控制器，
+     * 资源包加不进新的变种），变种 10 不认识，这里换成颜色最接近的苍白橡木船。
+     */
+    public static int bedrockVariant(BoatVariant variant, int protocolVersion) {
+        if (variant == BoatVariant.POPLAR && !GameProtocol.is26_40orHigher(protocolVersion)) {
+            return BoatVariant.PALE_OAK.ordinal();
+        }
+        return variant.ordinal();
     }
 
     /**

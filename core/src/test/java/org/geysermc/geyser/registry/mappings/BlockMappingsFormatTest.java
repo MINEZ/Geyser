@@ -327,4 +327,71 @@ class BlockMappingsFormatTest {
         }
         assertEquals(2, rotated);
     }
+
+    @Test
+    void readsShapedVanillaBlocks() throws Exception {
+        // MINEZ 资源包的生成工具写出的原版非完整新方块（节选）：各状态以 bone_visibility 显示自己的骨骼；ignored_properties 中的属性
+        // （含水）不进基岩版的方块，只差这个属性的 Java 版状态共用一个基岩版状态；included_in_creative_inventory 为真。
+        String[] states = {"type=bottom,waterlogged=false", "type=bottom,waterlogged=true", "type=double,waterlogged=false",
+            "type=double,waterlogged=true", "type=top,waterlogged=false", "type=top,waterlogged=true"};
+        StringBuilder overrides = new StringBuilder();
+        for (int i = 0; i < states.length; i++) {
+            BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.register("minecraft:sulfur_slab[" + states[i] + "]", 9200 + i);
+            String type = states[i].substring(5, states[i].indexOf(','));
+            overrides.append(i == 0 ? "" : ",").append("""
+                "%s": {
+                  "geometry": {"identifier": "geometry.minez_sulfur_slab",
+                    "bone_visibility": {"minez_0": %s, "minez_1": %s, "minez_2": %s}},
+                  "material_instances": {"*": {"texture": "minecraft_block_sulfur", "render_method": "opaque"}},
+                  "destructible_by_mining": 1.5,
+                  "light_dampening": %d
+                }""".formatted(states[i], type.equals("bottom"), type.equals("double"), type.equals("top"), type.equals("double") ? 15 : 0));
+        }
+        Path file = dir.resolve("minez_resources.json");
+        Files.writeString(file, """
+            {
+              "format_version": 2,
+              "blocks": {
+                "minecraft:sulfur_slab": {
+                  "name": "minez_sulfur_slab",
+                  "only_override_states": false,
+                  "included_in_creative_inventory": true,
+                  "ignored_properties": ["waterlogged"],
+                  "geometry": {"identifier": "geometry.minez_sulfur_slab",
+                    "bone_visibility": {"minez_0": true, "minez_1": false, "minez_2": false}},
+                  "material_instances": {"*": {"texture": "minecraft_block_sulfur", "render_method": "opaque"}},
+                  "destructible_by_mining": 1.5,
+                  "light_dampening": 0,
+                  "state_overrides": {%s}
+                }
+              }
+            }
+            """.formatted(overrides));
+        Map<String, CustomBlockMapping> read = new HashMap<>();
+        BlockRegistries.COLLISIONS.set(new ArrayList<>());
+        BlockRegistries.SHAPES.set(new ArrayList<>());
+        try {
+            org.geysermc.geyser.scoreboard.network.util.GeyserMockContext.mockContext(() ->
+                MappingsConfigReader.readCustomMappings(MappingsType.BLOCKS, file, read::put));
+        } finally {
+            BlockRegistries.COLLISIONS.set(null);
+            BlockRegistries.SHAPES.set(null);
+        }
+
+        CustomBlockMapping slab = read.get("minecraft:sulfur_slab");
+        assertTrue(slab.overrideItem());
+        assertTrue(slab.data().includedInCreativeInventory());
+        assertEquals(6, slab.states().size());
+        assertEquals(3, slab.data().permutations().size());
+        assertEquals(java.util.Set.of("type"), slab.data().properties().keySet());
+        assertEquals(slab.states().get("minecraft:sulfur_slab[type=top,waterlogged=false]").properties(),
+            slab.states().get("minecraft:sulfur_slab[type=top,waterlogged=true]").properties());
+        for (var permutation : slab.data().permutations()) {
+            assertFalse(permutation.condition().contains("waterlogged"));
+            var visibility = permutation.components().geometry().boneVisibility();
+            String type = permutation.condition().substring(permutation.condition().lastIndexOf("== '") + 4).replace("'", "");
+            assertEquals(type.equals("bottom") ? "1" : "0", visibility.get("minez_0"));
+            assertEquals(type.equals("double") ? 15 : 0, permutation.components().lightDampening());
+        }
+    }
 }
