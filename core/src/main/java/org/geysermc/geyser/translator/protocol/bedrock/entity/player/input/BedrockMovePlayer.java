@@ -263,9 +263,10 @@ final class BedrockMovePlayer {
     }
 
     /**
-     * MINEZ：落到会弹的方块上时弹起。Java 26.x 的床（含麦秆床）与层孔菇的 bounceRestitution 为 0.75（Entity#restituteMovementAfterCollisions：
-     * 下落速度大于重力、没有潜行时，竖直速度变为反向的 0.75 倍）；玩家的移动由客户端计算，基岩版中这两种是 MINEZ 资源包的自定义方块，
-     * 客户端不会弹，这里在玩家落地的那一刻按上一刻的速度给出弹起的速度。原版的床在基岩版中本来会弹，不在此列。
+     * MINEZ：落到层孔菇上时弹起。Java 26.x 的床与层孔菇的 bounceRestitution 为 0.75（Entity#restituteMovementAfterCollisions：
+     * 下落速度大于重力、没有潜行时，竖直速度变为反向的 0.75 倍）；玩家的移动由客户端计算，基岩版中层孔菇是 MINEZ 资源包的自定义方块，
+     * 客户端不会弹，这里在玩家落地的那一刻按上一刻的速度给出弹起的速度。原版的床在基岩版中本来会弹，不在此列；麦秆床
+     * （StrawBedBlock，Blocks.STRAW_BED 没有设 bounceRestitution）在 Java 版中不弹，b1305.24~26 误加了它。
      */
     private static final float GRAVITY = 0.08f;
     private static final float BOUNCE_RESTITUTION = 0.75f;
@@ -293,7 +294,7 @@ final class BedrockMovePlayer {
         int z = (int) Math.floor(feet.getZ());
         for (double dy : new double[] {0.01, 0.5000001}) {
             BlockState below = session.getGeyser().getWorldManager().blockAt(session, x, (int) Math.floor(feet.getY() - dy), z);
-            if (below.is(Blocks.SHELF_MUSHROOM) || below.is(Blocks.STRAW_BED)) {
+            if (below.is(Blocks.SHELF_MUSHROOM)) {
                 SetEntityMotionPacket motionPacket = new SetEntityMotionPacket();
                 motionPacket.setRuntimeEntityId(entity.geyserId());
                 motionPacket.setMotion(Vector3f.from(velocity.getX(), bounce, velocity.getZ()));
