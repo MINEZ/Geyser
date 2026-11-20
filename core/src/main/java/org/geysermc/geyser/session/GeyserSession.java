@@ -704,14 +704,6 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     private long lastInteractionTime;
 
     /**
-     * MINEZ：上一次对门、活板门、栅栏门、按钮的使用（位置与收到的时刻），见 BedrockInventoryTransactionTranslator。
-     */
-    @Setter
-    private Vector3i lastToggleBlockPosition = Vector3i.ZERO;
-    @Setter
-    private long lastToggleTime;
-
-    /**
      * Stores whether the player intended to place a bucket.
      */
     @Setter

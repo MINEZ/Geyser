@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.23-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.24-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -112,6 +112,11 @@ git submodule update --init --recursive
 | 由客户端产生的方块效果 | 行为 | 新增 |
 | 客户端没有的唱片音效 | 行为 | 修正 |
 | 按住使用键时门的连续开关 | 行为 | 修改 |
+| 方块物品另用的外观 | 配置 | 新增 |
+| 随机偏移方块的选取框 | 配置 | 新增 |
+| 实体列表中没有的坐垫 | 行为 | 修正 |
+| 对幼年生物使用金蒲公英 | 行为 | 修正 |
+| 落到层孔菇、麦秆床上弹起 | 行为 | 新增 |
 | Java 版独有的状态效果 | 行为 | 新增 |
 | `bedrock.netease` | 配置 | 新增 |
 | `bedrock.transport: raknet` | 配置 | 保留 |
@@ -212,7 +217,17 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 
 **Java 版独有的状态效果。** 发光、幸运、霉运、海豚的恩惠在基岩版中没有（`EffectType` 中基岩版的编号为 0），客户端收到后直接忽略，基岩版玩家看不到自己身上有这些效果；基岩版的效果栏由引擎画出，资源包与模组都加不进去，也没有可借用的编号。现在把自己身上的这些效果（等级、剩余时间、是否环境效果；Java 版不显示图标的除外）以 `JavaEffects` 事件整个发给 MINEZ 客户端模组（1.20.0 起），每次有变化时重发，模组就绪与切换维度后也重发，由模组在游戏画面中照 Java 版画出图标。效果的作用仍由服务器计算；海豚的恩惠影响游泳速度，玩家的移动由客户端计算，基岩版玩家仍没有加速（b1305.21 起）。
 
-**按住使用键时门的连续开关。** 基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如 26.x 的杨木门）按住使用键时不断发来使用，Java 版服务器照单全收，门一开一关、按钮连按，轻点也容易误触成两下。现在门、活板门、栅栏门与按钮在同一位置的使用，与上一次收到的间隔不到 350 毫秒时视为按住、不再转发，松开后再按才算新的一次，与基岩版原版的门相同；潜行时照常（b1305.23 起）。
+**按住使用键时门的连续开关。** 基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如 26.x 的杨木门）按住使用键时不断发来使用，Java 版服务器照单全收，门一开一关、按钮连按，轻点也容易误触成两下。基岩版的使用带有触发方式：玩家真正按下的为 `PLAYER_INPUT`，按住时客户端自己重复的为 `SIMULATION_TICK`。现在门、活板门、栅栏门与按钮只转发真正按下的那一次，按住不反复开关，快速连按照常开关，与基岩版原版的门相同；潜行时照常（b1305.24 起；b1305.23 按间隔判断，快速连按也被吞掉）。
+
+**方块物品另用的外观。** 自定义方块的方块物品默认按方块的默认状态画出，有的与 Java 版的物品模型不同：按钮的默认状态挂在墙上，Java 版的物品是平放的小方块；栅栏、墙的默认状态只有柱子。现在映射文件 `blocks` 中的一项可以写 `"item_visual": {"geometry": ..., "material_instances": ...}`（写法与 `state_overrides` 中的相同），生成方块数据时作为基岩版方块的 `minecraft:item_visual` 组件（字段 `geometryDescription`、`materialInstancesDescription`）加在基础组件上，客户端按它画方块物品（`BlockItemVisuals`，b1305.24 起）。
+
+**随机偏移方块的选取框。** Java 版有的方块按位置随机水平偏移（`OffsetType.XZ`，例如金蒲公英、硫黄尖锥），Geyser 的方块形状带着某一处的偏移，基岩版的自定义方块却画在中央，选取框偏在一边。`blocks` 中的一项写 `"center_shapes": true` 时，选取框与碰撞箱水平移到中央（b1305.24 起）。
+
+**实体列表中没有的坐垫。** Geyser 发给客户端的实体列表（`bedrock/entity_identifiers.dat`）中没有 26.x 的坐垫（`minecraft:cushion`），客户端不认得这种实体（日志“Entity id error, get entity type fail”），坐垫放下后看不见。现在各版本的实体列表末尾都补上它（`LegacyEntityIdentifiers#withMissing`），样子由 MINEZ 资源包补上（b1305.24 起）。
+
+**对幼年生物使用金蒲公英。** Java 26.x 对幼年生物使用金蒲公英暂停或恢复成长（粒子与声音由服务器发出）。基岩版客户端只在实体带交互提示时才对它发出交互，Geyser 此前没有这一项，基岩版玩家用金蒲公英点幼年生物什么也不发生。现在拿着金蒲公英对着可成长的幼年生物时显示“使用”，交互照常转发（b1305.24 起）。
+
+**落到层孔菇、麦秆床上弹起。** Java 26.x 的床（含麦秆床）与层孔菇会弹（`bounceRestitution` 0.75：下落速度大于重力、没有潜行时，竖直速度变为反向的 0.75 倍）。玩家的移动由客户端计算，这两种在基岩版中是 MINEZ 资源包的自定义方块，客户端不会弹。现在玩家落地的那一刻脚下是这两种方块时，按上一刻的速度给出弹起的速度（b1305.24 起）。
 
 **客户端没有的唱片音效。** 唱片机播放唱片时，26.50 之前的客户端收到的是唱片的 LevelSoundEvent（例如 `RECORD_BOUNCE`）。客户端协议中没有这个音效时（1.21.130 没有 26.x 的唱片 Bounce），它在发送前被丢弃，唱片机没有声音。现在改以 PlaySound 播放映射中的名字（`record.bounce`，由 MINEZ 资源包补上定义），与上游找不到音效时的写法相同（b1305.20 起）。
 

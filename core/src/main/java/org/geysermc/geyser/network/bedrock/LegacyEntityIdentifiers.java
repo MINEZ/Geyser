@@ -48,7 +48,13 @@ public final class LegacyEntityIdentifiers {
         "minecraft:sulfur_cube", "minecraft:slime"
     );
 
+    /**
+     * 实体列表中没有、要补上的实体，见 {@link #withMissing}。
+     */
+    static final List<String> MISSING = List.of("minecraft:cushion");
+
     private static NbtMap source;
+    private static NbtMap current;
     private static NbtMap legacy;
 
     private LegacyEntityIdentifiers() {
@@ -58,14 +64,39 @@ public final class LegacyEntityIdentifiers {
      * @return 给这个协议版本的客户端发的实体列表
      */
     public static synchronized NbtMap forProtocol(int protocolVersion, NbtMap identifiers) {
-        if (GameProtocol.is26_40orHigher(protocolVersion)) {
-            return identifiers;
-        }
         if (identifiers != source) {
-            legacy = withBases(identifiers);
+            current = withMissing(identifiers);
+            legacy = withBases(current);
             source = identifiers;
         }
-        return legacy;
+        return GameProtocol.is26_40orHigher(protocolVersion) ? current : legacy;
+    }
+
+    /**
+     * MINEZ：Geyser 会生成、实体列表（bedrock/entity_identifiers.dat）中却没有的实体，补在列表末尾（编号接着最大的往下排）。
+     * 客户端不认得列表中没有的实体（网易客户端日志“Entity id error, get entity type fail”），生成了也看不见：26.x 的坐垫
+     * （{@code minecraft:cushion}，样子由 MINEZ 资源包补上）就是这样，放下后看不见（2026-11-21 测试服）。
+     */
+    static NbtMap withMissing(NbtMap identifiers) {
+        List<NbtMap> idlist = new ArrayList<>(identifiers.getList("idlist", NbtType.COMPOUND));
+        int nextId = 0;
+        for (NbtMap entry : idlist) {
+            nextId = Math.max(nextId, entry.getInt("rid") + 1);
+        }
+        boolean changed = false;
+        for (String id : MISSING) {
+            if (idlist.stream().noneMatch(entry -> id.equals(entry.getString("id")))) {
+                idlist.add(NbtMap.builder()
+                    .putString("bid", "")
+                    .putBoolean("hasspawnegg", false)
+                    .putString("id", id)
+                    .putInt("rid", nextId++)
+                    .putBoolean("summonable", false)
+                    .build());
+                changed = true;
+            }
+        }
+        return changed ? identifiers.toBuilder().putList("idlist", NbtType.COMPOUND, idlist).build() : identifiers;
     }
 
     static NbtMap withBases(NbtMap identifiers) {

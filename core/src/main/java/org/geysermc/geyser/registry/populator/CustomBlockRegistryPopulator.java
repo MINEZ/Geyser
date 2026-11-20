@@ -51,6 +51,7 @@ import org.geysermc.geyser.api.block.custom.property.CustomBlockProperty;
 import org.geysermc.geyser.api.block.custom.property.PropertyType;
 import org.geysermc.geyser.api.event.lifecycle.GeyserDefineCustomBlocksEvent;
 import org.geysermc.geyser.api.util.CreativeCategory;
+import org.geysermc.geyser.level.block.BlockItemVisuals;
 import org.geysermc.geyser.level.block.Blocks;
 import org.geysermc.geyser.level.block.GeyserCustomBlockState;
 import org.geysermc.geyser.level.block.type.Block;
@@ -371,8 +372,23 @@ public class CustomBlockRegistryPopulator {
 
         CreativeCategory creativeCategory = customBlock.creativeCategory() != null ? customBlock.creativeCategory() : CreativeCategory.NONE;
         String creativeGroup = customBlock.creativeGroup() != null ? customBlock.creativeGroup() : "";
+        NbtMap baseComponents = CustomBlockRegistryPopulator.convertComponents(customBlock.components(), protocolVersion);
+        CustomBlockComponents itemVisual = BlockItemVisuals.get(customBlock.identifier());
+        if (itemVisual != null) {
+            // MINEZ：方块物品另用的外观（minecraft:item_visual），见 BlockItemVisuals。字段名照基岩版 BlockItemVisual 的
+            // geometryDescription 与 materialInstancesDescription，取值与方块的 minecraft:geometry、minecraft:material_instances 相同。
+            NbtMap visual = CustomBlockRegistryPopulator.convertComponents(itemVisual, protocolVersion);
+            if (visual.containsKey("minecraft:geometry") && visual.containsKey("minecraft:material_instances")) {
+                baseComponents = baseComponents.toBuilder()
+                    .putCompound("minecraft:item_visual", NbtMap.builder()
+                        .putCompound("geometryDescription", visual.getCompound("minecraft:geometry"))
+                        .putCompound("materialInstancesDescription", visual.getCompound("minecraft:material_instances"))
+                        .build())
+                    .build();
+            }
+        }
         NbtMapBuilder propertyTag = NbtMap.builder()
-                .putCompound("components", CustomBlockRegistryPopulator.convertComponents(customBlock.components(), protocolVersion))
+                .putCompound("components", baseComponents)
                 // this is required or the client will crash
                 // in the future, this can be used to replace items in the creative inventory
                 // this would require us to map https://wiki.bedrock.dev/documentation/creative-categories.html#for-blocks programatically

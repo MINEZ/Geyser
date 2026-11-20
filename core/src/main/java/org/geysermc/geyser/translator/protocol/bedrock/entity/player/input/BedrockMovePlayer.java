@@ -30,9 +30,12 @@ import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.protocol.bedrock.data.PlayerAuthInputData;
 import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityMotionPacket;
 import org.geysermc.geyser.entity.VanillaEntities;
 import org.geysermc.geyser.entity.type.Entity;
 import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+import org.geysermc.geyser.level.block.Blocks;
+import org.geysermc.geyser.level.block.type.BlockState;
 import org.geysermc.geyser.level.physics.BoundingBox;
 import org.geysermc.geyser.level.physics.CollisionResult;
 import org.geysermc.geyser.session.GeyserSession;
@@ -224,6 +227,9 @@ final class BedrockMovePlayer {
         }
 
         session.getInputCache().setLastHorizontalCollision(horizontalCollision);
+        if (isOnGround && !entity.isOnGround()) {
+            bounceOnCustomBlock(session, entity);
+        }
         entity.setOnGround(isOnGround);
 
         entity.setLastTickEndVelocity(packet.getDelta());
@@ -254,5 +260,33 @@ final class BedrockMovePlayer {
         }
 
         return true;
+    }
+
+    /**
+     * MINEZ：落到会弹的方块上时弹起。Java 26.x 的床（含麦秆床）与层孔菇的 bounceRestitution 为 0.75（Entity#restituteMovementAfterCollisions：
+     * 下落速度大于重力、没有潜行时，竖直速度变为反向的 0.75 倍）；玩家的移动由客户端计算，基岩版中这两种是 MINEZ 资源包的自定义方块，
+     * 客户端不会弹，这里在玩家落地的那一刻按上一刻的速度给出弹起的速度。原版的床在基岩版中本来会弹，不在此列。
+     */
+    private static void bounceOnCustomBlock(GeyserSession session, SessionPlayerEntity entity) {
+        if (session.isSneaking() || entity.getVehicle() != null) {
+            return;
+        }
+        Vector3f velocity = entity.getLastTickEndVelocity();
+        if (velocity == null || velocity.getY() >= -0.08f) {
+            return;
+        }
+        Vector3f feet = entity.position();
+        int x = (int) Math.floor(feet.getX());
+        int z = (int) Math.floor(feet.getZ());
+        for (double dy : new double[] {0.01, 0.5000001}) {
+            BlockState below = session.getGeyser().getWorldManager().blockAt(session, x, (int) Math.floor(feet.getY() - dy), z);
+            if (below.is(Blocks.SHELF_MUSHROOM) || below.is(Blocks.STRAW_BED)) {
+                SetEntityMotionPacket motionPacket = new SetEntityMotionPacket();
+                motionPacket.setRuntimeEntityId(entity.geyserId());
+                motionPacket.setMotion(Vector3f.from(velocity.getX(), -velocity.getY() * 0.75f, velocity.getZ()));
+                session.sendUpstreamPacket(motionPacket);
+                return;
+            }
+        }
     }
 }

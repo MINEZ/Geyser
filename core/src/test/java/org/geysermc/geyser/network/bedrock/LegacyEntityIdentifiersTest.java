@@ -36,10 +36,9 @@ import java.io.InputStream;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
- * MINEZ：发给网易 1.21.130 的实体列表中，硫方怪以史莱姆为基础实体，其他实体不变。
+ * MINEZ：发给网易 1.21.130 的实体列表中，硫方怪以史莱姆为基础实体，其他实体不变；各版本都补上列表中没有的坐垫。
  */
 class LegacyEntityIdentifiersTest {
     @Test
@@ -52,15 +51,25 @@ class LegacyEntityIdentifiersTest {
         NbtMap legacy = LegacyEntityIdentifiers.forProtocol(Bedrock_v898.CODEC.getProtocolVersion(), identifiers);
         List<NbtMap> before = identifiers.getList("idlist", NbtType.COMPOUND);
         List<NbtMap> after = legacy.getList("idlist", NbtType.COMPOUND);
-        assertEquals(before.size(), after.size());
+        // 原有的实体不变（硫方怪以史莱姆为基础实体），末尾补上列表中没有的坐垫
+        assertEquals(before.size() + 1, after.size());
         for (int i = 0; i < before.size(); i++) {
             String id = before.get(i).getString("id");
             String expected = id.equals("minecraft:sulfur_cube") ? "minecraft:slime" : before.get(i).getString("bid");
+            assertEquals(id, after.get(i).getString("id"));
             assertEquals(expected, after.get(i).getString("bid"), id);
             assertEquals(before.get(i).getInt("rid"), after.get(i).getInt("rid"), id);
         }
         assertEquals(1, after.stream().filter(entry -> entry.getString("id").equals("minecraft:sulfur_cube")).count());
-        // 26.40 起原样发
-        assertSame(identifiers, LegacyEntityIdentifiers.forProtocol(GameProtocol.DEFAULT_BEDROCK_PROTOCOL, identifiers));
+        NbtMap cushion = after.get(after.size() - 1);
+        assertEquals("minecraft:cushion", cushion.getString("id"));
+        int maxRid = before.stream().mapToInt(entry -> entry.getInt("rid")).max().orElseThrow();
+        assertEquals(maxRid + 1, cushion.getInt("rid"));
+        // 26.40 起只补上坐垫，基础实体不改
+        List<NbtMap> current = LegacyEntityIdentifiers.forProtocol(GameProtocol.DEFAULT_BEDROCK_PROTOCOL, identifiers)
+            .getList("idlist", NbtType.COMPOUND);
+        assertEquals(before.size() + 1, current.size());
+        assertEquals(before.get(0), current.get(0));
+        assertEquals("minecraft:cushion", current.get(current.size() - 1).getString("id"));
     }
 }

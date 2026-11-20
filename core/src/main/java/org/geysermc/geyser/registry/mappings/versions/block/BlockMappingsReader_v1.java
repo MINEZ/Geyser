@@ -32,6 +32,7 @@ import com.google.gson.JsonPrimitive;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.geyser.Constants;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.block.custom.CustomBlockData;
 import org.geysermc.geyser.api.block.custom.CustomBlockPermutation;
@@ -44,6 +45,7 @@ import org.geysermc.geyser.api.block.custom.component.PlacementConditions;
 import org.geysermc.geyser.api.block.custom.component.TransformationComponent;
 import org.geysermc.geyser.api.util.CreativeCategory;
 import org.geysermc.geyser.item.exception.InvalidCustomMappingsFileException;
+import org.geysermc.geyser.level.block.BlockItemVisuals;
 import org.geysermc.geyser.level.block.GeyserCustomBlockComponents;
 import org.geysermc.geyser.level.block.GeyserCustomBlockData;
 import org.geysermc.geyser.level.block.GeyserGeometryComponent;
@@ -76,6 +78,10 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
 
     /** MINEZ：只用于显示的方块（item_only）按这个 Java 版方块状态取碰撞箱与选取框，即完整方块。 */
     private static final String ITEM_ONLY_BOX_STATE = "minecraft:stone";
+    /**
+     * MINEZ：正在读的一项是否要把选取框与碰撞箱水平居中，见 readBlockMappingEntry。
+     */
+    private boolean centerShapes;
 
     @Override
     public void read(Path file, JsonObject mappings, BiConsumer<String, CustomBlockMapping> consumer) {
@@ -105,6 +111,9 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
         }
 
         boolean includedInCreativeInventory = object.has("included_in_creative_inventory") && object.get("included_in_creative_inventory").getAsBoolean();
+        // MINEZ：Java 版有按位置随机水平偏移（OffsetType.XZ）的方块（例如金蒲公英、硫黄尖锥），Geyser 的方块形状带着某一个位置的偏移，
+        // 基岩版的自定义方块却画在中央，选取框与碰撞箱因此偏在一边。center_shapes 为 true 时把它们水平移到中央。
+        centerShapes = object.has("center_shapes") && object.get("center_shapes").getAsBoolean();
 
         CreativeCategory creativeCategory = CreativeCategory.NONE;
         if (object.has("creative_category")) {
@@ -137,6 +146,12 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
             .includedInCreativeInventory(includedInCreativeInventory)
             .creativeCategory(creativeCategory)
             .creativeGroup(creativeGroup);
+
+        // MINEZ：方块物品另用的外观（item_visual），见 BlockItemVisuals
+        if (object.get("item_visual") instanceof JsonObject itemVisual) {
+            BlockItemVisuals.register(Constants.GEYSER_CUSTOM_NAMESPACE + ":" + name,
+                createCustomBlockComponentsMapping(itemVisual, ITEM_ONLY_BOX_STATE, name));
+        }
 
         // MINEZ：只用于显示的方块（item_only），不对应任何 Java 版方块状态，键可以是任意标识（例如 minez:item/base_core）。
         // 用于让自定义物品在基岩版中按方块绘制：物品的 bedrock_options 中以 block_placer 指向它并以方块作为图标，手上、物品栏与掉落物
@@ -484,6 +499,15 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
         maxY = MathUtils.clamp(maxY, 0, 1);
         maxZ = MathUtils.clamp(maxZ, 0, 1);
 
+        if (centerShapes) {
+            float shiftX = 0.5f - (minX + maxX) / 2;
+            float shiftZ = 0.5f - (minZ + maxZ) / 2;
+            minX += shiftX;
+            maxX += shiftX;
+            minZ += shiftZ;
+            maxZ += shiftZ;
+        }
+
         return new BoxComponent(
             16 * (1 - maxX) - 8, // For some odd reason X is mirrored on Bedrock
             16 * minY,
@@ -509,10 +533,31 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
             return boxes;
         }
 
+        // MINEZ：center_shapes 时整体水平移到中央，见 readBlockMappingEntry
+        double shiftX = 0;
+        double shiftZ = 0;
+        if (centerShapes) {
+            double unionMinX = 1;
+            double unionMaxX = 0;
+            double unionMinZ = 1;
+            double unionMaxZ = 0;
+            for (BoundingBox boundingBox : boundingBoxes) {
+                unionMinX = Math.min(unionMinX, boundingBox.getMiddleX() - boundingBox.getSizeX() * 0.5);
+                unionMaxX = Math.max(unionMaxX, boundingBox.getMiddleX() + boundingBox.getSizeX() * 0.5);
+                unionMinZ = Math.min(unionMinZ, boundingBox.getMiddleZ() - boundingBox.getSizeZ() * 0.5);
+                unionMaxZ = Math.max(unionMaxZ, boundingBox.getMiddleZ() + boundingBox.getSizeZ() * 0.5);
+            }
+            shiftX = 0.5 - (unionMinX + unionMaxX) / 2;
+            shiftZ = 0.5 - (unionMinZ + unionMaxZ) / 2;
+        }
+
         for (BoundingBox boundingBox : boundingBoxes) {
             double offsetX = boundingBox.getSizeX() * 0.5;
             double offsetY = boundingBox.getSizeY() * 0.5;
             double offsetZ = boundingBox.getSizeZ() * 0.5;
+            boundingBox = boundingBox.clone();
+            boundingBox.setMiddleX(boundingBox.getMiddleX() + shiftX);
+            boundingBox.setMiddleZ(boundingBox.getMiddleZ() + shiftZ);
 
             float minX = MathUtils.clamp((float) (boundingBox.getMiddleX() - offsetX), 0, 1);
             float minY = MathUtils.clamp((float) (boundingBox.getMiddleY() - offsetY), 0, 1);

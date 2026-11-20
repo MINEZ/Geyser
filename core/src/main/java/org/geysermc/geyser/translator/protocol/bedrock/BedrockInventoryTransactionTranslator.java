@@ -38,6 +38,7 @@ import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryActionData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventorySource;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryTransactionType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.LegacySetItemSlotData;
 import org.cloudburstmc.protocol.bedrock.packet.ContainerOpenPacket;
 import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
@@ -288,19 +289,14 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
 
                         BlockState blockState = session.getGeyser().getWorldManager().blockAt(session, packet.getBlockPosition());
 
-                        // MINEZ：按住使用键时，基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如杨木门）不断发来使用，
-                        // 门一开一关、按钮连按。门、活板门、栅栏门与按钮在同一位置的使用，与上一次收到的间隔不到 TOGGLE_REPEAT_MILLIS
-                        // 时视为按住、不再转发，松开后再按才算新的一次（与基岩版原版的门相同；潜行时不算交互，照常放置）。
-                        if (!session.isSneaking() && isToggleBlock(session, blockState)) {
-                            long now = System.currentTimeMillis();
-                            boolean held = packetBlockPosition.equals(session.getLastToggleBlockPosition())
-                                && now - session.getLastToggleTime() < TOGGLE_REPEAT_MILLIS;
-                            session.setLastToggleBlockPosition(packetBlockPosition);
-                            session.setLastToggleTime(now);
-                            if (held) {
-                                BlockUtils.restoreCorrectBlock(session, blockPos, packet.getHotbarSlot());
-                                break;
-                            }
+                        // MINEZ：按住使用键时，基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如杨木门）不断发来使用
+                        // （触发方式为 SIMULATION_TICK），门一开一关、按钮连按。门、活板门、栅栏门与按钮只认玩家真正按下的那一次
+                        // （PLAYER_INPUT），与基岩版原版的门相同：按住不反复开关，快速连按照常开关。潜行时不算交互，照常放置。
+                        // b1305.23 曾按间隔（350 毫秒内视为按住）判断，快速连按也被吞掉（2026-11-21 测试服）。
+                        if (!session.isSneaking() && packet.getTriggerType() == ItemUseTransaction.TriggerType.SIMULATION_TICK
+                            && isToggleBlock(session, blockState)) {
+                            BlockUtils.restoreCorrectBlock(session, blockPos, packet.getHotbarSlot());
+                            break;
                         }
 
                         // Clear any pending bed interactions as we are interacting with a new block now - see the bed check below as well
@@ -602,8 +598,6 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
     /**
      * MINEZ：见上文按住使用键的处理。
      */
-    private static final long TOGGLE_REPEAT_MILLIS = 350;
-
     private static boolean isToggleBlock(GeyserSession session, BlockState state) {
         Block block = state.block();
         return block instanceof DoorBlock || block instanceof TrapDoorBlock || block instanceof ButtonBlock

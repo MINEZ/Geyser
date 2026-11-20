@@ -88,6 +88,10 @@ public class MobEntity extends LivingEntity implements Leashable {
                 }
             }
 
+            if (canUseGoldenDandelion(itemStack)) {
+                return InteractiveTag.USE;
+            }
+
             InteractiveTag tag = testMobInteraction(hand, itemStack);
             return tag != InteractiveTag.NONE ? tag : super.testInteraction(hand);
         }
@@ -138,6 +142,8 @@ public class MobEntity extends LivingEntity implements Leashable {
             if (result.consumesAction()) {
                 return result;
             }
+        } else if (canUseGoldenDandelion(itemInHand)) {
+            return InteractionResult.SUCCESS;
         } else {
             if (itemInHand.asItem() instanceof SpawnEggItem) {
                 // Using the spawn egg on this entity to create a child
@@ -146,6 +152,14 @@ public class MobEntity extends LivingEntity implements Leashable {
         }
 
         return InteractionResult.PASS;
+    }
+
+    /**
+     * MINEZ：对幼年生物使用金蒲公英暂停或恢复成长（Java 26.x AgeableMob#canUseGoldenDandelion，冷却与 cannot_be_age_locked 由服务器判断）。
+     * 基岩版客户端只在实体带交互提示时才对它发出交互，此前没有这一项，对幼年生物使用金蒲公英什么也不发生，听不到声音、看不到粒子。
+     */
+    private boolean canUseGoldenDandelion(GeyserItemStack itemInHand) {
+        return itemInHand.is(Items.GOLDEN_DANDELION) && this instanceof AgeableEntity ageable && ageable.isBaby();
     }
 
     @NonNull
