@@ -94,6 +94,12 @@ public final class BedrockClientData {
     @SerializedName(value = "SkinGeometryData")
     @JsonAdapter(value = StringToByteDeserializer.class)
     private byte[] geometryData;
+    /**
+     * MINEZ：皮肤几何数据的引擎版本（例如 1.14.0），转发给其他基岩版玩家时沿用，见 SkinManager#getSkin。
+     */
+    @SerializedName(value = "SkinGeometryDataEngineVersion")
+    @JsonAdapter(value = StringToByteDeserializer.class)
+    private byte[] geometryDataEngineVersion;
     @SerializedName(value = "PersonaSkin")
     private boolean personaSkin;
     @SerializedName(value = "PremiumSkin")

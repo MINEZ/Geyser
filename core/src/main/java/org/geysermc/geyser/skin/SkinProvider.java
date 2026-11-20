@@ -95,6 +95,10 @@ public class SkinProvider {
     private static final Map<String, CompletableFuture<Skin>> requestedSkins = new ConcurrentHashMap<>();
 
     private static final Map<UUID, SkinGeometry> cachedGeometry = new ConcurrentHashMap<>();
+    /**
+     * MINEZ：基岩版玩家皮肤几何数据的引擎版本（登录数据中的 SkinGeometryDataEngineVersion），见 {@link #bedrockGeometryEngineVersion}。
+     */
+    private static final Map<UUID, String> cachedGeometryEngineVersions = new ConcurrentHashMap<>();
 
     /**
      * Citizens NPCs use UUID version 2, while legitimate Minecraft players use version 4, and
@@ -472,11 +476,25 @@ public class SkinProvider {
         CACHED_BEDROCK_SKINS.invalidate(playerID);
         CACHED_BEDROCK_CAPES.invalidate(playerID);
         cachedGeometry.remove(playerID);
+        cachedGeometryEngineVersions.remove(playerID);
     }
 
-    static void storeBedrockGeometry(UUID playerID, byte[] geometryName, byte[] geometryData) {
+    static void storeBedrockGeometry(UUID playerID, byte[] geometryName, byte[] geometryData, @Nullable String engineVersion) {
         SkinGeometry geometry = new SkinGeometry(new String(geometryName), new String(geometryData));
         cachedGeometry.put(playerID, geometry);
+        if (engineVersion == null || engineVersion.isBlank()) {
+            cachedGeometryEngineVersions.remove(playerID);
+        } else {
+            cachedGeometryEngineVersions.put(playerID, engineVersion);
+        }
+    }
+
+    /**
+     * MINEZ：基岩版玩家自带几何数据的皮肤（例如网易的 4D 皮肤）原本的引擎版本，没有时为 null。几何数据按引擎版本校验：转发给其他基岩版玩家时
+     * 若填观看者的游戏版本，老格式的几何体（继承基础人形的写法）可能校验不过，别人看到的是透明的，玩家自己看却正常。
+     */
+    public static @Nullable String bedrockGeometryEngineVersion(UUID uuid) {
+        return cachedGeometryEngineVersions.get(uuid);
     }
 
     private static Skin supplySkin(UUID uuid, String textureUrl) {

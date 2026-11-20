@@ -109,8 +109,15 @@ public class SkinManager {
                 playerEntity.uuid(),
                 PlayerListUtils.listName(playerEntity),
                 playerEntity.geyserId(),
-                getSkin(session, skin.textureUrl(), skin, cape, geometry)
+                getSkin(session, skin.textureUrl(), skin, cape, geometry, engineVersionFor(playerEntity.uuid(), geometry))
         );
+    }
+
+    /**
+     * MINEZ：转发自带几何数据的基岩版皮肤时用它原本的引擎版本（见 {@link SkinProvider#bedrockGeometryEngineVersion}）；标准人形与 Java 版皮肤为 null。
+     */
+    private static @Nullable String engineVersionFor(UUID uuid, SkinGeometry geometry) {
+        return geometry.geometryData().isBlank() ? null : SkinProvider.bedrockGeometryEngineVersion(uuid);
     }
 
     public static void sendSkinPacket(GeyserSession session, AvatarEntity entity, SkinData skinData) {
@@ -126,7 +133,7 @@ public class SkinManager {
             entity.uuid(),
             PlayerListUtils.listName(entity),
             entity.geyserId(),
-            getSkin(session, skin.textureUrl(), skin, cape, geometry)
+            getSkin(session, skin.textureUrl(), skin, cape, geometry, engineVersionFor(entity.uuid(), geometry))
         );
 
         // Slight delay ensures skins are actually shown
@@ -135,7 +142,8 @@ public class SkinManager {
         }, 100, TimeUnit.MILLISECONDS);
     }
 
-    private static SerializedSkin getSkin(GeyserSession session, String skinId, Skin skin, Cape cape, SkinGeometry geometry) {
+    private static SerializedSkin getSkin(GeyserSession session, String skinId, Skin skin, Cape cape, SkinGeometry geometry,
+                                          @Nullable String engineVersion) {
         return SerializedSkin.builder()
             .skinId(skinId)
             .skinResourcePatch(geometry.geometryName())
@@ -145,7 +153,7 @@ public class SkinManager {
             .premium(true)
             .capeId(cape.capeId())
             .fullSkinId(skinId)
-            .geometryDataEngineVersion(session.getClientData().getGameVersion())
+            .geometryDataEngineVersion(engineVersion != null ? engineVersion : session.getClientData().getGameVersion())
             .overridingPlayerAppearance(true)
             .color(new Color(0, true))
             .trusted(true)
@@ -239,10 +247,20 @@ public class SkinManager {
             byte[] geometryNameBytes = clientData.getGeometryName();
             byte[] geometryBytes = clientData.getGeometryData();
 
-            if (isImage(skinBytes) && !clientData.isPersonaSkin()) {
+            byte[] engineVersionBytes = clientData.getGeometryDataEngineVersion();
+            String engineVersion = engineVersionBytes == null ? null : new String(engineVersionBytes, StandardCharsets.UTF_8);
+            boolean image = isImage(skinBytes);
+            boolean geometryFits = geometryNameBytes.length + geometryBytes.length <= MAX_GEOMETRY_SIZE;
+            // MINEZ：每名基岩版玩家记一行皮肤概况（不含皮肤内容），供排查 4D 皮肤等自带模型的皮肤在别人眼中透明的问题。
+            String patch = new String(geometryNameBytes, StandardCharsets.UTF_8).replaceAll("\s+", "");
+            geyser.getLogger().info("Bedrock skin of " + playerEntity.getUsername() + ": " + clientData.getSkinImageWidth() + "x"
+                + clientData.getSkinImageHeight() + ", geometry " + geometryBytes.length + " bytes, engine version " + engineVersion
+                + ", resource patch " + (patch.length() > 160 ? patch.substring(0, 160) + "..." : patch)
+                + (clientData.isPersonaSkin() ? ", persona" : "") + (image ? "" : ", image not cached") + (geometryFits ? "" : ", geometry too large"));
+            if (image && !clientData.isPersonaSkin()) {
                 SkinProvider.storeBedrockSkin(playerEntity.uuid(), clientData.getSkinId(), skinBytes);
-                if (geometryNameBytes.length + geometryBytes.length <= MAX_GEOMETRY_SIZE) {
-                    SkinProvider.storeBedrockGeometry(playerEntity.uuid(), geometryNameBytes, geometryBytes);
+                if (geometryFits) {
+                    SkinProvider.storeBedrockGeometry(playerEntity.uuid(), geometryNameBytes, geometryBytes, engineVersion);
                 }
             } else if (geyser.config().debugMode()) {
                 geyser.getLogger().info(GeyserLocale.getLocaleStringLog("geyser.skin.bedrock.fail", playerEntity.getUsername()));

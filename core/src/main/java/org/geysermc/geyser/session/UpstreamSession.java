@@ -100,8 +100,21 @@ public class UpstreamSession {
      * @return the session's protocol version.
      */
     public int getProtocolVersion() {
-        return this.session.getCodec().getProtocolVersion();
+        // MINEZ：连接拆掉后编解码器已不在管道中，getCodec() 会抛出空指针。记下最近一次读到的版本，供玩家刚断开时仍在运行的代码（例如转换配方）使用。
+        try {
+            this.protocolVersion = this.session.getCodec().getProtocolVersion();
+        } catch (NullPointerException e) {
+            if (this.protocolVersion < 0) {
+                throw e;
+            }
+        }
+        return this.protocolVersion;
     }
+
+    /**
+     * MINEZ：最近一次从编解码器读到的协议版本，读到之前为 -1。
+     */
+    private int protocolVersion = -1;
 
     /**
      * Gets the codec helper for this session.

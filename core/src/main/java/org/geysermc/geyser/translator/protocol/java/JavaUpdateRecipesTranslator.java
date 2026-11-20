@@ -98,6 +98,11 @@ public class JavaUpdateRecipesTranslator extends PacketTranslator<ClientboundUpd
 
     @Override
     public void translate(GeyserSession session, ClientboundUpdateRecipesPacket packet) {
+        // MINEZ：基岩版客户端已经断开（例如切换服务器时被踢、内存溢出时成批断开），没有可发的对象。照常转换时读协议版本会在已拆掉的连接上
+        // 出错，/rs 与成批断开时刷满日志（2026-11-20 正式服 90 次）。
+        if (session.getUpstream().isClosed()) {
+            return;
+        }
         int netId = session.getLastRecipeNetId().get();
         CraftingDataPacket craftingDataPacket = new CraftingDataPacket();
         // See JavaFinishConfigurationTranslator - avoid re-sending base recipe data in quick succession
