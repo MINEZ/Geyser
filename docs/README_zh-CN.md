@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.24-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.25-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -217,9 +217,9 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 
 **Java 版独有的状态效果。** 发光、幸运、霉运、海豚的恩惠在基岩版中没有（`EffectType` 中基岩版的编号为 0），客户端收到后直接忽略，基岩版玩家看不到自己身上有这些效果；基岩版的效果栏由引擎画出，资源包与模组都加不进去，也没有可借用的编号。现在把自己身上的这些效果（等级、剩余时间、是否环境效果；Java 版不显示图标的除外）以 `JavaEffects` 事件整个发给 MINEZ 客户端模组（1.20.0 起），每次有变化时重发，模组就绪与切换维度后也重发，由模组在游戏画面中照 Java 版画出图标。效果的作用仍由服务器计算；海豚的恩惠影响游泳速度，玩家的移动由客户端计算，基岩版玩家仍没有加速（b1305.21 起）。
 
-**按住使用键时门的连续开关。** 基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如 26.x 的杨木门）按住使用键时不断发来使用，Java 版服务器照单全收，门一开一关、按钮连按，轻点也容易误触成两下。基岩版的使用带有触发方式：玩家真正按下的为 `PLAYER_INPUT`，按住时客户端自己重复的为 `SIMULATION_TICK`。现在门、活板门、栅栏门与按钮只转发真正按下的那一次，按住不反复开关，快速连按照常开关，与基岩版原版的门相同；潜行时照常（b1305.24 起；b1305.23 按间隔判断，快速连按也被吞掉）。
+**按住使用键时门的连续开关。** 基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如 26.x 的杨木门）按住使用键时不断发来使用，Java 版服务器照单全收，门一开一关、按钮连按，轻点也容易误触成两下。基岩版的使用带有触发方式：玩家真正按下的为 `PLAYER_INPUT`，按住时客户端自己重复的为 `SIMULATION_TICK`。现在门、活板门、栅栏门与按钮只转发真正按下的那一次，按住不反复开关，快速连按照常开关，与基岩版原版的门相同；潜行时照常（b1305.24 起；b1305.23 按间隔判断，快速连按也被吞掉）。拿着 MINEZ 资源包的物品（`minez:` 的自定义物品、`geyser_custom:` 的方块物品，例如 26.x 的金蒲公英）放方块时，按住的重复客户端几乎每刻都发，轻点也常放出两个；现在按住的重复与上一次放置的间隔不到 250 毫秒时丢弃，真正按下的照常转发，长按仍能连续放置（b1305.25 起）。
 
-**方块物品另用的外观。** 自定义方块的方块物品默认按方块的默认状态画出，有的与 Java 版的物品模型不同：按钮的默认状态挂在墙上，Java 版的物品是平放的小方块；栅栏、墙的默认状态只有柱子。现在映射文件 `blocks` 中的一项可以写 `"item_visual": {"geometry": ..., "material_instances": ...}`（写法与 `state_overrides` 中的相同），生成方块数据时作为基岩版方块的 `minecraft:item_visual` 组件（字段 `geometryDescription`、`materialInstancesDescription`）加在基础组件上，客户端按它画方块物品（`BlockItemVisuals`，b1305.24 起）。
+**方块物品另用的外观。** 自定义方块的方块物品默认按方块的默认状态画出，有的与 Java 版的物品模型不同：按钮的默认状态挂在墙上，Java 版的物品是平放的小方块；栅栏、墙的默认状态只有柱子。现在映射文件 `blocks` 中的一项可以写 `"item_visual": {"geometry": ..., "material_instances": ...}`（写法与 `state_overrides` 中的相同），生成方块数据时作为基岩版方块的 `minecraft:item_visual` 组件（字段 `geometryDescription`、`materialInstancesDescription`，由网易引擎中的说明字符串推断）加在基础组件上（`BlockItemVisuals`，b1305.24 起）。实测网易 1.21.130 画方块物品时没有用上它（也不理会 `bone_visibility`），MINEZ 资源包改为以方块的基础组件的几何体给出物品的样子，不再写这一项。
 
 **随机偏移方块的选取框。** Java 版有的方块按位置随机水平偏移（`OffsetType.XZ`，例如金蒲公英、硫黄尖锥），Geyser 的方块形状带着某一处的偏移，基岩版的自定义方块却画在中央，选取框偏在一边。`blocks` 中的一项写 `"center_shapes": true` 时，选取框与碰撞箱水平移到中央（b1305.24 起）。
 

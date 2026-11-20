@@ -44,6 +44,7 @@ import org.cloudburstmc.protocol.bedrock.packet.ContainerOpenPacket;
 import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.PlaySoundPacket;
+import org.geysermc.geyser.Constants;
 import org.geysermc.geyser.entity.type.Entity;
 import org.geysermc.geyser.entity.type.FishingHookEntity;
 import org.geysermc.geyser.entity.type.ItemFrameEntity;
@@ -297,6 +298,19 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
                             && isToggleBlock(session, blockState)) {
                             BlockUtils.restoreCorrectBlock(session, blockPos, packet.getHotbarSlot());
                             break;
+                        }
+
+                        // MINEZ：拿着 MINEZ 资源包的物品（minez:vanilla_* 等自定义物品、geyser_custom: 的方块物品）放方块时，按住使用键的
+                        // 重复（SIMULATION_TICK）客户端几乎每刻都发，轻点也常放出两个（2026-11-21 测试服，金蒲公英）。真正按下的
+                        // （PLAYER_INPUT）照常转发；按住的重复与上一次放置的间隔不到 PLACE_REPEAT_MILLIS 时丢弃，长按仍能连续放置。
+                        if (isMinezItem(packet)) {
+                            long now = System.currentTimeMillis();
+                            if (packet.getTriggerType() == ItemUseTransaction.TriggerType.SIMULATION_TICK
+                                && now - session.getLastMinezPlaceTime() < PLACE_REPEAT_MILLIS) {
+                                BlockUtils.restoreCorrectBlock(session, blockPos, packet.getHotbarSlot());
+                                break;
+                            }
+                            session.setLastMinezPlaceTime(now);
                         }
 
                         // Clear any pending bed interactions as we are interacting with a new block now - see the bed check below as well
@@ -593,6 +607,19 @@ public class BedrockInventoryTransactionTranslator extends PacketTranslator<Inve
                 }
             }
         }
+    }
+
+    /**
+     * MINEZ：见上文拿着 MINEZ 资源包的物品放方块的处理。
+     */
+    private static final long PLACE_REPEAT_MILLIS = 250;
+
+    private static boolean isMinezItem(InventoryTransactionPacket packet) {
+        if (packet.getItemInHand() == null || packet.getItemInHand().getDefinition() == null) {
+            return false;
+        }
+        String identifier = packet.getItemInHand().getDefinition().getIdentifier();
+        return identifier.startsWith("minez:") || identifier.startsWith(Constants.GEYSER_CUSTOM_NAMESPACE + ":");
     }
 
     /**

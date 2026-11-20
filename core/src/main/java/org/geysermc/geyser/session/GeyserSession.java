@@ -704,6 +704,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     private long lastInteractionTime;
 
     /**
+     * MINEZ：上一次拿着 MINEZ 资源包的物品放方块的时刻，见 BedrockInventoryTransactionTranslator。
+     */
+    @Setter
+    private long lastMinezPlaceTime;
+
+    /**
      * Stores whether the player intended to place a bucket.
      */
     @Setter
