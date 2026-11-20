@@ -174,4 +174,157 @@ class BlockMappingsFormatTest {
         assertEquals("minez_block_sentry_gun_ready", mapping.data().components().materialInstances().get("*").texture());
         assertFalse(mapping.overrideItem());
     }
+
+    @Test
+    void readsVanillaBlocks() throws Exception {
+        // MINEZ 资源包的生成工具写出的原版新方块（节选）：覆盖这个 Java 版方块的全部状态，同名的 Java 版物品换成它的方块物品；
+        // 原木类按 axis 转动。
+        BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.register("minecraft:sulfur", 9100);
+        BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.register("minecraft:poplar_log[axis=x]", 9101);
+        BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.register("minecraft:poplar_log[axis=y]", 9102);
+        BlockRegistries.JAVA_BLOCK_STATE_IDENTIFIER_TO_ID.register("minecraft:poplar_log[axis=z]", 9103);
+        Path file = dir.resolve("minez_resources.json");
+        Files.writeString(file, """
+            {
+              "format_version": 2,
+              "blocks": {
+                "minecraft:sulfur": {
+                  "name": "minez_sulfur",
+                  "only_override_states": false,
+                  "geometry": "minecraft:geometry.full_block",
+                  "material_instances": {
+                    "*": {
+                      "texture": "sulfur",
+                      "render_method": "opaque",
+                      "ambient_occlusion": true,
+                      "face_dimming": true
+                    }
+                  },
+                  "destructible_by_mining": 1.5
+                },
+                "minecraft:poplar_log": {
+                  "name": "minez_poplar_log",
+                  "only_override_states": false,
+                  "geometry": "minecraft:geometry.full_block",
+                  "material_instances": {
+                    "down": {
+                      "texture": "poplar_log_top",
+                      "render_method": "opaque",
+                      "ambient_occlusion": true,
+                      "face_dimming": true
+                    },
+                    "up": {
+                      "texture": "poplar_log_top",
+                      "render_method": "opaque",
+                      "ambient_occlusion": true,
+                      "face_dimming": true
+                    },
+                    "*": {
+                      "texture": "poplar_log_side",
+                      "render_method": "opaque",
+                      "ambient_occlusion": true,
+                      "face_dimming": true
+                    }
+                  },
+                  "destructible_by_mining": 2.0,
+                  "state_overrides": {
+                    "axis=x": {
+                      "geometry": "minecraft:geometry.full_block",
+                      "material_instances": {
+                        "down": {
+                          "texture": "poplar_log_top",
+                          "render_method": "opaque",
+                          "ambient_occlusion": true,
+                          "face_dimming": true
+                        },
+                        "up": {
+                          "texture": "poplar_log_top",
+                          "render_method": "opaque",
+                          "ambient_occlusion": true,
+                          "face_dimming": true
+                        },
+                        "*": {
+                          "texture": "poplar_log_side",
+                          "render_method": "opaque",
+                          "ambient_occlusion": true,
+                          "face_dimming": true
+                        }
+                      },
+                      "destructible_by_mining": 2.0,
+                      "transformation": {
+                        "rotation": [
+                          0,
+                          0,
+                          90
+                        ]
+                      }
+                    },
+                    "axis=z": {
+                      "geometry": "minecraft:geometry.full_block",
+                      "material_instances": {
+                        "down": {
+                          "texture": "poplar_log_top",
+                          "render_method": "opaque",
+                          "ambient_occlusion": true,
+                          "face_dimming": true
+                        },
+                        "up": {
+                          "texture": "poplar_log_top",
+                          "render_method": "opaque",
+                          "ambient_occlusion": true,
+                          "face_dimming": true
+                        },
+                        "*": {
+                          "texture": "poplar_log_side",
+                          "render_method": "opaque",
+                          "ambient_occlusion": true,
+                          "face_dimming": true
+                        }
+                      },
+                      "destructible_by_mining": 2.0,
+                      "transformation": {
+                        "rotation": [
+                          90,
+                          0,
+                          0
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """);
+        Map<String, CustomBlockMapping> read = new HashMap<>();
+        BlockRegistries.COLLISIONS.set(new ArrayList<>());
+        BlockRegistries.SHAPES.set(new ArrayList<>());
+        try {
+            org.geysermc.geyser.scoreboard.network.util.GeyserMockContext.mockContext(() ->
+                MappingsConfigReader.readCustomMappings(MappingsType.BLOCKS, file, read::put));
+        } finally {
+            BlockRegistries.COLLISIONS.set(null);
+            BlockRegistries.SHAPES.set(null);
+        }
+
+        CustomBlockMapping sulfur = read.get("minecraft:sulfur");
+        assertEquals("geyser_custom:minez_sulfur", sulfur.data().identifier());
+        assertEquals(1, sulfur.states().size());
+        assertTrue(sulfur.overrideItem());
+        assertEquals("sulfur", sulfur.data().components().materialInstances().get("*").texture());
+
+        CustomBlockMapping log = read.get("minecraft:poplar_log");
+        assertEquals(3, log.states().size());
+        assertTrue(log.overrideItem());
+        int rotated = 0;
+        for (var permutation : log.data().permutations()) {
+            var transformation = permutation.components().transformation();
+            if (permutation.condition().contains("'axis') == 'y'")) {
+                assertEquals(null, transformation);
+            } else {
+                assertEquals(90, Math.abs(transformation.rx()) + Math.abs(transformation.rz()));
+                rotated++;
+            }
+        }
+        assertEquals(2, rotated);
+    }
 }
