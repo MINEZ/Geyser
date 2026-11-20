@@ -1502,6 +1502,11 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
                 }
             }
 
+            if (gameShouldUpdate) {
+                // MINEZ：杨树落叶、烈性硫黄的气泡与喷发等 Java 版客户端自己产生的效果
+                chunkCache.getAmbientEffects().tick();
+            }
+
             // Keep the spectator camera tracking its target
             EntitySpectateHelper.tick(this);
 

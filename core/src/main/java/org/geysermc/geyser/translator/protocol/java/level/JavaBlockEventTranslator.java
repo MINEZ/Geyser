@@ -69,6 +69,9 @@ public class JavaBlockEventTranslator extends PacketTranslator<ClientboundBlockE
         Vector3i position = packet.getPosition();
         BlockValue value = packet.getValue();
 
+        // MINEZ：烈性硫黄开始喷发时的方块事件，见 AmbientBlockEffects
+        session.getChunkCache().getAmbientEffects().onBlockEvent(position.getX(), position.getY(), position.getZ());
+
         if (value == null) {
             session.getGeyser().getLogger().debug("Unable to handle packet %s - null value! ".formatted(packet.toString()));
             return;

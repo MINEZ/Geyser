@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.19-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.20-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -109,6 +109,8 @@ git submodule update --init --recursive
 | 映射文件中不影响外观的方块属性 | 配置 | 新增 |
 | 换成自定义方块的方块物品的原版物品 | 行为 | 修正 |
 | 网易客户端中的杨木船 | 行为 | 修改 |
+| 由客户端产生的方块效果 | 行为 | 新增 |
+| 客户端没有的唱片音效 | 行为 | 修正 |
 | `bedrock.netease` | 配置 | 新增 |
 | `bedrock.transport: raknet` | 配置 | 保留 |
 | 客户端无法解码的数据包 | 行为 | 修改 |
@@ -203,6 +205,10 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 **CraftEngine 换名的原版方块声音。** CraftEngine 的方块声音系统把它借用的原版方块所属材质的声音（例如音符盒、蘑菇方块的木质声音）换成 `replaced.<原名>`，由它生成的 Java 版资源包把这些名字指回原版的声音。基岩版没有这些名字，放置、破坏、敲击木质方块时都听不到声音。现在这样的名字没有对应的映射时，去掉前缀，按原版的声音播放（b1305.9 起）。
 
 **网易客户端中的硫方怪。** 基岩版原版的硫方怪是行为包定义的生物：吸收的方块是主手物品，由客户端画在模型的 `rightItem` 骨骼上；体型以变种表示（`minecraft:variant`：幼年 1、成年 2），客户端实体按 `query.variant` 计算弹跳的压扁量。网易 1.21.130 没有硫方怪，发给它的实体列表中硫方怪的基础实体（`bid`）为空，客户端只把它当成通用实体，不画手持物品，体内的方块不显示。现在发给 26.40 之前的客户端的实体列表中，以史莱姆为硫方怪的基础实体（`LegacyEntityIdentifiers`），客户端按生物画手持物品；硫方怪的样子仍取资源包中 `minecraft:sulfur_cube` 的客户端实体（MINEZ/CraftengineResources 补上）。另以标记变种（MARK_VARIANT）告知体内装着的东西与引爆倒计时：个位 0 没有、1 方块、2 TNT，点燃后加上（倒计时 + 1）× 10（以史莱姆为基础实体后客户端读不到实体属性 `minecraft:sulfur_cube_archetype`，1.21.130 也不认 `query.fuse_time`，资源包的客户端实体据此画内层、引爆前的膨胀与闪白；b1305.15 起，倒计时 b1305.16 起）。吸收 TNT 时与原版的 `hide_held_items` 一样不发手持的 TNT，由内层画 TNT 贴图（b1305.16 起）。缩放属性不以 SCALE 发出：1.21.130 画手持物品时不按 SCALE 成比例缩放（缩放过的硫方怪体内方块的大小、位置都不对），却按客户端实体的 scaleX/Y/Z 缩放，因此改以皮肤编号（SKIN_ID，缩放 × 1000）告知资源包，由它乘进 scaleX/Y/Z，碰撞箱的宽高相应乘上（b1305.16 起）。硫方怪不发幼年标志（BABY）：1.21.130 对幼年生物的手持物品另有处理，幼年硫方怪体内的方块被画到上方约一格处；资源包按变种（1 为幼年）选幼年的几何体与贴图（b1305.17 起）。MINEZ 资源包的客户端实体对所有版本相同，标记变种、TNT、缩放与幼年标志各版本一样处理。另外照行为包发变种：成年 2、幼年 1（所有版本，原先不发，客户端中恒为 0）（b1305.14 起；b1305.10~13 另以下落方块、矿车显示体内的方块，已撤去）。
+
+**由客户端产生的方块效果。** Java 版有些方块效果由客户端自己产生，服务器不发：杨树树叶的落叶粒子与环境声音、烈性硫黄上方为水源时的硫黄气泡与有毒气体的声音（方块的 animateTick），以及烈性硫黄的方块实体在客户端的 ticker——湿润与休眠时水面上飘有毒气体，喷发与持续喷发时每秒一次喷泉粒子、每两秒一次喷发的声音，喷柱中的本地玩家被往上推（玩家的移动由客户端计算，Java 版服务器不推玩家）。基岩版中这些方块是 MINEZ 资源包的自定义方块，客户端也不会产生。现在照 Java 26.3 模拟（`AmbientBlockEffects`）：区块缓存载入区块、更新方块时记下这些方块的位置（只在调色板中有它们的分区里逐格查找），每刻只看这些位置；Java 版客户端每刻在玩家周围随机抽 667 × 2 个位置调用 animateTick，这里对每个记下的方块按同样的分布算出它被抽中的概率；方块实体的 ticker 每刻执行（64 格以内）。粒子与声音按 Geyser 的映射发出（喷泉为上游已有的 `minecraft:geyser_plume` 写法），由 MINEZ 资源包补上定义（b1305.20 起）。
+
+**客户端没有的唱片音效。** 唱片机播放唱片时，26.50 之前的客户端收到的是唱片的 LevelSoundEvent（例如 `RECORD_BOUNCE`）。客户端协议中没有这个音效时（1.21.130 没有 26.x 的唱片 Bounce），它在发送前被丢弃，唱片机没有声音。现在改以 PlaySound 播放映射中的名字（`record.bounce`，由 MINEZ 资源包补上定义），与上游找不到音效时的写法相同（b1305.20 起）。
 
 **自定义物品的名称。** 被映射文件换成基岩版自定义物品、自身又没有名称的物品（例如换了 `item_model` 的钻石斧），原先在基岩版中显示自定义物品注册时的名称，默认为基岩版物品 ID。现在与 Java 版一样，显示原版物品在玩家语言中的名称。换成了自定义方块的方块物品的原版物品（映射文件 `blocks` 中 `included_in_creative_inventory` 为 true 的方块，例如 MINEZ 资源包的硫黄台阶）同样如此，原先显示为方块的名字（例如 `minez_sulfur_slab`）（b1305.19 起）。
 

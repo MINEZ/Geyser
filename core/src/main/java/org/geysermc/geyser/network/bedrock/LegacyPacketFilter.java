@@ -100,6 +100,18 @@ public final class LegacyPacketFilter {
         return true;
     }
 
+    /**
+     * @return 客户端的协议中有没有这个音效、粒子、关卡事件或实体事件（26.40 起与登录前一律为有）。用于发送前改用别的写法，
+     * 例如 26.x 新增的唱片在 1.21.130 中没有 LevelSoundEvent，改以 PlaySound 播放资源包中的定义。
+     */
+    public static boolean supports(BedrockCodec codec, Object value) {
+        int protocolVersion = codec.getProtocolVersion();
+        if (protocolVersion < Bedrock_v898.CODEC.getProtocolVersion() || GameProtocol.is26_40orHigher(protocolVersion)) {
+            return true;
+        }
+        return !UNSUPPORTED.computeIfAbsent(protocolVersion, protocol -> probe(codec)).contains(value);
+    }
+
     private static Set<Object> probe(BedrockCodec codec) {
         BedrockCodecHelper helper = codec.createHelper();
         Set<Object> unsupported = new HashSet<>();

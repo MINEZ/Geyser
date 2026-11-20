@@ -43,6 +43,7 @@ import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.level.JukeboxSong;
 import org.geysermc.geyser.network.bedrock.GameProtocol;
+import org.geysermc.geyser.network.bedrock.LegacyPacketFilter;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.type.SoundMapping;
 import org.geysermc.geyser.session.GeyserSession;
@@ -99,6 +100,11 @@ public class JavaLevelEventTranslator extends PacketTranslator<ClientboundLevelE
                 if (bedrock != null && !bedrock.isEmpty()) {
                     soundEvent = SoundUtils.toSoundEvent(bedrock);
                 }
+            }
+            if (soundEvent != null && !LegacyPacketFilter.supports(session.getUpstream().getSession().getCodec(), soundEvent)) {
+                // MINEZ：客户端没有这个唱片的音效（例如 1.21.130 没有 26.x 的唱片 Bounce），改以 PlaySound 播放
+                // （record.bounce，由 MINEZ 资源包补上定义），否则这个音效被丢弃，唱片机没有声音。
+                soundEvent = null;
             }
 
             if (GameProtocol.is26_50orHigher(session.protocolVersion())) {

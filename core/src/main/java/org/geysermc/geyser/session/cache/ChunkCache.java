@@ -45,10 +45,16 @@ public class ChunkCache {
     private int minY;
     @Setter
     private int heightY;
+    /**
+     * MINEZ：杨树树叶、烈性硫黄等由 Java 版客户端自己产生的效果，见 {@link AmbientBlockEffects}。
+     */
+    @Getter
+    private final AmbientBlockEffects ambientEffects;
 
     public ChunkCache(GeyserSession session) {
         this.cache = !session.getGeyser().getWorldManager().hasOwnChunkCache(); // To prevent Spigot from initializing
         chunks = cache ? new Long2ObjectOpenHashMap<>() : null;
+        this.ambientEffects = new AmbientBlockEffects(session, this);
     }
 
     public void addToCache(int x, int z, DataPalette[] chunks) {
@@ -59,6 +65,7 @@ public class ChunkCache {
         long chunkPosition = MathUtils.chunkPositionToLong(x, z);
         GeyserChunk geyserChunk = GeyserChunk.from(chunks);
         this.chunks.put(chunkPosition, geyserChunk);
+        ambientEffects.onChunk(x, z, chunks, getChunkMinY());
     }
 
     /**
@@ -103,6 +110,7 @@ public class ChunkCache {
         }
 
         palette.set(x & 0xF, y & 0xF, z & 0xF, block);
+        ambientEffects.onBlockUpdate(x, y, z, block);
     }
 
     public int getBlockAt(int x, int y, int z) {
@@ -125,6 +133,7 @@ public class ChunkCache {
 
         long chunkPosition = MathUtils.chunkPositionToLong(chunkX, chunkZ);
         chunks.remove(chunkPosition);
+        ambientEffects.onChunkRemoved(chunkX, chunkZ);
     }
 
     /**
@@ -138,6 +147,7 @@ public class ChunkCache {
         }
 
         chunks.clear();
+        ambientEffects.clear();
     }
 
     public int getChunkMinY() {
