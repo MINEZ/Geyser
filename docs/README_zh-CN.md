@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.21-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.22-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -217,7 +217,7 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 
 **映射文件中不影响外观的方块属性。** 映射文件为一个 Java 版方块的每个状态各生成一个基岩版状态（排列），台阶、楼梯、墙等有含水（`waterlogged`）、充能（`powered`）等属性，不影响样子与形状，却让基岩版的状态数成倍增加。现在 `blocks` 中的一项可以写 `"ignored_properties": ["waterlogged", ...]`：基岩版的方块不带这些属性，只差这些属性的 Java 版状态共用一个基岩版状态（取其中第一个的组件）；含水方块中的水仍由 Geyser 按 Java 版状态另外放在第二层。MINEZ 资源包的生成工具为原版的非完整新方块（26.x 新增的台阶、楼梯、墙、门等，由 Java 版模型转成的自定义方块）写出（b1305.19 起）。
 
-**换成自定义方块的方块物品的原版物品。** 映射文件 `blocks` 中覆盖整个 Java 版方块（`only_override_states` 为 false）、`included_in_creative_inventory` 为 true 的方块，同名的 Java 版物品换成这个方块的方块物品。上游的做法是在创造物品栏中找到原来那个基岩版物品的一格、把它换掉，找不到就不换。几个 Java 版物品原来换成同一个基岩版物品时（例如 26.x 的硫黄、磨制硫黄、硫黄砖在 1.21.130 中都换成黄色混凝土），只有第一个换得成，其余仍显示原来的物品，原来的物品也从创造物品栏中消失。现在每个都直接换成方块物品，创造物品栏中另加一格，原来的那格不动（b1305.19 起）。
+**换成自定义方块的方块物品的原版物品。** 映射文件 `blocks` 中覆盖整个 Java 版方块（`only_override_states` 为 false）、`included_in_creative_inventory` 为 true 的方块，同名的 Java 版物品换成这个方块的方块物品。上游的做法是在创造物品栏中找到原来那个基岩版物品的一格、把它换掉，找不到就不换。几个 Java 版物品原来换成同一个基岩版物品时（例如 26.x 的硫黄、磨制硫黄、硫黄砖在 1.21.130 中都换成黄色混凝土），只有第一个换得成，其余仍显示原来的物品，原来的物品也从创造物品栏中消失。现在每个都直接换成方块物品，不进创造物品栏，原来的那格不动（b1305.19 起；b1305.19~21 曾在创造物品栏中另加一格，分类为 UNDEFINED、落进新建的分组，网易 1.21.130 解码创造物品栏失败，进服即断开，b1305.22 去掉）。
 
 **网易客户端中的杨木船。** 26.x 新增的杨木船与杨木运输船的变种为 10。基岩版 1.21.130 的船由引擎按变种选贴图（客户端实体中没有渲染控制器，资源包加不进新的变种），不认识 10。现在发给 26.40 之前的客户端的杨木船改为颜色最接近的苍白橡木船（变种 9）（b1305.19 起）。
 
