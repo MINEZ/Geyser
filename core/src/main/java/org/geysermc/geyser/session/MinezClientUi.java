@@ -34,11 +34,16 @@ import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.entity.type.TextDisplayEntity;
 import org.geysermc.geyser.item.ModelIcons;
+import org.geysermc.geyser.level.EffectType;
 import org.geysermc.geyser.text.SpriteGlyphs;
 import org.geysermc.geyser.util.PlayerListUtils;
+import org.geysermc.mcprotocollib.protocol.data.game.entity.Effect;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -90,6 +95,12 @@ public final class MinezClientUi {
      */
     public static final String FLYING_EVENT = "Flying";
     /**
+     * 自己身上基岩版没有的 Java 版状态效果（发光、幸运、霉运、海豚的恩惠）：{"effects": [{"id", "amplifier", "duration", "ambient"}]}，
+     * 每次有变化时整个发出，duration 为剩余的刻数（-1 为无限）。基岩版的效果栏中没有这些效果（{@link EffectType} 中基岩版的编号为 0），
+     * 模组在游戏画面中照 Java 版画出图标；效果的作用仍由服务器计算。
+     */
+    public static final String EFFECTS_EVENT = "JavaEffects";
+    /**
      * 能以图片显示全部文字图标（配置中的 {@code images}）与世界中的文字的模组的最低版本。
      */
     public static final MinezClientMod.Version TEXT_ICONS_MOD_VERSION = new MinezClientMod.Version(1, 9, 0);
@@ -97,6 +108,10 @@ public final class MinezClientUi {
      * 能按飞行状态为纸娃娃让位的模组的最低版本。
      */
     public static final MinezClientMod.Version FLYING_MOD_VERSION = new MinezClientMod.Version(1, 12, 0);
+    /**
+     * 能画出 Java 版独有的状态效果的模组的最低版本。
+     */
+    public static final MinezClientMod.Version EFFECTS_MOD_VERSION = new MinezClientMod.Version(1, 20, 0);
     /**
      * 能复制到剪贴板的模组的最低版本。
      */
@@ -125,6 +140,10 @@ public final class MinezClientUi {
      */
     private volatile boolean worldTextsFailed;
     private boolean itemTableRequested;
+    /**
+     * 自己身上基岩版没有的 Java 版状态效果：{效果: [等级 - 1, 结束的刻（System.nanoTime 换算的毫秒，无限为 -1）, 是否环境效果]}。
+     */
+    private final Map<Effect, long[]> javaOnlyEffects = new ConcurrentHashMap<>();
 
     MinezClientUi(GeyserSession session) {
         this.session = session;
@@ -162,6 +181,9 @@ public final class MinezClientUi {
         selfNameChanged();
         if (session.isFlying()) {
             flyingChanged(true);
+        }
+        if (!javaOnlyEffects.isEmpty()) {
+            sendJavaOnlyEffects();
         }
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
@@ -213,6 +235,52 @@ public final class MinezClientUi {
         if (ready && loaded != null && loaded.compareTo(FLYING_MOD_VERSION) >= 0) {
             send(FLYING_EVENT, Map.of("flying", flying ? 1 : 0));
         }
+    }
+
+    /**
+     * 自己身上的状态效果有变化时调用（效果为 null 时表示全部清除，例如重生）。只处理基岩版没有的效果，见 {@link #EFFECTS_EVENT}。
+     *
+     * @param duration 剩余的刻数，-1 为无限；小于 -1 时表示移除这个效果
+     */
+    public void selfEffectChanged(@Nullable Effect effect, int amplifier, int duration, boolean ambient, boolean showIcon) {
+        if (effect == null) {
+            if (javaOnlyEffects.isEmpty()) {
+                return;
+            }
+            javaOnlyEffects.clear();
+        } else {
+            if (EffectType.fromJavaEffect(effect).getBedrockId() != 0) {
+                return;
+            }
+            if (duration < -1 || !showIcon) {
+                if (javaOnlyEffects.remove(effect) == null) {
+                    return;
+                }
+            } else {
+                long ends = duration == -1 ? -1 : System.nanoTime() / 1_000_000L + duration * 50L;
+                javaOnlyEffects.put(effect, new long[] {amplifier, ends, ambient ? 1 : 0});
+            }
+        }
+        sendJavaOnlyEffects();
+    }
+
+    private void sendJavaOnlyEffects() {
+        MinezClientMod.Version loaded = version;
+        if (!ready || loaded == null || loaded.compareTo(EFFECTS_MOD_VERSION) < 0) {
+            return;
+        }
+        long now = System.nanoTime() / 1_000_000L;
+        List<Map<String, Object>> effects = new ArrayList<>();
+        for (Map.Entry<Effect, long[]> entry : javaOnlyEffects.entrySet()) {
+            long[] value = entry.getValue();
+            int duration = value[1] == -1 ? -1 : (int) Math.max(0, (value[1] - now) / 50L);
+            if (duration == 0) {
+                continue;
+            }
+            effects.add(Map.of("id", entry.getKey().name().toLowerCase(Locale.ROOT), "amplifier", (int) value[0],
+                "duration", duration, "ambient", (int) value[2]));
+        }
+        send(EFFECTS_EVENT, Map.of("effects", effects));
     }
 
     /**

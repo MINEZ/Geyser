@@ -60,6 +60,9 @@ public class JavaUpdateMobEffectTranslator extends PacketTranslator<ClientboundU
             }
 
             cache.setEffect(packet.getEffect(), packet.getAmplifier());
+            // MINEZ：基岩版没有的效果交给客户端模组画出图标，见 MinezClientUi#EFFECTS_EVENT
+            session.getMinezClientUi().selfEffectChanged(packet.getEffect(), packet.getAmplifier(), packet.getDuration(),
+                packet.isAmbient(), packet.isShowIcon());
         } else if (entity instanceof ClientVehicle clientVehicle) {
             clientVehicle.getVehicleComponent().setEffect(packet.getEffect(), packet.getAmplifier());
         }

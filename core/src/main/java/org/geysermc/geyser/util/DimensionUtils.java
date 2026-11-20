@@ -78,6 +78,8 @@ public class DimensionUtils {
         }
         // Effects are re-sent from server
         entityEffects.clear();
+        // MINEZ：客户端模组画的 Java 版独有效果一并清除，服务器随后重新发来
+        session.getMinezClientUi().selfEffectChanged(null, 0, -2, false, false);
 
         // Always reset weather, as it sometimes suddenly starts raining. See https://github.com/GeyserMC/Geyser/issues/3679
         session.updateRain(0);

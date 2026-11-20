@@ -46,6 +46,7 @@ public class JavaRemoveMobEffectTranslator extends PacketTranslator<ClientboundR
 
         if (entity == session.getPlayerEntity()) {
             session.getEffectCache().removeEffect(packet.getEffect());
+            session.getMinezClientUi().selfEffectChanged(packet.getEffect(), 0, -2, false, false);
         } else if (entity instanceof ClientVehicle clientVehicle) {
             clientVehicle.getVehicleComponent().removeEffect(packet.getEffect());
         }
