@@ -267,12 +267,25 @@ final class BedrockMovePlayer {
      * 下落速度大于重力、没有潜行时，竖直速度变为反向的 0.75 倍）；玩家的移动由客户端计算，基岩版中这两种是 MINEZ 资源包的自定义方块，
      * 客户端不会弹，这里在玩家落地的那一刻按上一刻的速度给出弹起的速度。原版的床在基岩版中本来会弹，不在此列。
      */
+    private static final float GRAVITY = 0.08f;
+    private static final float BOUNCE_RESTITUTION = 0.75f;
+    /**
+     * 反弹速度小于它时不弹（Java 版：下落速度不大于重力时不弹）。
+     */
+    private static final float MIN_BOUNCE = 0.06f;
+
     private static void bounceOnCustomBlock(GeyserSession session, SessionPlayerEntity entity) {
         if (session.isSneaking() || entity.getVehicle() != null) {
             return;
         }
         Vector3f velocity = entity.getLastTickEndVelocity();
-        if (velocity == null || velocity.getY() >= -0.08f) {
+        // 基岩版按刻离散计算，落地那一刻的速度里多了一刻的重力（0.08）；照 0.75 倍反弹会把它补回来，弹跳停在一个固定的幅度上一直弹
+        // （2026-11-21 测试服）。Java 版的公式扣除了这部分（gravityCompensation），这里同样扣掉一刻的重力：每次越弹越低，最终站稳。
+        if (velocity == null) {
+            return;
+        }
+        float bounce = (-velocity.getY() - GRAVITY) * BOUNCE_RESTITUTION;
+        if (bounce < MIN_BOUNCE) {
             return;
         }
         Vector3f feet = entity.position();
@@ -283,7 +296,7 @@ final class BedrockMovePlayer {
             if (below.is(Blocks.SHELF_MUSHROOM) || below.is(Blocks.STRAW_BED)) {
                 SetEntityMotionPacket motionPacket = new SetEntityMotionPacket();
                 motionPacket.setRuntimeEntityId(entity.geyserId());
-                motionPacket.setMotion(Vector3f.from(velocity.getX(), -velocity.getY() * 0.75f, velocity.getZ()));
+                motionPacket.setMotion(Vector3f.from(velocity.getX(), bounce, velocity.getZ()));
                 session.sendUpstreamPacket(motionPacket);
                 return;
             }
