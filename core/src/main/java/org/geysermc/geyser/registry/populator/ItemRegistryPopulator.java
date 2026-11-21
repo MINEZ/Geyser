@@ -258,9 +258,10 @@ public class ItemRegistryPopulator {
 
             // MINEZ：自定义区间从这里开始。网易的物品表按国际版 1.21.130 的条目数预留网易物品的编号（两者的原版部分与自定义物品相同）。
             int customStart = nextFreeBedrockId;
-            // MINEZ：原版物品换成自定义方块的方块物品（方块物品覆盖项）的条目数。网易客户端排自己的物品（见 NeteasePalette）时不数这些条目，
-            // 算网易物品的编号时须从自定义区间的条目数中减去（2026-11-21 正式版客户端的物品表核对：差值正好是覆盖项的 117 个）。
-            int blockItemOverrideCount = 0;
+            // MINEZ：网易客户端排自己的物品（见 NeteasePalette）时，比 Geyser 的自定义区间少数方块物品覆盖项（启动日志中的
+            // “custom block item overrides”）那么多个：2026-11-21 正式版客户端的物品表核对差 117 个，正是覆盖项的个数。b1305.31 改为只减去
+            // 实际登记成新条目的覆盖项（104 个），仍差 13 个（2026-11-22 正式服核对），因此按登记的覆盖项个数减去。
+            int blockItemOverrideCount = BlockRegistries.CUSTOM_BLOCK_ITEM_OVERRIDES.get().size();
             if (palette.netease()) {
                 if (customRange == null || customRange[0] != customStart) {
                     throw new AssertionError("The China Edition palette must follow the international 1.21.130 one with the same vanilla items");
@@ -485,7 +486,6 @@ public class ItemRegistryPopulator {
                                 definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.NONE, false, null);
                                 registry.put(customProtocolId, definition);
                                 customBlockItemDefinitions.put(customBlockData, definition);
-                                blockItemOverrideCount++;
                                 customIdMappings.put(customProtocolId, bedrockIdentifier);
                             } else for (int j = 0; j < creativeItems.size(); j++) {
                                 CreativeItemData itemData = creativeItems.get(j);
@@ -517,7 +517,6 @@ public class ItemRegistryPopulator {
                                             definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.DATA_DRIVEN, true, NbtMap.EMPTY);
                                             registry.put(customProtocolId, definition);
                                             customBlockItemDefinitions.put(customBlockData, definition);
-                                            blockItemOverrideCount++;
                                             customIdMappings.put(customProtocolId, bedrockIdentifier);
 
                                             CreativeItemCategory category = customBlockData.creativeCategory() == null ? CreativeItemCategory.UNDEFINED :

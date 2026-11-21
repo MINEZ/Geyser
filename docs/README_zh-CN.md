@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.31-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.32-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -132,7 +132,7 @@ git submodule update --init --recursive
 - **协议。** 中国版 1.21.130 有自己的编解码器：以国际版协议 898 的编解码器为基础，按网易的改动修改 `PlayerAuthInput`、`Text`、`CommandRequest`、`Animate`、`ResourcePackStack`、`ContainerOpen`、`SetPlayerInventoryOptions`、`BiomeDefinitionList`、`PlayerEnchantOptions`，以及容器槽位类型与粒子的 ID。网易专有的数据包（例如 Mod SDK 的 `PyRpc`）能被识别，都不转发给 Java 端：其中网易商城的通知交给插件，MINEZ 客户端模组的服务器菜单按钮打开服务器菜单，见下文，其余记一条 debug 日志后丢弃。国际版会话使用的编解码器不变。
 - **登录。** 登录链须由网易的根公钥或 `bedrock.netease.trusted-root-keys` 中的根公钥签发，签名与有效期的检查与微软的登录链相同。登录与其中的加密握手不再经过协议库的 `EncryptionUtils`，它在加载时会访问微软的服务；只允许中国版客户端加入时，Geyser 也不会因为访问不了这些服务而在启动时停止。开启 `debug-mode` 后，每次中国版登录都会在日志中写出登录链的信息：每一段的签发者、密钥指纹与有效期，完整的根公钥，以及 `env`、`engineVersion`、`patchVersion` 等字段，但不会写出令牌或网易会话 ID。
 - **身份。** 网易 UID 等身份信息保存在会话上，插件可以读取，见下文的登录闸门。没有登录闸门时，Java 端的身份仍按 `auth-type` 处理：玩家以登录链中的名字进入；名字中有 Java 版不允许的字符时，改为 `NE` 加网易 UID。只替换这些字符的话，两名玩家可能得到同一个名字，在离线模式下就是同一个账号。
-- **方块与物品。** 中国版按自己的方块调色板给方块编号，与 1.21.130 的不同：多了 `micro_block`、没有 `chalkboard`，大部分方块的编号因此错开；工作台与熔炉还多一个 `custom_appearance` 状态。中国版的会话使用单独的调色板与方块、物品映射，在启动时由 1.21.130 的数据按这些差异生成，不另带数据文件；物品表中去掉中国版没有的 `board` 与 `chalkboard`。国际版 1.21.130 会话的调色板不变。中国版客户端另有自己的物品（`minecraft:mod`、`mod_ex` 等），编号随服务器下发的自定义物品的条目数移动，Geyser 分配自定义物品的编号时跳过它们可能落在的位置（`NeteasePalette`）；算这些位置时，条目数不含原版物品换成自定义方块的方块物品的那些条目（方块物品覆盖项，启动日志中的“custom block item overrides”），网易客户端不数它们。此前算上了，预留的位置偏后，两个皮肤物品的编号被网易的物品占去，显示成网易的物品（b1305.31 起）。
+- **方块与物品。** 中国版按自己的方块调色板给方块编号，与 1.21.130 的不同：多了 `micro_block`、没有 `chalkboard`，大部分方块的编号因此错开；工作台与熔炉还多一个 `custom_appearance` 状态。中国版的会话使用单独的调色板与方块、物品映射，在启动时由 1.21.130 的数据按这些差异生成，不另带数据文件；物品表中去掉中国版没有的 `board` 与 `chalkboard`。国际版 1.21.130 会话的调色板不变。中国版客户端另有自己的物品（`minecraft:mod`、`mod_ex` 等），编号随服务器下发的自定义物品的条目数移动，Geyser 分配自定义物品的编号时跳过它们可能落在的位置（`NeteasePalette`）；算这些位置时，条目数要减去方块物品覆盖项（原版物品换成自定义方块的方块物品，启动日志中的“custom block item overrides”）的个数，网易客户端比 Geyser 少数这么多个。此前没有减，预留的位置偏后，两个皮肤物品的编号被网易的物品占去，显示成网易的物品（b1305.32 起；b1305.31 只减去了登记成新条目的 104 个，仍差 13 个）。
 
 加上 `-DGeyser.RakSendCookie=false` 时取不到客户端报的 RakNet 版本，中国版客户端只能靠登录链识别，带 zlib 头的流也不再能读。尚未处理的有：确认其他玩家的皮肤（`ConfirmSkin`）、转发 `PyRpc`，以及发送中国版的 VIP 资源包与行为包。
 
