@@ -65,6 +65,8 @@ import java.util.Set;
  * 2026-11-16 比对两份完整的客户端物品表（正式服的安卓正式版 3.10.5、测试服的 PC 开发版 3.10.0，自定义物品 649 与 814 个），
  * 以自定义区间（原版物品之后，见 {@link #RESERVED_OFFSETS}）分配的条目数为 T、起点为 S，网易物品落在 S + T 往前的固定位置：安卓的
  * mod、mod_ex 在 −213、−212，PC 的 debug_stick、mod、mod_ex 在 −216、−212、−211。自定义物品用到这些编号时显示成网易的物品或透明。
+ * T 不含方块物品覆盖项（原版物品换成自定义方块的方块物品，b1305.19 起登记）的条目：网易客户端不数它们，2026-11-21 正式版客户端的
+ * 物品表核对中网易物品比按含覆盖项算出的位置靠前 117 个，正是覆盖项的个数（见 ItemRegistryPopulator 的 blockItemOverrideCount）。
  * 两次观测时 Geyser 都在自定义区间里留了 2 个空号，因此分不清网易数的是“条目数”还是“最大编号”（后者随空号数变化）；
  * {@link #RESERVED_OFFSETS} 预留的 7 个位置对两种情况都成立。实际的物品表仍由 MINEZ 客户端模组每个会话读出、Geyser 比对后写进日志与
  * {@code netease_item_table.json}（见 {@code MinezItemTableCheck}），网易更新客户端后据此核对；{@code bedrock/netease_items.<版本>.json}

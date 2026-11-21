@@ -258,6 +258,9 @@ public class ItemRegistryPopulator {
 
             // MINEZ：自定义区间从这里开始。网易的物品表按国际版 1.21.130 的条目数预留网易物品的编号（两者的原版部分与自定义物品相同）。
             int customStart = nextFreeBedrockId;
+            // MINEZ：原版物品换成自定义方块的方块物品（方块物品覆盖项）的条目数。网易客户端排自己的物品（见 NeteasePalette）时不数这些条目，
+            // 算网易物品的编号时须从自定义区间的条目数中减去（2026-11-21 正式版客户端的物品表核对：差值正好是覆盖项的 117 个）。
+            int blockItemOverrideCount = 0;
             if (palette.netease()) {
                 if (customRange == null || customRange[0] != customStart) {
                     throw new AssertionError("The China Edition palette must follow the international 1.21.130 one with the same vanilla items");
@@ -482,6 +485,7 @@ public class ItemRegistryPopulator {
                                 definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.NONE, false, null);
                                 registry.put(customProtocolId, definition);
                                 customBlockItemDefinitions.put(customBlockData, definition);
+                                blockItemOverrideCount++;
                                 customIdMappings.put(customProtocolId, bedrockIdentifier);
                             } else for (int j = 0; j < creativeItems.size(); j++) {
                                 CreativeItemData itemData = creativeItems.get(j);
@@ -513,6 +517,7 @@ public class ItemRegistryPopulator {
                                             definition = new SimpleItemDefinition(bedrockIdentifier, customProtocolId, ItemVersion.DATA_DRIVEN, true, NbtMap.EMPTY);
                                             registry.put(customProtocolId, definition);
                                             customBlockItemDefinitions.put(customBlockData, definition);
+                                            blockItemOverrideCount++;
                                             customIdMappings.put(customProtocolId, bedrockIdentifier);
 
                                             CreativeItemCategory category = customBlockData.creativeCategory() == null ? CreativeItemCategory.UNDEFINED :
@@ -841,7 +846,7 @@ public class ItemRegistryPopulator {
                         customCount++;
                     }
                 }
-                customRange = new int[] {customStart, customCount};
+                customRange = new int[] {customStart, customCount - blockItemOverrideCount};
             } else if (palette.netease()) {
                 int netease = 0;
                 for (int id : registry.keySet()) {
@@ -849,6 +854,7 @@ public class ItemRegistryPopulator {
                         netease++;
                     }
                 }
+                netease -= blockItemOverrideCount;
                 if (netease != customRange[1]) {
                     GeyserImpl.getInstance().getLogger().warning("China Edition palette has " + netease + " custom item entries but "
                         + customRange[1] + " were expected; the IDs reserved for China Edition's own items may be off");
