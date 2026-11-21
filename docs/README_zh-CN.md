@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.32-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.33-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -132,7 +132,7 @@ git submodule update --init --recursive
 - **协议。** 中国版 1.21.130 有自己的编解码器：以国际版协议 898 的编解码器为基础，按网易的改动修改 `PlayerAuthInput`、`Text`、`CommandRequest`、`Animate`、`ResourcePackStack`、`ContainerOpen`、`SetPlayerInventoryOptions`、`BiomeDefinitionList`、`PlayerEnchantOptions`，以及容器槽位类型与粒子的 ID。网易专有的数据包（例如 Mod SDK 的 `PyRpc`）能被识别，都不转发给 Java 端：其中网易商城的通知交给插件，MINEZ 客户端模组的服务器菜单按钮打开服务器菜单，见下文，其余记一条 debug 日志后丢弃。国际版会话使用的编解码器不变。
 - **登录。** 登录链须由网易的根公钥或 `bedrock.netease.trusted-root-keys` 中的根公钥签发，签名与有效期的检查与微软的登录链相同。登录与其中的加密握手不再经过协议库的 `EncryptionUtils`，它在加载时会访问微软的服务；只允许中国版客户端加入时，Geyser 也不会因为访问不了这些服务而在启动时停止。开启 `debug-mode` 后，每次中国版登录都会在日志中写出登录链的信息：每一段的签发者、密钥指纹与有效期，完整的根公钥，以及 `env`、`engineVersion`、`patchVersion` 等字段，但不会写出令牌或网易会话 ID。
 - **身份。** 网易 UID 等身份信息保存在会话上，插件可以读取，见下文的登录闸门。没有登录闸门时，Java 端的身份仍按 `auth-type` 处理：玩家以登录链中的名字进入；名字中有 Java 版不允许的字符时，改为 `NE` 加网易 UID。只替换这些字符的话，两名玩家可能得到同一个名字，在离线模式下就是同一个账号。
-- **方块与物品。** 中国版按自己的方块调色板给方块编号，与 1.21.130 的不同：多了 `micro_block`、没有 `chalkboard`，大部分方块的编号因此错开；工作台与熔炉还多一个 `custom_appearance` 状态。中国版的会话使用单独的调色板与方块、物品映射，在启动时由 1.21.130 的数据按这些差异生成，不另带数据文件；物品表中去掉中国版没有的 `board` 与 `chalkboard`。国际版 1.21.130 会话的调色板不变。中国版客户端另有自己的物品（`minecraft:mod`、`mod_ex` 等），编号随服务器下发的自定义物品的条目数移动，Geyser 分配自定义物品的编号时跳过它们可能落在的位置（`NeteasePalette`）；算这些位置时，条目数要减去方块物品覆盖项（原版物品换成自定义方块的方块物品，启动日志中的“custom block item overrides”）的个数，网易客户端比 Geyser 少数这么多个。此前没有减，预留的位置偏后，两个皮肤物品的编号被网易的物品占去，显示成网易的物品（b1305.32 起；b1305.31 只减去了登记成新条目的 104 个，仍差 13 个）。
+- **方块与物品。** 中国版按自己的方块调色板给方块编号，与 1.21.130 的不同：多了 `micro_block`、没有 `chalkboard`，大部分方块的编号因此错开；工作台与熔炉还多一个 `custom_appearance` 状态。中国版的会话使用单独的调色板与方块、物品映射，在启动时由 1.21.130 的数据按这些差异生成，不另带数据文件；物品表中去掉中国版没有的 `board` 与 `chalkboard`。国际版 1.21.130 会话的调色板不变。中国版客户端另有自己的物品（`minecraft:mod`、`mod_ex` 等），编号随服务器下发的自定义物品的条目数移动，Geyser 分配自定义物品的编号时跳过它们可能落在的位置（`NeteasePalette`）；算这些位置时，网易客户端只数按组件定义的物品，不数方块物品（自定义方块的方块物品与方块物品覆盖项）；Geyser 按这个个数加上一个固定的 8 推算，前后各多留 2 个作余量，启动日志中写出“China Edition item IDs”一行（推算所用的个数与预留的编号）。此前按全部条目数推算，b1305.19 起多了 117 个方块物品覆盖项后，预留的位置偏后，赤焰鬼弩、钓鱼竿等皮肤物品的编号被网易的物品占去，在物品栏中显示为透明（b1305.33 起；b1305.31、32 按覆盖项个数修正，仍差 13、3 个）。
 
 加上 `-DGeyser.RakSendCookie=false` 时取不到客户端报的 RakNet 版本，中国版客户端只能靠登录链识别，带 zlib 头的流也不再能读。尚未处理的有：确认其他玩家的皮肤（`ConfirmSkin`）、转发 `PyRpc`，以及发送中国版的 VIP 资源包与行为包。
 
@@ -164,9 +164,9 @@ git submodule update --init --recursive
 
 **中国版客户端上的玩家皮肤。** 中国版客户端收到玩家列表中的皮肤后，要等服务器以网易专有的皮肤确认包（ConfirmSkin，228）确认，才显示这个皮肤；没有确认时，所有玩家（包括自己）都显示为默认皮肤。网易的《皮肤反作弊方案》要求服务器先向网易查询每个皮肤是否合法，只确认合法的；这个查询只认得网易商城的皮肤，而本服的皮肤都来自网易客户端或启动器，因此与其他中国版服务器相同，Geyser 现在在每次发出加入玩家的玩家列表后，紧接着确认其中有皮肤图的各项。按文档，Persona 皮肤与皮肤 ID 以 `.NonsyncCustom`、`.NonsyncCustomSlim` 结尾的不用确认。每项包含 UUID、皮肤图、uid 与几何数据；uid 对中国版玩家为其网易账号编号，其余为 UUID 去掉连字符后的散列值，取非负（b1305.2 起；此前一律为散列值）。只发给中国版客户端的会话。**b1280.59 起默认不发**：b1280.56 开始发送后，正式服的玩家反映看到“透明人”（看不见的玩家与 NPC）、部分手持物品与盔甲看不见，而皮肤仍然看不到；本机没有中国版客户端可以核实，所以只在代理以 `-DGeyser.NeteaseConfirmSkin=true` 启动时才发，供测试服试验。可能的原因见于另一家服务器开源的中国版 Geyser（mc-dreamland/Geyser 的 netease/1.21.130 分支）：同一个玩家列表条目没有先移除、又被加入并确认一次时，中国版客户端会把这个实体隐藏，而 Geyser 常对同一名玩家再发加入（取到皮肤后、列表中的名字改变后）。b1305.2 起 Geyser 记下已加入并确认、尚未移除的条目，再次加入之前先发一个移除。包的格式与那家的相同（皮肤图为长度加字节，不带宽高）。在测试服试过之前仍默认不发。
 
-网易登录不给 Java 版玩家材质，基岩版玩家看 Java 版玩家是默认皮肤，Java 版玩家看基岩版玩家同样如此。新增两个接口，由代理端的插件（MINEZ 的 Velocity 插件）在两边之间传递皮肤：`GeyserApi#bedrockSkin`（以及 `bedrockSkinSlim`）取得在线基岩版玩家自己的皮肤（RGBA 像素）；`GeyserApi#provideSkin` 为档案中没有材质的玩家设定基岩版玩家看到的皮肤，已经看到这名玩家的随即更新，传入 `null` 时移除。只接受原版的尺寸与宽为 64 的整数倍的高清皮肤（最大 1024）。`bedrockSkin` 只提供标准人形模型的皮肤（皮肤 resource patch 中为 `geometry.humanoid.custom` 或 `geometry.humanoid.customSlim`）：网易的 4D 皮肤等自带模型的皮肤，贴图按其模型排布，套在 Java 版的人形上是一团错位的色块，因此 Java 版玩家看这类基岩版玩家是默认皮肤（b1305.3 起）。其他基岩版玩家仍看到连同模型在内的 4D 皮肤。
+网易登录不给 Java 版玩家材质，基岩版玩家看 Java 版玩家是默认皮肤，Java 版玩家看基岩版玩家同样如此。新增两个接口，由代理端的插件（MINEZ 的 Velocity 插件）在两边之间传递皮肤：`GeyserApi#bedrockSkin`（以及 `bedrockSkinSlim`）取得在线基岩版玩家自己的皮肤（RGBA 像素）；`GeyserApi#provideSkin` 为档案中没有材质的玩家设定基岩版玩家看到的皮肤，已经看到这名玩家的随即更新，传入 `null` 时移除。只接受原版的尺寸与宽为 64 的整数倍的高清皮肤（最大 1024）。`bedrockSkin` 只提供标准人形模型的皮肤（皮肤 resource patch 中为 `geometry.humanoid.custom` 或 `geometry.humanoid.customSlim`）：网易的 4D 皮肤等自带模型的皮肤，贴图按其模型排布，套在 Java 版的人形上是一团错位的色块，因此 Java 版玩家看这类基岩版玩家是默认皮肤（b1305.3 起）。b1305.33 起其他基岩版玩家（包括自己）同样看到默认皮肤：这类皮肤不再缓存与转发，见下段。
 
-自带几何数据的基岩版皮肤（例如网易的 4D 皮肤）转发给其他基岩版玩家时，几何数据的引擎版本沿用这名玩家登录数据中的 `SkinGeometryDataEngineVersion`，不再填观看者的游戏版本：几何数据按引擎版本校验，老格式的几何体（继承基础人形的写法）在较新的版本下可能校验不过，别人看到的是透明的，玩家自己看却正常（2026-11-21 正式服反馈）。每名基岩版玩家登录时，日志中记一行皮肤概况（`Bedrock skin of …`：贴图尺寸、几何数据大小、引擎版本、resource patch 的前 160 个字符，是否为 Persona、是否因过大未缓存），不含皮肤内容，用于排查这类问题。
+自带几何数据的基岩版皮肤（例如网易的 4D 皮肤）转发给其他基岩版玩家时，几何数据的引擎版本沿用这名玩家登录数据中的 `SkinGeometryDataEngineVersion`，不再填观看者的游戏版本：几何数据按引擎版本校验，老格式的几何体（继承基础人形的写法）在较新的版本下可能校验不过，别人看到的是透明的，玩家自己看却正常（2026-11-21 正式服反馈）。**b1305.33 起不再转发自带模型的皮肤**：沿用引擎版本后仍有玩家反映 4D 皮肤在别人眼中透明（2026-11-22），因此 resource patch 不是标准人形的皮肤一律不缓存，所有人看到的都是这名玩家的 Java 版皮肤，没有时为默认皮肤，日志中另记一行“has its own model”。每名基岩版玩家登录时，日志中记一行皮肤概况（`Bedrock skin of …`：贴图尺寸、几何数据大小、引擎版本、resource patch 的前 160 个字符，是否为 Persona、是否因过大未缓存），不含皮肤内容，用于排查这类问题。
 
 **基岩版端口查询的日志。** 中国版的服务器列表显示服务器的在线人数，人数由查询（ping）服务器得到。Java 版端口的查询在 Velocity 的日志中看得到，基岩版端口的查询却完全没有记录，无从知道网易是否来查、查到的是多少。Geyser 现在每分钟统计一次基岩版端口回复的查询：次数、来源地址的个数、最后一次回复的在线人数，以及次数最多的十个地址与各自的次数（`log-player-ip-addresses` 关闭时不写地址）。网易每分钟固定来查约 10 次，每分钟写一行会刷满日志，因此只在情况变化时写：开始收到查询的那一分钟写一行以 `Answering Bedrock pings;` 开头的汇总，确认在回复；之后照常收到时不写，偶尔一分钟没有也不写；收到过查询之后连续两分钟一次都没有，写一条以 `No Bedrock pings for the last 2 minutes` 开头的警告，这时中国版服务器列表中的人数可能不显示；恢复时写一行以 `Bedrock pings resumed after` 开头的汇总，注明停了几分钟。从未收到过查询的服务器（例如没有网易中转的）什么都不写。
 

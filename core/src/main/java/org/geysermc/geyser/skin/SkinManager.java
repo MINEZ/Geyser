@@ -257,7 +257,13 @@ public class SkinManager {
                 + clientData.getSkinImageHeight() + ", geometry " + geometryBytes.length + " bytes, engine version " + engineVersion
                 + ", resource patch " + (patch.length() > 160 ? patch.substring(0, 160) + "..." : patch)
                 + (clientData.isPersonaSkin() ? ", persona" : "") + (image ? "" : ", image not cached") + (geometryFits ? "" : ", geometry too large"));
-            if (image && !clientData.isPersonaSkin()) {
+            // MINEZ：网易的 4D 皮肤等自带模型的皮肤一律不用：转给其他基岩版玩家时常常是透明的（2026-11-21、11-22 正式服反馈），
+            // 套在 Java 版的人形上又是错位的色块。不缓存，所有人（包括自己）看到的都是这名玩家的 Java 版皮肤，没有时为默认皮肤。
+            boolean standardModel = SkinModels.isStandardHumanoid(new String(geometryNameBytes, StandardCharsets.UTF_8));
+            if (!standardModel) {
+                geyser.getLogger().info("Bedrock skin of " + playerEntity.getUsername() + " has its own model; showing the default skin instead");
+            }
+            if (image && !clientData.isPersonaSkin() && standardModel) {
                 SkinProvider.storeBedrockSkin(playerEntity.uuid(), clientData.getSkinId(), skinBytes);
                 if (geometryFits) {
                     SkinProvider.storeBedrockGeometry(playerEntity.uuid(), geometryNameBytes, geometryBytes, engineVersion);

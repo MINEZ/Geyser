@@ -258,15 +258,14 @@ public class ItemRegistryPopulator {
 
             // MINEZ：自定义区间从这里开始。网易的物品表按国际版 1.21.130 的条目数预留网易物品的编号（两者的原版部分与自定义物品相同）。
             int customStart = nextFreeBedrockId;
-            // MINEZ：网易客户端排自己的物品（见 NeteasePalette）时，比 Geyser 的自定义区间少数方块物品覆盖项（启动日志中的
-            // “custom block item overrides”）那么多个：2026-11-21 正式版客户端的物品表核对差 117 个，正是覆盖项的个数。b1305.31 改为只减去
-            // 实际登记成新条目的覆盖项（104 个），仍差 13 个（2026-11-22 正式服核对），因此按登记的覆盖项个数减去。
-            int blockItemOverrideCount = BlockRegistries.CUSTOM_BLOCK_ITEM_OVERRIDES.get().size();
             if (palette.netease()) {
                 if (customRange == null || customRange[0] != customStart) {
                     throw new AssertionError("The China Edition palette must follow the international 1.21.130 one with the same vanilla items");
                 }
                 NeteasePalette.setCustomRange(customRange[0], customRange[1]);
+                GeyserImpl.getInstance().getLogger().info("China Edition item IDs: custom range starts at " + customRange[0] + ", "
+                    + customRange[1] + " component-based custom items in 1.21.130; reserved for China Edition's own items: "
+                    + new java.util.TreeSet<>(NeteasePalette.reservedIds()));
             }
 
             Object2ObjectMap<String, BlockDefinition> bedrockBlockIdOverrides = new Object2ObjectOpenHashMap<>();
@@ -839,23 +838,11 @@ public class ItemRegistryPopulator {
             // MINEZ：网易中国版客户端的物品表另行登记。
             (palette.netease() ? Registries.NETEASE_ITEMS : Registries.ITEMS).register(palette.protocolVersion(), itemMappings);
             if (!palette.netease() && palette.version().equals("1_21_130")) {
-                int customCount = 0;
-                for (int id : registry.keySet()) {
-                    if (id >= customStart) {
-                        customCount++;
-                    }
-                }
-                customRange = new int[] {customStart, customCount - blockItemOverrideCount};
+                customRange = new int[] {customStart, componentBasedCustomItems(registry, customStart)};
             } else if (palette.netease()) {
-                int netease = 0;
-                for (int id : registry.keySet()) {
-                    if (id >= customStart) {
-                        netease++;
-                    }
-                }
-                netease -= blockItemOverrideCount;
+                int netease = componentBasedCustomItems(registry, customStart);
                 if (netease != customRange[1]) {
-                    GeyserImpl.getInstance().getLogger().warning("China Edition palette has " + netease + " custom item entries but "
+                    GeyserImpl.getInstance().getLogger().warning("China Edition palette has " + netease + " component-based custom items but "
                         + customRange[1] + " were expected; the IDs reserved for China Edition's own items may be off");
                 }
             }
@@ -1024,5 +1011,19 @@ public class ItemRegistryPopulator {
             // Prefer the one with the most amount of predicates
             return second.predicates().size() - first.predicates().size();
         }
+    }
+
+    /**
+     * MINEZ：自定义区间中按组件定义的物品（{@link ItemDefinition#isComponentBased()}）的条目数，网易客户端据此排自己的物品，见 NeteasePalette。
+     * 方块物品（自定义方块与方块物品覆盖项，不按组件定义）不算在内。
+     */
+    private static int componentBasedCustomItems(Int2ObjectMap<ItemDefinition> registry, int customStart) {
+        int count = 0;
+        for (Int2ObjectMap.Entry<ItemDefinition> entry : registry.int2ObjectEntrySet()) {
+            if (entry.getIntKey() >= customStart && entry.getValue().isComponentBased()) {
+                count++;
+            }
+        }
+        return count;
     }
 }

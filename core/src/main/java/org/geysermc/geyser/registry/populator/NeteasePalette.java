@@ -65,8 +65,7 @@ import java.util.Set;
  * 2026-11-16 比对两份完整的客户端物品表（正式服的安卓正式版 3.10.5、测试服的 PC 开发版 3.10.0，自定义物品 649 与 814 个），
  * 以自定义区间（原版物品之后，见 {@link #RESERVED_OFFSETS}）分配的条目数为 T、起点为 S，网易物品落在 S + T 往前的固定位置：安卓的
  * mod、mod_ex 在 −213、−212，PC 的 debug_stick、mod、mod_ex 在 −216、−212、−211。自定义物品用到这些编号时显示成网易的物品或透明。
- * T 要减去方块物品覆盖项（原版物品换成自定义方块的方块物品，b1305.19 起登记）的个数：2026-11-21 正式版客户端的物品表核对中，
- * 网易物品比按 Geyser 的条目数算出的位置靠前 117 个，正是覆盖项的个数（见 ItemRegistryPopulator 的 blockItemOverrideCount）。
+ * T 的算法 2026-11-22 起有变，见 {@link #RESERVED_OFFSETS}。
  * 两次观测时 Geyser 都在自定义区间里留了 2 个空号，因此分不清网易数的是“条目数”还是“最大编号”（后者随空号数变化）；
  * {@link #RESERVED_OFFSETS} 预留的 7 个位置对两种情况都成立。实际的物品表仍由 MINEZ 客户端模组每个会话读出、Geyser 比对后写进日志与
  * {@code netease_item_table.json}（见 {@code MinezItemTableCheck}），网易更新客户端后据此核对；{@code bedrock/netease_items.<版本>.json}
@@ -182,8 +181,24 @@ public final class NeteasePalette {
     /**
      * 网易物品在自定义区间末尾往前的位置（见类的说明）：以 S + T 为 0，安卓与 PC 的网易物品依次在 −216、−213、−212、−211；网易若数的是
      * 最大编号，空号数为 7 时它们再往后移 5，落在 −211、−208、−207、−206。合起来正好 7 个，预留后两种情况都不撞号。
+     * <p>
+     * 2026-11-22 起 T 改为自定义区间中按组件定义的物品的个数加 {@link #NON_COMPONENT_ITEMS}：自定义方块的方块物品与方块物品覆盖项不按组件定义，
+     * 网易客户端不数它们（b1305.19 起覆盖项多了 117 个，网易物品的位置却没有跟着后移；三次核对：覆盖项 104 个、117 个时 Geyser 都算偏了）。
+     * 2026-11-16 两次观测时 Geyser 的自定义条目中不按组件定义的正好是 8 个（MINEZ 自己的方块），当时以全部条目数为 T 推出了上面的位置，
+     * 因此按组件定义的个数要加回这 8 个；2026-11-22 正式版安卓（mod 1473）、PC 开发版（debug_stick 1470、mod 1474、mod_ex 1475）
+     * 按组件定义的 835 个算正好对上。这个推断只有三组数据，预留时前后各多留 {@link #SPREAD} 个位置作余量。
      */
     static final int[] RESERVED_OFFSETS = {-216, -213, -212, -211, -208, -207, -206};
+
+    /**
+     * 按组件定义的物品个数之外，网易客户端算位置时多出的固定个数，见 {@link #RESERVED_OFFSETS}。
+     */
+    static final int NON_COMPONENT_ITEMS = 8;
+
+    /**
+     * 预留位置前后各多留的个数，见 {@link #RESERVED_OFFSETS}。
+     */
+    static final int SPREAD = 2;
 
     /**
      * 自定义区间的起点（原版物品之后的第一个编号）与这次要分配的条目数，由分配前统计（国际版 1.21.130 的物品表与网易的原版部分
@@ -195,7 +210,7 @@ public final class NeteasePalette {
      * 按自定义区间算出网易物品可能落在的编号（见 {@link #RESERVED_OFFSETS}），之后分配编号时跳过。
      *
      * @param start 自定义区间的起点
-     * @param count 这次要分配的条目数（不含预留的空号）
+     * @param count 自定义区间中按组件定义的物品的个数（不含预留的空号）
      */
     static void setCustomRange(int start, int count) {
         reservedIds = reservedIds(start, count);
@@ -203,10 +218,13 @@ public final class NeteasePalette {
 
     static IntSet reservedIds(int start, int count) {
         IntSet ids = new IntOpenHashSet();
+        int base = start + count + NON_COMPONENT_ITEMS;
         for (int offset : RESERVED_OFFSETS) {
-            int id = start + count + offset;
-            if (id >= start) {
-                ids.add(id);
+            for (int spread = -SPREAD; spread <= SPREAD; spread++) {
+                int id = base + offset + spread;
+                if (id >= start) {
+                    ids.add(id);
+                }
             }
         }
         return IntSets.unmodifiable(ids);
