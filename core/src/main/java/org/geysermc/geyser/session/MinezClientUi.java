@@ -95,9 +95,10 @@ public final class MinezClientUi {
      */
     public static final String FLYING_EVENT = "Flying";
     /**
-     * 自己身上基岩版没有的 Java 版状态效果（发光、幸运、霉运、海豚的恩惠）：{"effects": [{"id", "amplifier", "duration", "ambient"}]}，
-     * 每次有变化时整个发出，duration 为剩余的刻数（-1 为无限）。基岩版的效果栏中没有这些效果（{@link EffectType} 中基岩版的编号为 0），
-     * 模组在游戏画面中照 Java 版画出图标；效果的作用仍由服务器计算。
+     * 自己身上基岩版没有的 Java 版状态效果（发光、幸运、霉运、海豚的恩惠）：{"effects": [{"id", "amplifier", "duration", "ambient"}],
+     * "shown": 基岩版效果栏中的图标数}，每次有变化时整个发出，duration 为剩余的刻数（-1 为无限）。基岩版的效果栏中没有这些效果
+     * （{@link EffectType} 中基岩版的编号为 0），模组在游戏画面中照基岩版效果栏的样子画出图标，接在效果栏已有的 shown 个图标之后
+     * （模组 1.20.1 起；效果栏中的效果增减时，身上有这些效果就重新发出）；效果的作用仍由服务器计算。
      */
     public static final String EFFECTS_EVENT = "JavaEffects";
     /**
@@ -250,6 +251,10 @@ public final class MinezClientUi {
             javaOnlyEffects.clear();
         } else {
             if (EffectType.fromJavaEffect(effect).getBedrockId() != 0) {
+                // 基岩版效果栏中的图标数变了，模组画的图标要随之挪动
+                if (!javaOnlyEffects.isEmpty()) {
+                    sendJavaOnlyEffects();
+                }
                 return;
             }
             if (duration < -1 || !showIcon) {
@@ -280,7 +285,13 @@ public final class MinezClientUi {
             effects.add(Map.of("id", entry.getKey().name().toLowerCase(Locale.ROOT), "amplifier", (int) value[0],
                 "duration", duration, "ambient", (int) value[2]));
         }
-        send(EFFECTS_EVENT, Map.of("effects", effects));
+        int shown = 0;
+        for (Effect effect : session.getEffectCache().getEntityEffects()) {
+            if (EffectType.fromJavaEffect(effect).getBedrockId() != 0) {
+                shown++;
+            }
+        }
+        send(EFFECTS_EVENT, Map.of("effects", effects, "shown", shown));
     }
 
     /**
