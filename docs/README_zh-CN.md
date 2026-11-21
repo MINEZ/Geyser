@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.27-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.28-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -219,7 +219,7 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 
 **按住使用键时门的连续开关。** 基岩版客户端对它不认得能交互的方块（MINEZ 资源包的自定义方块，例如 26.x 的杨木门）按住使用键时不断发来使用，Java 版服务器照单全收，门一开一关、按钮连按，轻点也容易误触成两下。基岩版的使用带有触发方式：玩家真正按下的为 `PLAYER_INPUT`，按住时客户端自己重复的为 `SIMULATION_TICK`。现在门、活板门、栅栏门与按钮只转发真正按下的那一次，按住不反复开关，快速连按照常开关，与基岩版原版的门相同；潜行时照常（b1305.24 起；b1305.23 按间隔判断，快速连按也被吞掉）。拿着 MINEZ 资源包的物品（`minez:` 的自定义物品、`geyser_custom:` 的方块物品，例如 26.x 的金蒲公英）放方块时，按住的重复客户端几乎每刻都发，轻点也常放出两个；现在按住的重复与上一次放置的间隔不到 250 毫秒时丢弃，真正按下的照常转发，长按仍能连续放置（b1305.25 起）。
 
-**方块物品另用的外观。** 自定义方块的方块物品默认按方块的默认状态画出，有的与 Java 版的物品模型不同：按钮的默认状态挂在墙上，Java 版的物品是平放的小方块；栅栏、墙的默认状态只有柱子。现在映射文件 `blocks` 中的一项可以写 `"item_visual": {"geometry": ..., "material_instances": ...}`（写法与 `state_overrides` 中的相同），生成方块数据时作为基岩版方块的 `minecraft:item_visual` 组件（字段 `geometryDescription`、`materialInstancesDescription`，由网易引擎中的说明字符串推断）加在基础组件上（`BlockItemVisuals`，b1305.24 起）。实测网易 1.21.130 画方块物品时没有用上它（也不理会 `bone_visibility`），MINEZ 资源包改为以方块的基础组件的几何体给出物品的样子，不再写这一项。
+**方块物品另用的外观。** 自定义方块的方块物品默认按方块的默认状态画出，有的与 Java 版的物品模型不同：按钮的默认状态挂在墙上，Java 版的物品是平放的小方块；栅栏、墙的默认状态只有柱子。现在映射文件 `blocks` 中的一项可以写 `"item_visual": {"geometry": ..., "material_instances": ...}`（写法与 `state_overrides` 中的相同），生成方块数据时作为基岩版方块的 `minecraft:item_visual` 组件（字段 `geometryDescription`、`materialInstancesDescription`，由网易引擎中的说明字符串推断）加在基础组件上（`BlockItemVisuals`，b1305.24 起）。实测网易 1.21.130 画方块物品时没有用上它（也不理会 `bone_visibility`），MINEZ 资源包不再写这一项；改为基础组件的几何体也没有用。客户端画方块物品时用的是物品所带的方块状态（Geyser 给的是方块的默认状态，即各属性取第一个值），所以现在映射文件 `blocks` 中的一项可以写 `"item_state": {"geometry": ..., "material_instances": ...}`（写法与 `state_overrides` 中的相同）：取值最多的属性（一样多时按名称取第一个）另加一个取值 `minez_item` 排在最前，默认状态即“这个属性为 `minez_item`、其余为 Java 版的默认值”，这个状态的排列（放在最后）用 `item_state` 的组件，形状取 Java 版默认状态的。Java 版的方块状态不会对应它，只在客户端放置方块的预测中出现一瞬；基岩版状态数只增加这个属性的 1/取值数（b1305.28 起）。
 
 **随机偏移方块的选取框。** Java 版有的方块按位置随机水平偏移（`OffsetType.XZ`，例如金蒲公英、硫黄尖锥），Geyser 的方块形状带着某一处的偏移，基岩版的自定义方块却画在中央，选取框偏在一边。`blocks` 中的一项写 `"center_shapes": true` 时，选取框与碰撞箱水平移到中央（b1305.24 起）。
 

@@ -62,6 +62,7 @@ import org.geysermc.geyser.util.MinecraftKey;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -78,6 +79,10 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
 
     /** MINEZ：只用于显示的方块（item_only）按这个 Java 版方块状态取碰撞箱与选取框，即完整方块。 */
     private static final String ITEM_ONLY_BOX_STATE = "minecraft:stone";
+    /**
+     * MINEZ：方块物品用的状态（item_state）在选定属性中的取值，见 readBlockMappingEntry。
+     */
+    private static final String ITEM_STATE_VALUE = "minez_item";
     /**
      * MINEZ：正在读的一项是否要把选取框与碰撞箱水平居中，见 readBlockMappingEntry。
      */
@@ -206,11 +211,19 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
         String firstState = componentsMap.keySet().iterator().next();
         customBlockDataBuilder.components(createCustomBlockComponentsMapping(object, firstState, name));
 
-        return createCustomBlockMapping(customBlockDataBuilder, componentsMap, identifier, !onlyOverrideStates, ignoredProperties);
+        // MINEZ：方块物品用的状态（item_state，写法与 state_overrides 中的一项相同）。基岩版的方块物品（物品栏、手上、掉落物）按物品
+        // 所带的方块状态画出，Geyser 给的是方块的默认状态（各属性取第一个值）；有的方块与 Java 版的物品模型不同：按钮的默认状态挂在墙上，
+        // Java 版的物品是悬空的小方块；栅栏、墙的默认状态只有柱子；楼梯的默认状态朝北（转了 270°）。写了 item_state 时，取值最多的属性
+        // 另加一个取值 minez_item 排在最前，于是默认状态即“这个属性为 minez_item、其余为 Java 版的默认值”，这个状态用 item_state 的组件；
+        // Java 版的方块状态不会对应它（只在客户端放置方块的预测中出现一瞬）。形状取 Java 版默认状态的。
+        CustomBlockComponents itemState = object.get("item_state") instanceof JsonObject itemStateObject
+            ? createCustomBlockComponentsMapping(itemStateObject, firstState, name) : null;
+
+        return createCustomBlockMapping(customBlockDataBuilder, componentsMap, identifier, !onlyOverrideStates, ignoredProperties, itemState);
     }
 
     private CustomBlockMapping createCustomBlockMapping(CustomBlockData.Builder customBlockDataBuilder, Map<String, CustomBlockComponents> componentsMap, String identifier, boolean overrideItem,
-                                                        Set<String> ignoredProperties) {
+                                                        Set<String> ignoredProperties, @Nullable CustomBlockComponents itemState) {
         Map<String, LinkedHashSet<String>> valuesMap = new Object2ObjectOpenHashMap<>();
 
         List<CustomBlockPermutation> permutations = new ArrayList<>();
@@ -251,6 +264,20 @@ public class BlockMappingsReader_v1 implements MappingsReader<String, CustomBloc
                 }
             }
             blockStateBuilders.put(state, finalBuilder);
+        }
+
+        // MINEZ：方块物品用的状态，见 readBlockMappingEntry。取值最多的属性（一样多时按名称取第一个）另加 minez_item 排在最前，
+        // 状态数只增加这个属性的 1/取值数；这个状态的排列放在最后，覆盖其余排列（其余排列的条件都限定了这个属性的取值，本来也不会符合）。
+        if (itemState != null && !valuesMap.isEmpty()) {
+            String itemProperty = valuesMap.entrySet().stream()
+                .max(Comparator.<Map.Entry<String, LinkedHashSet<String>>>comparingInt(e -> e.getValue().size())
+                    .thenComparing(Map.Entry::getKey, Comparator.reverseOrder()))
+                .orElseThrow().getKey();
+            LinkedHashSet<String> values = new LinkedHashSet<>();
+            values.add(ITEM_STATE_VALUE);
+            values.addAll(valuesMap.get(itemProperty));
+            valuesMap.put(itemProperty, values);
+            permutations.add(new CustomBlockPermutation(itemState, String.format("q.block_property('%s') == '%s'", itemProperty, ITEM_STATE_VALUE)));
         }
 
         valuesMap.forEach((key, value) -> customBlockDataBuilder.stringProperty(key, new ArrayList<>(value)));
