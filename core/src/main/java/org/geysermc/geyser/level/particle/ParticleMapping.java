@@ -64,6 +64,11 @@ import java.util.function.Function;
 
 public sealed interface ParticleMapping {
 
+    /**
+     * MINEZ：龙息云的粒子，见 {@link IdentifierBased#mapParticle}。
+     */
+    String DRAGON_BREATH_LINGERING = "minecraft:dragon_breath_lingering";
+
     Optional<ParticleType> particleType();
 
     Function<ParticleRandomization, BedrockPacket> mapParticle(GeyserSession session, @Nullable ParticleData particleData);
@@ -83,6 +88,17 @@ public sealed interface ParticleMapping {
         @Override
         public Function<ParticleRandomization, BedrockPacket> mapParticle(GeyserSession session, @Nullable ParticleData particleData) {
             return randomization -> {
+                if (color.isEmpty() && DRAGON_BREATH_LINGERING.equals(identifier.asString())) {
+                    // MINEZ：Java 版的龙息粒子对应基岩版的 dragon_breath_lingering，它本是龙息云实体的粒子，发射数、持续时间与半径都取
+                    // 龙息云给的变量；单独播放时没有这些变量，客户端每帧报“unknown variable”（2026-11-22 测试服：空投箱的龙息粒子，
+                    // 一次进服十一万行）。补上变量：半径 0、两颗、只发射一下，与 Java 版的单颗龙息粒子相近。
+                    return ParticleMapping.createParticleEffectPacket(session, identifier.toString(), randomization.position(),
+                        ParticleHelper.serializeVariables(List.of(
+                            ParticleHelper.createVariable("variable.cloud_radius", ParticleHelper.FLOAT, 0.0F),
+                            ParticleHelper.createVariable("variable.particle_multiplier", ParticleHelper.FLOAT, 0.0F),
+                            ParticleHelper.createVariable("variable.cloud_lifetime", ParticleHelper.FLOAT, 0.05F)
+                        )));
+                }
                 if (color.isEmpty()) {
                     return ParticleMapping.createParticleEffectPacket(session, identifier.toString(), randomization.position());
                 }
