@@ -115,8 +115,10 @@ public class MinecraftTranslationRegistry extends TranslatableComponentRenderer<
         Component fallback = component.fallback();
         String glyph = component.contents() instanceof SpriteObjectContents sprite ? SpriteGlyphs.glyph(sprite.atlas(), sprite.sprite()) : null;
         if (glyph != null) {
-            // MINEZ：资源包中有这个图标的字形时显示字形，与 Java 版相同。
-            replacement = Component.text(glyph);
+            // MINEZ：资源包中有这个图标的字形时显示字形，与 Java 版相同。字形是图片，不加斜体与粗体：基岩版会把斜体的字形图片斜切、
+            // 把粗体的叠画一次，物品说明（Java 版默认斜体）中的称号因此错乱（2026-11-22 正式服，新手特惠礼包的“拓荒者”）。
+            replacement = Component.text(glyph).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
+                .decoration(net.kyori.adventure.text.format.TextDecoration.BOLD, false);
         } else if (fallback != null) {
             replacement = render(fallback, locale);
         } else if (component.contents() instanceof SpriteObjectContents sprite) {
