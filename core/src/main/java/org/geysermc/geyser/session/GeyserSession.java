@@ -1857,11 +1857,12 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     public boolean hasPermission(String permission) {
         // for Geyser-Standalone, standalone's permission system will handle it.
         // for server platforms, the session will be mapped to a server command sender, and the server's api will be used.
-        // MINEZ：还没有进入 Java 服务器时（例如在登录闸门的等待世界中），代理上还没有这名玩家，映射为空，会抛出空指针。
-        // 基岩版反作弊 Boar 每刻都查 boar.exempt，此前每名基岩版玩家进服时刷出二十几条报错（2026-11-22 测试服）；这时一律视为没有权限。
+        // MINEZ：还没有进入 Java 服务器时（例如在登录闸门的等待世界中），代理上还没有这名玩家，映射为空，会抛出空指针；更早时（登录
+        // 尚未完成，名字与 UUID 都还没有）找不到发送者，抛出 IllegalArgumentException。基岩版反作弊 Boar 每刻都查 boar.exempt，
+        // 此前每名基岩版玩家进服时刷出二十几条报错（2026-11-22 测试服、正式服）；这时一律视为没有权限。
         try {
             return geyser.commandRegistry().hasPermission(this, permission);
-        } catch (NullPointerException e) {
+        } catch (RuntimeException e) {
             return false;
         }
     }

@@ -28,9 +28,22 @@ package org.geysermc.geyser.extension;
 import org.geysermc.geyser.GeyserLogger;
 import org.geysermc.geyser.api.extension.ExtensionLogger;
 
+import java.util.Map;
+import java.util.TreeMap;
+
 public class GeyserExtensionLogger implements ExtensionLogger {
     private final GeyserLogger logger;
     private final String loggerPrefix;
+
+    /**
+     * MINEZ：基岩版反作弊 Boar 每遇到一个它在 Geyser 的实体缓存中找不到的实体，就警告一行“No entity definition from the platform
+     * adapter for ...”。Geyser 发给客户端的包在每刻末才一起发出，同一刻内生成又移除的实体（例如合并的经验球、刚生成就消失的怪物）
+     * 到 Boar 看到生成包时已不在缓存中；正式服十分钟约四百行（2026-11-22）。这类警告按实体类型计数，每分钟汇总成一行。
+     */
+    private static final String MISSING_DEFINITION = "No entity definition from the platform adapter for ";
+    private static final long SUMMARY_INTERVAL_MILLIS = 60_000L;
+    private final Map<String, Integer> missingDefinitions = new TreeMap<>();
+    private long summaryStart = 0L;
 
     public GeyserExtensionLogger(GeyserLogger logger, String prefix) {
         this.logger = logger;
@@ -68,7 +81,42 @@ public class GeyserExtensionLogger implements ExtensionLogger {
 
     @Override
     public void warning(String message) {
+        if (message != null && message.startsWith(MISSING_DEFINITION)) {
+            this.countMissingDefinition(message.substring(MISSING_DEFINITION.length()));
+            return;
+        }
         this.logger.warning(this.addPrefix(message));
+    }
+
+    /**
+     * MINEZ：记下一个缺少定义的实体类型；距上次汇总已满一分钟时写出汇总（下一次出现时才写，没有新的就不写）。
+     */
+    private void countMissingDefinition(String rest) {
+        int end = rest.indexOf(' ');
+        String identifier = end < 0 ? rest : rest.substring(0, end);
+        String summary = null;
+        synchronized (this.missingDefinitions) {
+            long now = System.currentTimeMillis();
+            if (this.summaryStart == 0L) {
+                this.summaryStart = now;
+            }
+            this.missingDefinitions.merge(identifier, 1, Integer::sum);
+            if (now - this.summaryStart >= SUMMARY_INTERVAL_MILLIS) {
+                StringBuilder builder = new StringBuilder("Entities without a definition from the platform adapter in the last ")
+                    .append((now - this.summaryStart) / 1000).append(" s (not tracked: no collision, reach or vehicle simulation for them):");
+                int total = 0;
+                for (Map.Entry<String, Integer> entry : this.missingDefinitions.entrySet()) {
+                    builder.append(' ').append(entry.getKey()).append(" x").append(entry.getValue());
+                    total += entry.getValue();
+                }
+                summary = builder.append(" (").append(total).append(" in total)").toString();
+                this.missingDefinitions.clear();
+                this.summaryStart = 0L;
+            }
+        }
+        if (summary != null) {
+            this.logger.warning(this.addPrefix(summary));
+        }
     }
 
     @Override
