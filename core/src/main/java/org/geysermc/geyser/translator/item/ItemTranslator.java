@@ -53,6 +53,7 @@ import org.geysermc.geyser.item.type.TippedArrowItem;
 import org.geysermc.geyser.level.block.type.Block;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.registry.java.BuiltInJavaRegistries;
+import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.registry.type.CustomSkull;
 import org.geysermc.geyser.registry.type.ItemMapping;
 import org.geysermc.geyser.session.GeyserSession;
@@ -73,6 +74,7 @@ import org.geysermc.mcprotocollib.protocol.data.game.item.ItemStack;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.AdventureModePredicate;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponentTypes;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.DataComponents;
+import org.geysermc.mcprotocollib.protocol.data.game.Holder;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.HolderSet;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.ItemAttributeModifiers;
 import org.geysermc.mcprotocollib.protocol.data.game.item.component.MobEffectDetails;
@@ -247,6 +249,8 @@ public final class ItemTranslator {
             nbtBuilder.setCustomName(customName);
         }
 
+        addJukeboxSongLore(session, components, tooltip, bedrockItem, nbtBuilder);
+
         if (customComponents != null) {
             ItemAttributeModifiers attributeModifiers = customComponents.get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
             if (attributeModifiers != null && tooltip.showInTooltip(DataComponentTypes.ATTRIBUTE_MODIFIERS)) {
@@ -335,6 +339,33 @@ public final class ItemTranslator {
      * @param modifiers the attribute modifiers of the ItemStack
      * @param language the locale of the player
      */
+    /**
+     * MINEZ：唱片的说明（作者与曲名，例如“fingerspit - Bounce”）。基岩版的原版唱片由客户端自己写出说明；换成自定义物品的唱片
+     * （例如 MINEZ 资源包补上的、网易 1.21.130 没有的音乐唱片）客户端不知道说明，物品栏中只有名称（2026-11-21 正式服）。
+     * 这里照 Java 版的物品说明，把 jukebox_playable 的歌曲说明以灰色写进说明的第一行；原版唱片不加，以免重复。
+     */
+    private static void addJukeboxSongLore(GeyserSession session, DataComponents components, TooltipOptions tooltip,
+                                           ItemMapping bedrockItem, BedrockItemBuilder builder) {
+        if (bedrockItem.getBedrockIdentifier().startsWith("minecraft:") || !tooltip.showInTooltip(DataComponentTypes.JUKEBOX_PLAYABLE)) {
+            return;
+        }
+        Holder<org.geysermc.mcprotocollib.protocol.data.game.item.component.JukeboxSong> song = components.get(DataComponentTypes.JUKEBOX_PLAYABLE);
+        if (song == null) {
+            return;
+        }
+        Component description = null;
+        if (song.isCustom()) {
+            description = song.custom().description();
+        } else if (song.isId()) {
+            description = JavaRegistries.JUKEBOX_SONG.get(session.javaRegistries(), song.id())
+                .map(org.geysermc.geyser.level.JukeboxSong::description).orElse(null);
+        }
+        if (description != null) {
+            builder.getOrCreateLore().add(MessageTranslator.convertMessage(
+                Component.text().resetStyle().color(NamedTextColor.GRAY).append(description).build(), session.locale()));
+        }
+    }
+
     private static void addAttributeLore(GeyserSession session, ItemAttributeModifiers modifiers, BedrockItemBuilder builder, String language) {
         // maps each slot to the modifiers applied when in such slot
         Map<ItemAttributeModifiers.EquipmentSlotGroup, List<String>> slotsToModifiers = new HashMap<>();

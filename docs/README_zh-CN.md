@@ -11,7 +11,7 @@
 
 <div>
 <a href="https://github.com/GeyserMC/Geyser"><img src="https://img.shields.io/badge/upstream-2.12.1--SNAPSHOT-2196f3" alt="upstream"></a>
-<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.29-4caf50" alt="version"></a>
+<a href="#版本号"><img src="https://img.shields.io/badge/version-2.12.1--b1305.30-4caf50" alt="version"></a>
 <a href="#受支持的版本"><img src="https://img.shields.io/badge/Java-26.3-4caf50" alt="Java"></a>
 <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-9e9e9e" alt="license"></a>
 </div>
@@ -230,6 +230,8 @@ MINEZ 的方块物品（基地核心、哨戒炮）由 MINEZ/CraftengineResource
 **落到层孔菇上弹起。** Java 26.x 的床与层孔菇会弹（`bounceRestitution` 0.75：下落速度大于重力、没有潜行时，竖直速度变为反向的 0.75 倍）。玩家的移动由客户端计算，层孔菇在基岩版中是 MINEZ 资源包的自定义方块，客户端不会弹。现在玩家落地的那一刻脚下是层孔菇时，按上一刻的速度给出弹起的速度（b1305.24 起）。基岩版按刻离散计算，落地那一刻的速度里多了一刻的重力，照 0.75 倍反弹会把它补回来，站上去就一直弹；与 Java 版扣除重力补偿（gravityCompensation）相同，弹起的速度为 0.75 ×（落地速度 − 0.08），小于 0.06 时不弹，越弹越低、最终站稳（b1305.26 起）。麦秆床在 Java 版中不弹（`Blocks.STRAW_BED` 没有设 `bounceRestitution`），b1305.24~26 误把它也算进来，b1305.27 起去掉。
 
 **客户端没有的唱片音效。** 唱片机播放唱片时，26.50 之前的客户端收到的是唱片的 LevelSoundEvent（例如 `RECORD_BOUNCE`）。客户端协议中没有这个音效时（1.21.130 没有 26.x 的唱片 Bounce），它在发送前被丢弃，唱片机没有声音。现在改以 PlaySound 播放映射中的名字（`record.bounce`，由 MINEZ 资源包补上定义），与上游找不到音效时的写法相同（b1305.20 起）。
+
+**自定义唱片的说明。** 基岩版的原版唱片由客户端自己写出说明（作者与曲名）；换成自定义物品的唱片（例如 MINEZ 资源包补上的、网易 1.21.130 没有的音乐唱片 fingerspit - Bounce）客户端不知道说明，物品栏中只有名称。现在照 Java 版的物品说明，把 `jukebox_playable` 的歌曲说明以灰色写进物品说明（`ItemTranslator#addJukeboxSongLore`）；原版唱片不加，Java 版隐藏了这一项时也不加（b1305.30 起）。
 
 **自定义物品的名称。** 被映射文件换成基岩版自定义物品、自身又没有名称的物品（例如换了 `item_model` 的钻石斧），原先在基岩版中显示自定义物品注册时的名称，默认为基岩版物品 ID。现在与 Java 版一样，显示原版物品在玩家语言中的名称。换成了自定义方块的方块物品的原版物品（映射文件 `blocks` 中 `included_in_creative_inventory` 为 true 的方块，例如 MINEZ 资源包的硫黄台阶）同样如此，原先显示为方块的名字（例如 `minez_sulfur_slab`）（b1305.19 起）。
 
