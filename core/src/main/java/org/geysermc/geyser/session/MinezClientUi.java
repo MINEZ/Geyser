@@ -223,6 +223,8 @@ public final class MinezClientUi {
         send(CONFIG_EVENT, data);
         this.version = loaded;
         ready = true;
+        // 血月正在停住的时段内进入世界时立即停住
+        session.synchronizeTime();
         String username = session.getPlayerEntity().getUsername();
         if (username != null) {
             send(NAME_EVENT, Map.of("text", username));
@@ -338,6 +340,8 @@ public final class MinezClientUi {
             bloodMoonClockReceived = System.nanoTime();
             bloodMoonClock = state;
             sendBloodMoon();
+            // 血月开关或对齐后立即按新的时钟决定是否停住（只有主世界的时钟变化时 Geyser 才会同步时间）
+            session.synchronizeTime();
         }
     }
 

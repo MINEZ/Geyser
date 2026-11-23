@@ -1572,6 +1572,10 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
                 synchronizeTime();
             }
         }
+        // MINEZ：服务器只在时钟有变化时才发时间，客户端自己走时间时每秒检查一次是否到了血月停住的时段（见 MinezClientUi#bloodMoonHeldTime）
+        if (isShouldClientTickClock() && ticks % 20 == 0 && minezClientUi.bloodMoonHeldTime().isPresent()) {
+            synchronizeTime();
+        }
     }
 
     public void synchronizeTime() {
