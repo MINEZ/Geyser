@@ -113,6 +113,17 @@ public final class MinezClientUi {
     public static final String BLOOD_MOON_EVENT = "BloodMoon";
     public static final Key BLOOD_MOON_CLOCK = Key.key("minez", "blood_moon");
     /**
+     * 血月期间发给基岩版的时间（刚日落，第 0 天即满月），见 {@link #bloodMoonHeldTime}。
+     */
+    public static final int BLOOD_MOON_HELD_TIME = 12500;
+    /**
+     * 停在 {@link #BLOOD_MOON_HELD_TIME} 的范围（血月时钟一个周期内的刻数，左闭右开）：主世界时间 12500~23500，即入夜到天亮前；
+     * 血月时钟减去 24000 再加上 6000 即主世界时间。
+     */
+    private static final int BLOOD_MOON_HOLD_FROM = BLOOD_MOON_HELD_TIME - 6000 + 24000;
+    private static final int BLOOD_MOON_HOLD_UNTIL = 23500 - 6000 + 24000;
+    private static final int BLOOD_MOON_PERIOD = 48000;
+    /**
      * 能以图片显示全部文字图标（配置中的 {@code images}）与世界中的文字的模组的最低版本。
      */
     public static final MinezClientMod.Version TEXT_ICONS_MOD_VERSION = new MinezClientMod.Version(1, 9, 0);
@@ -128,6 +139,10 @@ public final class MinezClientUi {
      * 能显示血月的模组的最低版本。
      */
     public static final MinezClientMod.Version BLOOD_MOON_MOD_VERSION = new MinezClientMod.Version(1, 21, 0);
+    /**
+     * 血月期间改用原版月亮（转到固定位置）、因而需要停住时间的模组的最低版本，见 {@link #bloodMoonHeldTime}。
+     */
+    public static final MinezClientMod.Version BLOOD_MOON_HOLD_MOD_VERSION = new MinezClientMod.Version(1, 21, 5);
     /**
      * 能复制到剪贴板的模组的最低版本。
      */
@@ -170,6 +185,10 @@ public final class MinezClientUi {
      * 最近一次收到的血月时钟的状态，服务器没有这个时钟时为 null。
      */
     private volatile @Nullable ClockNetworkState bloodMoonClock;
+    /**
+     * 收到 {@link #bloodMoonClock} 的时刻（System.nanoTime）。
+     */
+    private volatile long bloodMoonClockReceived;
 
     MinezClientUi(GeyserSession session) {
         this.session = session;
@@ -316,9 +335,29 @@ public final class MinezClientUi {
         }
         ClockNetworkState state = updates.get(id.getAsInt());
         if (state != null) {
+            bloodMoonClockReceived = System.nanoTime();
             bloodMoonClock = state;
             sendBloodMoon();
         }
+    }
+
+    /**
+     * 血月期间基岩版的时间停在 {@link #BLOOD_MOON_HELD_TIME}（由 {@link GeyserSession#synchronizeTime} 发出）。基岩版的引擎夜里把雾
+     * （地平线以下）、天空盒与云压到原来的约 6%（2026-11-23 测试服实测），网易的接口改不了，模组设的红色雾与天空盒红月几乎看不见；
+     * 停在刚日落时它们仍然明亮，天空的颜色仍由模组设置，原版月亮由模组转到固定位置。代价是基岩版这段时间的地面比 Java 版亮。
+     *
+     * @return 要发给基岩版的时间；不在血月的这段时间、或模组版本不够时为空。
+     */
+    public OptionalInt bloodMoonHeldTime() {
+        ClockNetworkState state = bloodMoonClock;
+        MinezClientMod.Version loaded = version;
+        if (state == null || !ready || loaded == null || loaded.compareTo(BLOOD_MOON_HOLD_MOD_VERSION) < 0) {
+            return OptionalInt.empty();
+        }
+        double elapsed = (System.nanoTime() - bloodMoonClockReceived) / 50_000_000.0;
+        double ticks = state.totalTicks() + state.partialTick() + state.rate() * elapsed;
+        double t = ticks - Math.floor(ticks / BLOOD_MOON_PERIOD) * BLOOD_MOON_PERIOD;
+        return t >= BLOOD_MOON_HOLD_FROM && t < BLOOD_MOON_HOLD_UNTIL ? OptionalInt.of(BLOOD_MOON_HELD_TIME) : OptionalInt.empty();
     }
 
     private void sendBloodMoon() {

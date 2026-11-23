@@ -268,6 +268,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -744,6 +745,10 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      * Controls whether the daylight cycle gamerule has been sent to the client, so the sun/moon remain motionless.
      */
     private boolean shouldClientTickClock = true;
+    /**
+     * MINEZ：血月期间停住的、已发给基岩版的时间，没有停住时为 -1，见 {@link #synchronizeTime}。
+     */
+    private int minezHeldTime = -1;
 
     private boolean reducedDebugInfo = false;
 
@@ -1570,6 +1575,19 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     }
 
     public void synchronizeTime() {
+        // MINEZ：血月期间基岩版的时间停在刚日落，见 MinezClientUi#bloodMoonHeldTime；停住时由这里逐刻检查，相同的时间不重发。
+        OptionalInt held = minezClientUi.bloodMoonHeldTime();
+        setShouldClientTickClock(held.isEmpty() && clockRate == 1.0f);
+        if (held.isPresent()) {
+            if (held.getAsInt() != minezHeldTime) {
+                minezHeldTime = held.getAsInt();
+                SetTimePacket heldPacket = new SetTimePacket();
+                heldPacket.setTime(minezHeldTime);
+                sendUpstreamPacket(heldPacket);
+            }
+            return;
+        }
+        minezHeldTime = -1;
         // https://minecraft.wiki/w/Day-night_cycle#24-hour_Minecraft_day
         SetTimePacket setTimePacket = new SetTimePacket();
         // We use modulus to prevent an integer overflow
@@ -2505,7 +2523,7 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
 
     public void setClockRate(float rate) {
         this.clockRate = rate;
-        setShouldClientTickClock(this.clockRate == 1.0f);
+        setShouldClientTickClock(this.clockRate == 1.0f && minezClientUi.bloodMoonHeldTime().isEmpty());
     }
 
     /**

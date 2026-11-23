@@ -31,7 +31,9 @@ import org.geysermc.geyser.network.bedrock.GameProtocol;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePacket;
 import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.item.ModelIcons;
+import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.text.SpriteGlyphs;
+import org.geysermc.mcprotocollib.protocol.data.game.level.ClockNetworkState;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -39,6 +41,7 @@ import org.mockito.MockedStatic;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -161,6 +164,32 @@ class MinezClientUiTest {
             ui.clientLog(Map.of("text", "x"));
         }
         verify(session.getGeyser().getLogger(), times(99)).info("MINEZ client mod of 测试玩家: x");
+    }
+
+    @Test
+    void holdsBedrockTimeDuringTheBloodMoon() {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            when(session.javaRegistries().registry(JavaRegistries.WORLD_CLOCK).getId(MinezClientUi.BLOOD_MOON_CLOCK))
+                .thenReturn(OptionalInt.of(3));
+            MinezClientUi ui = new MinezClientUi(session);
+            ui.clocksUpdated(Map.of(3, new ClockNetworkState(30600L, 0.0F, 0.0F)));
+            // 模组版本不够时不停。
+            ui.clientReady("1.21.4");
+            assertTrue(ui.bloodMoonHeldTime().isEmpty());
+            ui.clientReady("1.21.5");
+            // 主世界 12600（入夜后）停在 12500；任意周期都一样。
+            assertEquals(12500, ui.bloodMoonHeldTime().getAsInt());
+            ui.clocksUpdated(Map.of(3, new ClockNetworkState(30600L + 48000L * 5, 0.0F, 0.0F)));
+            assertEquals(12500, ui.bloodMoonHeldTime().getAsInt());
+            // 天亮前（主世界 23500 起）、白天、血月关闭（周期的前半）时不停。
+            ui.clocksUpdated(Map.of(3, new ClockNetworkState(41500L, 0.0F, 0.0F)));
+            assertTrue(ui.bloodMoonHeldTime().isEmpty());
+            ui.clocksUpdated(Map.of(3, new ClockNetworkState(30000L, 0.0F, 0.0F)));
+            assertTrue(ui.bloodMoonHeldTime().isEmpty());
+            ui.clocksUpdated(Map.of(3, new ClockNetworkState(6600L, 0.0F, 0.0F)));
+            assertTrue(ui.bloodMoonHeldTime().isEmpty());
+        }
     }
 
     @Test
