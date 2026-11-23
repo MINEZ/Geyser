@@ -38,7 +38,6 @@ import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.level.EffectType;
 import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.text.SpriteGlyphs;
-import org.geysermc.geyser.util.PlayerListUtils;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.Effect;
 import org.geysermc.mcprotocollib.protocol.data.game.level.ClockNetworkState;
 
@@ -77,11 +76,6 @@ public final class MinezClientUi {
      * 一条聊天栏消息：{@code text} 为基岩版格式的文字（§ 颜色代码），可能有多行。
      */
     public static final String CHAT_EVENT = "ChatMessage";
-    /**
-     * 自己在玩家列表中的名字：{@code text} 为基岩版格式的文字，称号换到第二行（见 {@link SpriteGlyphs#groupOnNewLine}）。模组用它在暂停菜单中
-     * 人物模型的上方显示名字与播放动画的称号，代替原版只能显示第一帧的名牌。
-     */
-    public static final String NAME_EVENT = "PlayerName";
     /**
      * 复制到剪贴板：{@code text} 为要复制的文字，模组以网易的 SetClipboardContent 写入系统剪贴板。对话框中“复制到剪贴板”的按钮
      * （Java 版的 copy_to_clipboard 动作）在基岩版中由此实现，见 {@link #copyToClipboard}。
@@ -199,7 +193,6 @@ public final class MinezClientUi {
         send(CONFIG_EVENT, data);
         this.version = loaded;
         ready = true;
-        selfNameChanged();
         if (session.isFlying()) {
             flyingChanged(true);
         }
@@ -237,16 +230,6 @@ public final class MinezClientUi {
             message = "<" + source + "> " + message;
         }
         send(CHAT_EVENT, Map.of("text", message));
-    }
-
-    /**
-     * 自己在玩家列表中的显示名改变后调用；模组就绪后（每次进入世界）也发一次。
-     */
-    public void selfNameChanged() {
-        String name = ready ? PlayerListUtils.listName(session.getPlayerEntity()) : null;
-        if (name != null) {
-            send(NAME_EVENT, Map.of("text", SpriteGlyphs.groupOnNewLine(name)));
-        }
     }
 
     /**

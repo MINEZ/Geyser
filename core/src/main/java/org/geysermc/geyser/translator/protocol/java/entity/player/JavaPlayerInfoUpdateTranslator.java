@@ -35,7 +35,6 @@ import org.geysermc.geyser.session.cache.waypoint.GeyserWaypoint;
 import org.geysermc.geyser.skin.SkinManager;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
-import org.geysermc.geyser.translator.text.MessageTranslator;
 import org.geysermc.geyser.util.PlayerListUtils;
 import org.geysermc.mcprotocollib.auth.GameProfile;
 import org.geysermc.mcprotocollib.protocol.data.game.PlayerListEntry;
@@ -44,7 +43,6 @@ import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.Clientbound
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -79,44 +77,6 @@ public class JavaPlayerInfoUpdateTranslator extends PacketTranslator<Clientbound
                     playerEntity = new PlayerEntity(EntitySpawnContext.DUMMY_CONTEXT.apply(session, id, VanillaEntities.PLAYER), profile);
                     session.getEntityCache().addPlayerEntity(playerEntity);
                 }
-            }
-        }
-
-        if (actions.contains(PlayerListEntryAction.UPDATE_DISPLAY_NAME)) {
-            // MINEZ：玩家列表的显示名（例如带颜色与称号）同样显示在基岩版的玩家列表中。已列出的玩家要移除后重发条目，基岩版没有只改名字的操作；
-            // 同一个数据包中还要更新是否列出时，由下面统一发出。
-            List<PlayerListPacket.Entry> toUpdate = new ArrayList<>();
-            for (PlayerListEntry entry : packet.getEntries()) {
-                boolean self = entry.getProfileId().equals(session.getPlayerEntity().uuid());
-                PlayerEntity entity = self ? session.getPlayerEntity() : session.getEntityCache().getPlayerEntity(entry.getProfileId());
-                if (entity == null) {
-                    continue;
-                }
-                String listName = entry.getDisplayName() == null ? null : MessageTranslator.convertMessage(entry.getDisplayName(), session.locale());
-                if (Objects.equals(listName, entity.getListName())) {
-                    continue;
-                }
-                entity.setListName(listName);
-                if (self) {
-                    // MINEZ：客户端模组在暂停菜单的人物模型上方显示自己的名字与称号。
-                    session.getMinezClientUi().selfNameChanged();
-                }
-                // 自己不在实体缓存中，isListed() 总是 false，但自己总在列表中。
-                if ((self || entity.isListed()) && !actions.contains(PlayerListEntryAction.UPDATE_LISTED)
-                    && !PlayerListUtils.shouldLimitPlayerListEntries(session)) {
-                    PlayerListPacket.Entry playerListEntry = SkinManager.buildEntryFromCachedSkin(session, entity);
-                    playerListEntry.setAction(PlayerListPacket.Action.ADD);
-                    toUpdate.add(playerListEntry);
-                }
-            }
-            if (!toUpdate.isEmpty()) {
-                // 基岩版对已有的条目再发 ADD 不会更新名字，须先移除再加回。
-                List<PlayerListPacket.Entry> toRemove = new ArrayList<>(toUpdate.size());
-                for (PlayerListPacket.Entry entry : toUpdate) {
-                    toRemove.add(new PlayerListPacket.Entry(entry.getUuid()));
-                }
-                PlayerListUtils.batchSendPlayerList(session, toRemove, PlayerListPacket.Action.REMOVE);
-                PlayerListUtils.batchSendPlayerList(session, toUpdate, PlayerListPacket.Action.ADD);
             }
         }
 

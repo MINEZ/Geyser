@@ -107,7 +107,7 @@ public class SkinManager {
         return PlayerListUtils.buildEntryManually(
                 session,
                 playerEntity.uuid(),
-                PlayerListUtils.listName(playerEntity),
+                playerEntity.getUsername(),
                 playerEntity.geyserId(),
                 getSkin(session, skin.textureUrl(), skin, cape, geometry, engineVersionFor(playerEntity.uuid(), geometry))
         );
@@ -131,7 +131,7 @@ public class SkinManager {
         PlayerListPacket.Entry entry = PlayerListUtils.buildEntryManually(
             session,
             entity.uuid(),
-            PlayerListUtils.listName(entity),
+            entity.getUsername(),
             entity.geyserId(),
             getSkin(session, skin.textureUrl(), skin, cape, geometry, engineVersionFor(entity.uuid(), geometry))
         );

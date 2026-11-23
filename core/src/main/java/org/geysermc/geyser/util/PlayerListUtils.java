@@ -30,7 +30,6 @@ import org.cloudburstmc.protocol.bedrock.packet.PlayerListPacket;
 import org.geysermc.api.util.BedrockPlatform;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.entity.type.player.AvatarEntity;
-import org.geysermc.geyser.entity.type.player.PlayerEntity;
 import org.geysermc.geyser.session.GeyserSession;
 
 import java.awt.*;
@@ -81,17 +80,6 @@ public class PlayerListUtils {
         entry.setTrustedSkin(true);
         entry.setColor(Color.LIGHT_GRAY);
         return entry;
-    }
-
-    /**
-     * MINEZ：基岩版玩家列表中显示的名字。Java 版服务器设了玩家列表的显示名（例如带颜色与称号）时用它，与 Java 版的 TAB 列表相同；
-     * 否则为用户名。暂停菜单中人物模型上方的名牌由 MINEZ 客户端模组另行显示，见 MinezClientUi#selfNameChanged。
-     */
-    public static String listName(AvatarEntity entity) {
-        if (entity instanceof PlayerEntity player && player.getListName() != null) {
-            return player.getListName();
-        }
-        return entity.getUsername();
     }
 
     public static PlayerListPacket.Entry buildEntryManually(GeyserSession session, UUID uuid, String username, long geyserId, SerializedSkin skin) {

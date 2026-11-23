@@ -56,29 +56,6 @@ class SpriteGlyphsTest {
     }
 
     @Test
-    void titleMovesToSecondLine() {
-        // 前面的空格去掉，颜色代码移到换行之后。
-        assertEquals("§b测试\n§f" + TITLE, SpriteGlyphs.groupOnNewLine("§b测试 §f" + TITLE));
-        assertEquals("§b测试\n§r§f" + TITLE + " §7后缀", SpriteGlyphs.groupOnNewLine("§b测试§r §f" + TITLE + " §7后缀"));
-    }
-
-    @Test
-    void namesWithoutTitlesAreUnchanged() {
-        assertEquals("§b测试", SpriteGlyphs.groupOnNewLine("§b测试"));
-        assertEquals("§b测试 " + ICON, SpriteGlyphs.groupOnNewLine("§b测试 " + ICON));
-        // 称号前面没有别的文字时不换行。
-        assertEquals(" §f" + TITLE, SpriteGlyphs.groupOnNewLine(" §f" + TITLE));
-    }
-
-    @Test
-    void titleOfOneGlyphPerTileMovesToSecondLine() {
-        // 每块一个字的称号（网易开发者平台只接受每格 16 像素的字形图），按第一块的字换行。
-        String tiles = "\uF120\uF121\uF122\uF123";
-        SpriteGlyphs.setAnimated(Map.of(tiles, Map.of("texture", "textures/minez/anim/item/title/builder", "tiles", 4L)));
-        assertEquals("§b测试\n§f" + tiles, SpriteGlyphs.groupOnNewLine("§b测试 §f" + tiles));
-    }
-
-    @Test
     void everyCharacterOfAnImageKeyIsAnIcon() {
         try {
             SpriteGlyphs.setImages(Map.of("\uF120\uF121", Map.of("tiles", 2L)));
