@@ -50,6 +50,8 @@ public class JavaSetTimeTranslator extends PacketTranslator<ClientboundSetTimePa
             // We need to send a gamerule if this changed
             session.setClockRate(defaultClockState.rate());
         }
+        // MINEZ：血月时钟交给客户端模组，见 MinezClientUi#BLOOD_MOON_EVENT
+        session.getMinezClientUi().clocksUpdated(packet.getClockUpdates());
     }
 
     private static int defaultClockId(GeyserSession session) {

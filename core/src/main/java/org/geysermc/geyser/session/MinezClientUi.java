@@ -25,6 +25,7 @@
 
 package org.geysermc.geyser.session;
 
+import net.kyori.adventure.key.Key;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.cloudburstmc.protocol.bedrock.packet.TextPacket;
@@ -35,9 +36,11 @@ import org.geysermc.geyser.network.bedrock.netease.NeteasePyRpc;
 import org.geysermc.geyser.entity.type.TextDisplayEntity;
 import org.geysermc.geyser.item.ModelIcons;
 import org.geysermc.geyser.level.EffectType;
+import org.geysermc.geyser.registry.java.JavaRegistries;
 import org.geysermc.geyser.text.SpriteGlyphs;
 import org.geysermc.geyser.util.PlayerListUtils;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.Effect;
+import org.geysermc.mcprotocollib.protocol.data.game.level.ClockNetworkState;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -45,6 +48,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -102,6 +106,14 @@ public final class MinezClientUi {
      */
     public static final String EFFECTS_EVENT = "JavaEffects";
     /**
+     * 血月时钟的状态：{"ticks": 总刻数, "partial": 不足一刻的部分, "rate": 速度（暂停时为 0）}，收到时钟的变化或模组就绪时发出，
+     * 模组据此自行推算。血月时钟是服务器数据包中的世界时钟 {@link #BLOOD_MOON_CLOCK}（见 MINEZ/DenizenScripts 的 world/blood_moon.dsc）：
+     * 以 48000 刻为周期，24000~47999 对应开启时的一整天，Java 版由数据包的时间线把天空与雾染红、由 Bridge 模组画出红月；
+     * 基岩版没有时间线，由模组（1.21.0 起）按同样的曲线改天空与雾的颜色、以天空盒画出红月。
+     */
+    public static final String BLOOD_MOON_EVENT = "BloodMoon";
+    public static final Key BLOOD_MOON_CLOCK = Key.key("minez", "blood_moon");
+    /**
      * 能以图片显示全部文字图标（配置中的 {@code images}）与世界中的文字的模组的最低版本。
      */
     public static final MinezClientMod.Version TEXT_ICONS_MOD_VERSION = new MinezClientMod.Version(1, 9, 0);
@@ -113,6 +125,10 @@ public final class MinezClientUi {
      * 能画出 Java 版独有的状态效果的模组的最低版本。
      */
     public static final MinezClientMod.Version EFFECTS_MOD_VERSION = new MinezClientMod.Version(1, 20, 0);
+    /**
+     * 能显示血月的模组的最低版本。
+     */
+    public static final MinezClientMod.Version BLOOD_MOON_MOD_VERSION = new MinezClientMod.Version(1, 21, 0);
     /**
      * 能复制到剪贴板的模组的最低版本。
      */
@@ -145,6 +161,10 @@ public final class MinezClientUi {
      * 自己身上基岩版没有的 Java 版状态效果：{效果: [等级 - 1, 结束的刻（System.nanoTime 换算的毫秒，无限为 -1）, 是否环境效果]}。
      */
     private final Map<Effect, long[]> javaOnlyEffects = new ConcurrentHashMap<>();
+    /**
+     * 最近一次收到的血月时钟的状态，服务器没有这个时钟时为 null。
+     */
+    private volatile @Nullable ClockNetworkState bloodMoonClock;
 
     MinezClientUi(GeyserSession session) {
         this.session = session;
@@ -186,6 +206,7 @@ public final class MinezClientUi {
         if (!javaOnlyEffects.isEmpty()) {
             sendJavaOnlyEffects();
         }
+        sendBloodMoon();
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
     }
@@ -267,6 +288,32 @@ public final class MinezClientUi {
             }
         }
         sendJavaOnlyEffects();
+    }
+
+    /**
+     * 收到 Java 版的时钟更新时调用（见 JavaSetTimeTranslator），只处理血月时钟，见 {@link #BLOOD_MOON_EVENT}。
+     *
+     * @param updates {时钟的编号: 状态}，只含有变化的时钟（进服时为全部）。
+     */
+    public void clocksUpdated(Map<Integer, ClockNetworkState> updates) {
+        OptionalInt id = session.javaRegistries().registry(JavaRegistries.WORLD_CLOCK).getId(BLOOD_MOON_CLOCK);
+        if (id.isEmpty()) {
+            return;
+        }
+        ClockNetworkState state = updates.get(id.getAsInt());
+        if (state != null) {
+            bloodMoonClock = state;
+            sendBloodMoon();
+        }
+    }
+
+    private void sendBloodMoon() {
+        ClockNetworkState state = bloodMoonClock;
+        MinezClientMod.Version loaded = version;
+        if (state == null || !ready || loaded == null || loaded.compareTo(BLOOD_MOON_MOD_VERSION) < 0) {
+            return;
+        }
+        send(BLOOD_MOON_EVENT, Map.of("ticks", state.totalTicks(), "partial", state.partialTick(), "rate", state.rate()));
     }
 
     private void sendJavaOnlyEffects() {
