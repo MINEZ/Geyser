@@ -77,6 +77,11 @@ public final class MinezClientUi {
      */
     public static final String CHAT_EVENT = "ChatMessage";
     /**
+     * 自己的用户名：{@code text} 为用户名，模组就绪时发一次。模组以收到它作为已进入 Java 版世界的标志（新手引导等它到了才显示）。
+     * 原先是玩家列表中带颜色与称号的显示名，供模组在暂停菜单显示；暂停菜单与玩家列表已恢复原版，只显示用户名。
+     */
+    public static final String NAME_EVENT = "PlayerName";
+    /**
      * 复制到剪贴板：{@code text} 为要复制的文字，模组以网易的 SetClipboardContent 写入系统剪贴板。对话框中“复制到剪贴板”的按钮
      * （Java 版的 copy_to_clipboard 动作）在基岩版中由此实现，见 {@link #copyToClipboard}。
      */
@@ -193,6 +198,10 @@ public final class MinezClientUi {
         send(CONFIG_EVENT, data);
         this.version = loaded;
         ready = true;
+        String username = session.getPlayerEntity().getUsername();
+        if (username != null) {
+            send(NAME_EVENT, Map.of("text", username));
+        }
         if (session.isFlying()) {
             flyingChanged(true);
         }

@@ -135,6 +135,20 @@ class MinezClientUiTest {
     }
 
     @Test
+    void sendsOwnUsernameWhenReady() throws Exception {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            when(session.getPlayerEntity().getUsername()).thenReturn("测试");
+            MinezClientUi ui = new MinezClientUi(session);
+
+            // 就绪时随配置发一次，只有用户名（不再带颜色与称号）。
+            ui.clientReady("1.5.0");
+            assertEquals(2, sent.size());
+            assertEquals("测试", event(sent.get(1), "PlayerName").get("text"));
+        }
+    }
+
+    @Test
     void copiesToClipboardWithNewMods() throws Exception {
         try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
             protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
