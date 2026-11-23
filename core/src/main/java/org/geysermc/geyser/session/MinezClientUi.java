@@ -136,6 +136,8 @@ public final class MinezClientUi {
      * 能显示动态图标的模组的最低版本。
      */
     public static final MinezClientMod.Version MIN_MOD_VERSION = new MinezClientMod.Version(1, 4, 0);
+    private static final int MAX_CLIENT_LOGS = 100;
+    private static final int MAX_CLIENT_LOG_LENGTH = 500;
 
     /**
      * 显示在聊天栏中的消息类型。动作栏（TIP、POPUP、JUKEBOX_POPUP）不在其中。
@@ -156,6 +158,10 @@ public final class MinezClientUi {
      */
     private volatile boolean worldTextsFailed;
     private boolean itemTableRequested;
+    /**
+     * 这个会话已写进日志的诊断信息的条数，见 {@link #clientLog}。
+     */
+    private int clientLogs;
     /**
      * 自己身上基岩版没有的 Java 版状态效果：{效果: [等级 - 1, 结束的刻（System.nanoTime 换算的毫秒，无限为 -1）, 是否环境效果]}。
      */
@@ -220,6 +226,22 @@ public final class MinezClientUi {
         if (ready && itemTableRequested) {
             itemTableCheck.receive(data);
         }
+    }
+
+    /**
+     * 收到模组发来的诊断信息（{@link NeteasePyRpc#CLIENT_LOG_EVENT}）：写进日志。每个会话至多 {@value #MAX_CLIENT_LOGS} 条，
+     * 每条至多 {@value #MAX_CLIENT_LOG_LENGTH} 字、换行改为空格，免得被客户端用来刷屏。
+     */
+    public void clientLog(Map<String, Object> data) {
+        if (!(data.get("text") instanceof String text) || clientLogs >= MAX_CLIENT_LOGS) {
+            return;
+        }
+        clientLogs++;
+        text = text.replaceAll("[\r\n]+", " ");
+        if (text.length() > MAX_CLIENT_LOG_LENGTH) {
+            text = text.substring(0, MAX_CLIENT_LOG_LENGTH) + "…";
+        }
+        session.getGeyser().getLogger().info("MINEZ client mod of " + session.bedrockUsername() + ": " + text);
     }
 
     /**

@@ -48,6 +48,8 @@ import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -146,6 +148,19 @@ class MinezClientUiTest {
             assertEquals(2, sent.size());
             assertEquals("测试", event(sent.get(1), "PlayerName").get("text"));
         }
+    }
+
+    @Test
+    void logsClientDiagnosticsWithALimit() {
+        MinezClientUi ui = new MinezClientUi(session);
+        ui.clientLog(Map.of("text", "blood moon:\nambient 1.0"));
+        verify(session.getGeyser().getLogger()).info("MINEZ client mod of 测试玩家: blood moon: ambient 1.0");
+        // 没有文字的不记；每个会话至多 100 条。
+        ui.clientLog(Map.of());
+        for (int i = 0; i < 150; i++) {
+            ui.clientLog(Map.of("text", "x"));
+        }
+        verify(session.getGeyser().getLogger(), times(99)).info("MINEZ client mod of 测试玩家: x");
     }
 
     @Test

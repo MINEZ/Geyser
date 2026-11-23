@@ -118,6 +118,10 @@ public class LoggingPacketHandler implements BedrockPacketHandler {
                 session.getMinezClientUi().worldTextFailed(message.data());
                 return;
             }
+            if (message.isClientLog()) {
+                session.getMinezClientUi().clientLog(message.data());
+                return;
+            }
             NeteaseShopEvent.Kind kind = message.shopKind();
             if (kind == null) {
                 geyser.getLogger().debug("Dropped China Edition PyRpc " + message.summary() + " from " + session.bedrockUsername());

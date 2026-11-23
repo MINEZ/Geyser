@@ -82,6 +82,11 @@ public final class NeteasePyRpc {
      */
     public static final String WORLD_TEXT_FAILED_EVENT = "WorldTextFailed";
     /**
+     * MINEZ 客户端模组的诊断信息，命名空间与系统名同上，数据为 {@code {"text": 文字}}，由 Geyser 写进日志，见 {@code MinezClientUi#clientLog}。
+     * 网易客户端的 Python 输出只在本机、且常常收不到，排查客户端接口的实际表现时由此带回服务器。
+     */
+    public static final String CLIENT_LOG_EVENT = "ClientLog";
+    /**
      * 服务器发给客户端模组的事件（客户端的 {@code ListenForEvent} 收到）的方法名。
      */
     public static final String MOD_EVENT_S2C = "ModEventS2C";
@@ -148,6 +153,14 @@ public final class NeteasePyRpc {
         public boolean isWorldTextFailed() {
             return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
                 && WORLD_TEXT_FAILED_EVENT.equals(eventName);
+        }
+
+        /**
+         * @return 是否为 MINEZ 客户端模组发来的诊断信息。只认 {@code ModEventC2S}，命名空间、系统名与事件名都须相符。
+         */
+        public boolean isClientLog() {
+            return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
+                && CLIENT_LOG_EVENT.equals(eventName);
         }
 
         /**
