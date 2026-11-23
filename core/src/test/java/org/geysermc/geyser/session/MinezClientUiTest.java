@@ -193,6 +193,36 @@ class MinezClientUiTest {
     }
 
     @Test
+    void takesOverRainAndWaterDuringTheBloodMoon() throws Exception {
+        try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
+            protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);
+            when(session.getRainStrength()).thenReturn(0.5F);
+            MinezClientUi ui = new MinezClientUi(session);
+            // 模组就绪之前不理会。
+            ui.bloodMoonState(Map.of("rain", 1, "water", 1));
+            assertFalse(ui.rainTakenOver());
+
+            // 1.22.0 起就绪时告知降雨强度。
+            ui.clientReady("1.22.0");
+            assertEquals(0.5, ((Number) event(sent.get(sent.size() - 1), "Rain").get("strength")).doubleValue(), 1e-6);
+
+            // 接管雨时重发天气，压入血色水下雾；重复的状态不重复处理。
+            ui.bloodMoonState(Map.of("rain", 1, "water", 1));
+            ui.bloodMoonState(Map.of("rain", 1, "water", 1));
+            assertTrue(ui.rainTakenOver());
+            verify(session, times(1)).resendWeather();
+            verify(session.camera(), times(1)).sendFog(MinezClientUi.BLOOD_WATER_FOG);
+
+            // 下雪处交还雨，水下雾不变；血月结束时全部交还。
+            ui.bloodMoonState(Map.of("rain", 0, "water", 1));
+            assertFalse(ui.rainTakenOver());
+            verify(session, times(2)).resendWeather();
+            ui.bloodMoonState(Map.of("rain", 0, "water", 0));
+            verify(session.camera(), times(1)).removeFog(MinezClientUi.BLOOD_WATER_FOG);
+        }
+    }
+
+    @Test
     void copiesToClipboardWithNewMods() throws Exception {
         try (MockedStatic<GameProtocol> protocol = mockStatic(GameProtocol.class)) {
             protocol.when(() -> GameProtocol.isNeteaseCodec(any())).thenReturn(true);

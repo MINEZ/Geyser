@@ -87,6 +87,10 @@ public final class NeteasePyRpc {
      */
     public static final String CLIENT_LOG_EVENT = "ClientLog";
     /**
+     * MINEZ 客户端模组的血月状态，命名空间与系统名同上，数据为 {@code {"rain": 1 或 0, "water": 1 或 0}}，见 {@code MinezClientUi#bloodMoonState}。
+     */
+    public static final String BLOOD_MOON_STATE_EVENT = "BloodMoonState";
+    /**
      * 服务器发给客户端模组的事件（客户端的 {@code ListenForEvent} 收到）的方法名。
      */
     public static final String MOD_EVENT_S2C = "ModEventS2C";
@@ -161,6 +165,14 @@ public final class NeteasePyRpc {
         public boolean isClientLog() {
             return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
                 && CLIENT_LOG_EVENT.equals(eventName);
+        }
+
+        /**
+         * @return 是否为 MINEZ 客户端模组发来的血月状态。只认 {@code ModEventC2S}，命名空间、系统名与事件名都须相符。
+         */
+        public boolean isBloodMoonState() {
+            return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
+                && BLOOD_MOON_STATE_EVENT.equals(eventName);
         }
 
         /**

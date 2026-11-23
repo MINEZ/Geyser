@@ -1579,12 +1579,14 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     }
 
     public void synchronizeTime() {
-        // MINEZ：血月期间基岩版的时间停在刚日落，见 MinezClientUi#bloodMoonHeldTime；停住时由这里逐刻检查，相同的时间不重发。
+        // MINEZ：血月期间基岩版的时间停在当天刚日落，见 MinezClientUi#bloodMoonHeldTime；停住时由这里逐刻检查，相同的时间不重发。
+        // 保留真实的日数（与下面相同按 8 天取模），月相与 Java 版一致；月亮的位置由客户端模组按真实时间转动。
         OptionalInt held = minezClientUi.bloodMoonHeldTime();
         setShouldClientTickClock(held.isEmpty() && clockRate == 1.0f);
         if (held.isPresent()) {
-            if (held.getAsInt() != minezHeldTime) {
-                minezHeldTime = held.getAsInt();
+            int heldTime = (int) (Math.abs(dayTimeTicks) % (24000 * 8) / 24000 * 24000) + held.getAsInt();
+            if (heldTime != minezHeldTime) {
+                minezHeldTime = heldTime;
                 SetTimePacket heldPacket = new SetTimePacket();
                 heldPacket.setTime(minezHeldTime);
                 sendUpstreamPacket(heldPacket);
@@ -2739,6 +2741,13 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     public void updateRain(float strength) {
         boolean wasRaining = isRaining();
         this.rainStrength = strength;
+        minezClientUi.rainChanged();
+        // MINEZ：血月期间由客户端模组画出血雨，不把下雨发给基岩版，见 MinezClientUi#bloodMoonState。
+        if (minezClientUi.rainTakenOver()) {
+            sendWeatherEvent(LevelEvent.STOP_RAINING);
+            sendWeatherEvent(LevelEvent.STOP_THUNDERSTORM);
+            return;
+        }
 
         LevelEventPacket rainPacket = new LevelEventPacket();
         rainPacket.setType(isRaining() ? LevelEvent.START_RAINING : LevelEvent.STOP_RAINING);
@@ -2772,6 +2781,9 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
      */
     public void updateThunder(float strength) {
         this.thunderStrength = strength;
+        if (minezClientUi.rainTakenOver()) {
+            return;
+        }
 
         // Do not send thunder packet if not raining
         // The bedrock client will start raining automatically when updating thunder strength
@@ -2785,6 +2797,22 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
         thunderPacket.setData((int) (strength * 65535));
         thunderPacket.setPosition(Vector3f.ZERO);
         sendUpstreamPacket(thunderPacket);
+    }
+
+    /**
+     * MINEZ：模组接管或交还雨时（MinezClientUi#bloodMoonState）调用：按接管与否重新发出下雨与雷暴。
+     */
+    public void resendWeather() {
+        updateRain(rainStrength);
+        updateThunder(thunderStrength);
+    }
+
+    private void sendWeatherEvent(LevelEvent type) {
+        LevelEventPacket packet = new LevelEventPacket();
+        packet.setType(type);
+        packet.setData(0);
+        packet.setPosition(Vector3f.ZERO);
+        sendUpstreamPacket(packet);
     }
 
     public boolean isRaining() {

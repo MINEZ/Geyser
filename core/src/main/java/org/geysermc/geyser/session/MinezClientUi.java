@@ -108,7 +108,7 @@ public final class MinezClientUi {
      * 血月时钟的状态：{"ticks": 总刻数, "partial": 不足一刻的部分, "rate": 速度（暂停时为 0）}，收到时钟的变化或模组就绪时发出，
      * 模组据此自行推算。血月时钟是服务器数据包中的世界时钟 {@link #BLOOD_MOON_CLOCK}（见 MINEZ/DenizenScripts 的 world/blood_moon.dsc）：
      * 以 48000 刻为周期，24000~47999 对应开启时的一整天，Java 版由数据包的时间线把天空与雾染红、由 Bridge 模组画出红月；
-     * 基岩版没有时间线，由模组（1.21.0 起）按同样的曲线改天空与雾的颜色、以天空盒画出红月。
+     * 基岩版没有时间线，由模组（1.21.0 起）按同样的曲线改天空与雾的颜色、画出红月与血雨（1.22.0 起，见 {@link #bloodMoonState}）。
      */
     public static final String BLOOD_MOON_EVENT = "BloodMoon";
     public static final Key BLOOD_MOON_CLOCK = Key.key("minez", "blood_moon");
@@ -143,6 +143,18 @@ public final class MinezClientUi {
      * 血月期间改用原版月亮（转到固定位置）、因而需要停住时间的模组的最低版本，见 {@link #bloodMoonHeldTime}。
      */
     public static final MinezClientMod.Version BLOOD_MOON_HOLD_MOD_VERSION = new MinezClientMod.Version(1, 21, 5);
+    /**
+     * Java 版的降雨强度：{"strength": 0~1}，有变化或模组就绪时发出（模组 {@link #BLOOD_RAIN_MOD_VERSION} 起），模组画血雨时按它的疏密。
+     */
+    public static final String RAIN_EVENT = "Rain";
+    /**
+     * 画血雨、血色水下雾的模组的最低版本，见 {@link #bloodMoonState}。
+     */
+    public static final MinezClientMod.Version BLOOD_RAIN_MOD_VERSION = new MinezClientMod.Version(1, 22, 0);
+    /**
+     * 血月期间压入的雾（模组的资源包中 fogs/minez_blood_water.json），水下变成血色。
+     */
+    public static final String BLOOD_WATER_FOG = "minez:blood_water";
     /**
      * 能复制到剪贴板的模组的最低版本。
      */
@@ -189,6 +201,11 @@ public final class MinezClientUi {
      * 收到 {@link #bloodMoonClock} 的时刻（System.nanoTime）。
      */
     private volatile long bloodMoonClockReceived;
+    /**
+     * 模组是否接管了雨（不把下雨发给基岩版，由模组画出血雨），是否压入了血色水下雾，见 {@link #bloodMoonState}。
+     */
+    private volatile boolean bloodRain;
+    private boolean bloodWater;
 
     MinezClientUi(GeyserSession session) {
         this.session = session;
@@ -236,6 +253,7 @@ public final class MinezClientUi {
             sendJavaOnlyEffects();
         }
         sendBloodMoon();
+        rainChanged();
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
     }
@@ -348,7 +366,7 @@ public final class MinezClientUi {
     /**
      * 血月期间基岩版的时间停在 {@link #BLOOD_MOON_HELD_TIME}（由 {@link GeyserSession#synchronizeTime} 发出）。基岩版的引擎夜里把雾
      * （地平线以下）、天空盒与云压到原来的约 6%（2026-11-23 测试服实测），网易的接口改不了，模组设的红色雾与天空盒红月几乎看不见；
-     * 停在刚日落时它们仍然明亮，天空的颜色仍由模组设置，原版月亮由模组转到固定位置。代价是基岩版这段时间的地面比 Java 版亮。
+     * 停在刚日落时它们仍然明亮，天空的颜色仍由模组设置，原版月亮由模组按真实时间转动，月相由 GeyserSession 保留真实的日数。代价是基岩版这段时间的地面比 Java 版亮。
      *
      * @return 要发给基岩版的时间；不在血月的这段时间、或模组版本不够时为空。
      */
@@ -362,6 +380,47 @@ public final class MinezClientUi {
         double ticks = state.totalTicks() + state.partialTick() + state.rate() * elapsed;
         double t = ticks - Math.floor(ticks / BLOOD_MOON_PERIOD) * BLOOD_MOON_PERIOD;
         return t >= BLOOD_MOON_HOLD_FROM && t < BLOOD_MOON_HOLD_UNTIL ? OptionalInt.of(BLOOD_MOON_HELD_TIME) : OptionalInt.empty();
+    }
+
+    /**
+     * 收到模组发来的血月状态（{@link NeteasePyRpc#BLOOD_MOON_STATE_EVENT}，{"rain": 1 或 0, "water": 1 或 0}）：
+     * rain 为 1 时不再把下雨发给基岩版（模组画出血雨；所在之处下雪时模组不接管，照常下雪），water 为 1 时压入 {@link #BLOOD_WATER_FOG}。
+     */
+    public void bloodMoonState(Map<String, Object> data) {
+        if (!ready) {
+            return;
+        }
+        boolean rain = data.get("rain") instanceof Number number && number.intValue() != 0;
+        boolean water = data.get("water") instanceof Number number && number.intValue() != 0;
+        if (water != bloodWater) {
+            bloodWater = water;
+            if (water) {
+                session.camera().sendFog(BLOOD_WATER_FOG);
+            } else {
+                session.camera().removeFog(BLOOD_WATER_FOG);
+            }
+        }
+        if (rain != bloodRain) {
+            bloodRain = rain;
+            session.resendWeather();
+        }
+    }
+
+    /**
+     * @return 是否由模组画出血雨，此时不把下雨发给基岩版（见 {@link GeyserSession#updateRain}）。
+     */
+    public boolean rainTakenOver() {
+        return ready && bloodRain;
+    }
+
+    /**
+     * Java 版的降雨强度变化时（{@link GeyserSession#updateRain}）与模组就绪时调用：告知模组，见 {@link #RAIN_EVENT}。
+     */
+    public void rainChanged() {
+        MinezClientMod.Version loaded = version;
+        if (ready && loaded != null && loaded.compareTo(BLOOD_RAIN_MOD_VERSION) >= 0) {
+            send(RAIN_EVENT, Map.of("strength", session.getRainStrength()));
+        }
     }
 
     private void sendBloodMoon() {
