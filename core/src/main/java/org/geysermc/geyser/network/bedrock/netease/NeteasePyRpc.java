@@ -91,6 +91,10 @@ public final class NeteasePyRpc {
      */
     public static final String BLOOD_MOON_STATE_EVENT = "BloodMoonState";
     /**
+     * MINEZ 客户端模组查询附近各列的高度与降水（血月期间画雨雪用），见 MinezClientUi#climateQuery。
+     */
+    public static final String CLIMATE_QUERY_EVENT = "ClimateQuery";
+    /**
      * 服务器发给客户端模组的事件（客户端的 {@code ListenForEvent} 收到）的方法名。
      */
     public static final String MOD_EVENT_S2C = "ModEventS2C";
@@ -173,6 +177,14 @@ public final class NeteasePyRpc {
         public boolean isBloodMoonState() {
             return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
                 && BLOOD_MOON_STATE_EVENT.equals(eventName);
+        }
+
+        /**
+         * @return 是否为 MINEZ 客户端模组发来的降水查询。只认 {@code ModEventC2S}，命名空间、系统名与事件名都须相符。
+         */
+        public boolean isClimateQuery() {
+            return MOD_EVENT_C2S.equals(method) && MENU_NAMESPACE.equals(namespace) && MENU_SYSTEM.equals(systemName)
+                && CLIMATE_QUERY_EVENT.equals(eventName);
         }
 
         /**

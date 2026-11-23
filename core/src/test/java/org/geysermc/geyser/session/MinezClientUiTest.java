@@ -189,6 +189,10 @@ class MinezClientUiTest {
             assertTrue(ui.bloodMoonHeldTime().isEmpty());
             ui.clocksUpdated(Map.of(3, new ClockNetworkState(6600L, 0.0F, 0.0F)));
             assertTrue(ui.bloodMoonHeldTime().isEmpty());
+            // 1.22.2 起不再停住（模组改为调亮雾的颜色）。
+            ui.clocksUpdated(Map.of(3, new ClockNetworkState(30600L, 0.0F, 0.0F)));
+            ui.clientReady("1.22.2");
+            assertTrue(ui.bloodMoonHeldTime().isEmpty());
         }
     }
 

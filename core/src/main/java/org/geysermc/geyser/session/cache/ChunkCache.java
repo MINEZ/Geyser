@@ -40,6 +40,10 @@ public class ChunkCache {
     @Getter
     private final boolean cache;
     private final Long2ObjectMap<GeyserChunk> chunks;
+    /**
+     * MINEZ：各区块的 Java 版生物群系（每个区段一个调色板），见 {@link #addToCache(int, int, DataPalette[], DataPalette[])}。
+     */
+    private final Long2ObjectMap<DataPalette[]> biomes;
 
     @Setter
     private int minY;
@@ -54,10 +58,18 @@ public class ChunkCache {
     public ChunkCache(GeyserSession session) {
         this.cache = !session.getGeyser().getWorldManager().hasOwnChunkCache(); // To prevent Spigot from initializing
         chunks = cache ? new Long2ObjectOpenHashMap<>() : null;
+        biomes = cache ? new Long2ObjectOpenHashMap<>() : null;
         this.ambientEffects = new AmbientBlockEffects(session, this);
     }
 
     public void addToCache(int x, int z, DataPalette[] chunks) {
+        addToCache(x, z, chunks, null);
+    }
+
+    /**
+     * MINEZ：同时记下各区段的 Java 版生物群系（4×4×4 一格），血月期间模组画雨雪时按它判断各处的降水，见 {@link #javaBiomeAt}。
+     */
+    public void addToCache(int x, int z, DataPalette[] chunks, DataPalette[] biomes) {
         if (!cache) {
             return;
         }
@@ -65,7 +77,44 @@ public class ChunkCache {
         long chunkPosition = MathUtils.chunkPositionToLong(x, z);
         GeyserChunk geyserChunk = GeyserChunk.from(chunks);
         this.chunks.put(chunkPosition, geyserChunk);
+        if (biomes != null) {
+            this.biomes.put(chunkPosition, biomes);
+        } else {
+            this.biomes.remove(chunkPosition);
+        }
         ambientEffects.onChunk(x, z, chunks, getChunkMinY());
+    }
+
+    /**
+     * MINEZ：某一位置的 Java 版生物群系的网络编号（区块不在缓存中、或没有记下生物群系时为 -1）。只能在会话的事件循环中调用。
+     */
+    public int javaBiomeAt(int x, int y, int z) {
+        if (!cache) {
+            return -1;
+        }
+        DataPalette[] sections = biomes.get(MathUtils.chunkPositionToLong(x >> 4, z >> 4));
+        if (sections == null || sections.length == 0) {
+            return -1;
+        }
+        int sectionY = Math.max(0, Math.min(sections.length - 1, (y >> 4) - getChunkMinY()));
+        DataPalette palette = sections[sectionY];
+        if (palette == null) {
+            return -1;
+        }
+        // 生物群系以 4×4×4 为一格，下标为 (y << 4) | (z << 2) | x（与 BiomeTranslator 相同）。
+        int index = (((y >> 2) & 3) << 4) | (((z >> 2) & 3) << 2) | ((x >> 2) & 3);
+        if (palette.getStorage() == null) {
+            // 单值调色板（整个区段同一个生物群系）没有存储。
+            return palette.getPalette().idToState(0);
+        }
+        return palette.getPalette().idToState(palette.getStorage().get(index));
+    }
+
+    /**
+     * MINEZ：区块是否在缓存中。
+     */
+    public boolean hasChunk(int chunkX, int chunkZ) {
+        return cache && chunks.containsKey(MathUtils.chunkPositionToLong(chunkX, chunkZ));
     }
 
     /**
@@ -133,6 +182,7 @@ public class ChunkCache {
 
         long chunkPosition = MathUtils.chunkPositionToLong(chunkX, chunkZ);
         chunks.remove(chunkPosition);
+        biomes.remove(chunkPosition);
         ambientEffects.onChunkRemoved(chunkX, chunkZ);
     }
 
@@ -147,6 +197,7 @@ public class ChunkCache {
         }
 
         chunks.clear();
+        biomes.clear();
         ambientEffects.clear();
     }
 

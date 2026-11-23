@@ -261,7 +261,7 @@ public class JavaLevelChunkWithLightTranslator extends PacketTranslator<Clientbo
             }
 
             if (!session.getErosionHandler().isActive()) {
-                session.getChunkCache().addToCache(packet.getX(), packet.getZ(), javaChunks);
+                session.getChunkCache().addToCache(packet.getX(), packet.getZ(), javaChunks, javaBiomes);
             }
 
             final int chunkBlockX = packet.getX() << 4;

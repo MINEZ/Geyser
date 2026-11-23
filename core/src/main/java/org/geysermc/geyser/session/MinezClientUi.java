@@ -144,6 +144,11 @@ public final class MinezClientUi {
      */
     public static final MinezClientMod.Version BLOOD_MOON_HOLD_MOD_VERSION = new MinezClientMod.Version(1, 21, 5);
     /**
+     * 不再停住时间的模组的最低版本（停在日落时基岩版看得到落日的余晖与白天的光照，模组改为调亮雾的颜色抵消夜里的变暗），
+     * 见 {@link #bloodMoonHeldTime}。
+     */
+    public static final MinezClientMod.Version BLOOD_MOON_NO_HOLD_MOD_VERSION = new MinezClientMod.Version(1, 22, 2);
+    /**
      * Java 版的降雨强度：{"strength": 0~1}，有变化或模组就绪时发出（模组 {@link #BLOOD_RAIN_MOD_VERSION} 起），模组画血雨时按它的疏密。
      */
     public static final String RAIN_EVENT = "Rain";
@@ -155,6 +160,14 @@ public final class MinezClientUi {
      * 血月期间压入的雾（模组的资源包中 fogs/minez_blood_water.json），水下变成血色。
      */
     public static final String BLOOD_WATER_FOG = "minez:blood_water";
+    /**
+     * 附近各列的高度与降水（{@link BloodMoonClimate#chunk}），每个区块一条，回应模组的 {@link NeteasePyRpc#CLIMATE_QUERY_EVENT}。
+     */
+    public static final String CLIMATE_EVENT = "Climate";
+    /**
+     * 一次查询最多的区块数。
+     */
+    private static final int CLIMATE_QUERY_MAX_CHUNKS = 16;
     /**
      * 能复制到剪贴板的模组的最低版本。
      */
@@ -373,7 +386,8 @@ public final class MinezClientUi {
     public OptionalInt bloodMoonHeldTime() {
         ClockNetworkState state = bloodMoonClock;
         MinezClientMod.Version loaded = version;
-        if (state == null || !ready || loaded == null || loaded.compareTo(BLOOD_MOON_HOLD_MOD_VERSION) < 0) {
+        if (state == null || !ready || loaded == null || loaded.compareTo(BLOOD_MOON_HOLD_MOD_VERSION) < 0
+            || loaded.compareTo(BLOOD_MOON_NO_HOLD_MOD_VERSION) >= 0) {
             return OptionalInt.empty();
         }
         double elapsed = (System.nanoTime() - bloodMoonClockReceived) / 50_000_000.0;
@@ -384,7 +398,7 @@ public final class MinezClientUi {
 
     /**
      * 收到模组发来的血月状态（{@link NeteasePyRpc#BLOOD_MOON_STATE_EVENT}，{"rain": 1 或 0, "water": 1 或 0}）：
-     * rain 为 1 时不再把下雨发给基岩版（模组画出血雨；所在之处下雪时模组不接管，照常下雪），water 为 1 时压入 {@link #BLOOD_WATER_FOG}。
+     * rain 为 1 时不再把下雨发给基岩版（模组按 {@link #climateQuery} 逐列画出血雨与雪），water 为 1 时压入 {@link #BLOOD_WATER_FOG}。
      */
     public void bloodMoonState(Map<String, Object> data) {
         if (!ready) {
@@ -404,6 +418,31 @@ public final class MinezClientUi {
             bloodRain = rain;
             session.resendWeather();
         }
+    }
+
+    /**
+     * 收到模组的降水查询（{@link NeteasePyRpc#CLIMATE_QUERY_EVENT}，{"chunks": [[区块 x, 区块 z], …], "y": 摄像机的方块高度}）：
+     * 在会话的事件循环中逐个区块算出各列的高度与降水，以 {@link #CLIMATE_EVENT} 发回；不在缓存中的区块不回。
+     */
+    public void climateQuery(Map<String, Object> data) {
+        if (!ready || !(data.get("chunks") instanceof List<?> chunks) || !(data.get("y") instanceof Number y)) {
+            return;
+        }
+        List<int[]> positions = new ArrayList<>();
+        for (Object chunk : chunks) {
+            if (positions.size() >= CLIMATE_QUERY_MAX_CHUNKS) {
+                break;
+            }
+            if (chunk instanceof List<?> pair && pair.size() == 2 && pair.get(0) instanceof Number x && pair.get(1) instanceof Number z) {
+                positions.add(new int[] {x.intValue(), z.intValue()});
+            }
+        }
+        int cameraY = y.intValue();
+        session.ensureInEventLoop(() -> {
+            for (int[] position : positions) {
+                BloodMoonClimate.chunk(session, position[0], position[1], cameraY).ifPresent(result -> send(CLIMATE_EVENT, result));
+            }
+        });
     }
 
     /**
