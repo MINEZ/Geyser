@@ -113,7 +113,13 @@ public final class BloodMoonClimate {
                 int height = height(cache, blockX, blockZ, minY, maxY);
                 heights.add(height);
                 int y = Math.min(maxY, Math.max(height, cameraY));
-                climate.append(precipitation(biomes, cache.javaBiomeAt(blockX, y, blockZ), y));
+                try {
+                    climate.append(precipitation(biomes, cache.javaBiomeAt(blockX, y, blockZ), y));
+                } catch (IllegalStateException e) {
+                    // 切换服务器时，新服务器的生物群系注册表在配置阶段尚未冻结，不能读取；缓存中还是上一台服务器的区块，与之对不上。
+                    // 与区块不在缓存中一样不回，模组之后会再查询。
+                    return Optional.empty();
+                }
             }
         }
         Map<String, Object> result = new HashMap<>();
