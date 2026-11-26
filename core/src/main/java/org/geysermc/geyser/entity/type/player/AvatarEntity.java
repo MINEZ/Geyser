@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import org.jetbrains.annotations.ApiStatus;
 
 public abstract class AvatarEntity extends LivingEntity implements GeyserAvatarEntity {
@@ -81,6 +82,13 @@ public abstract class AvatarEntity extends LivingEntity implements GeyserAvatarE
     @Setter
     @Nullable
     Map<TextureType, Texture> textures;
+
+    /**
+     * MINEZ：皮肤的主人，即档案中的 UUID。玩家实体就是自己（为 null，取 {@link #uuid}）；假人（mannequin）的实体 UUID 是随机的，
+     * 档案中没有材质属性时须按档案中的玩家找皮肤（基岩版玩家的皮肤、经 API 提供的皮肤），见 {@link #skinUuid()}。
+     */
+    @Nullable
+    private volatile UUID skinOwner;
 
     private String cachedScore = "";
     private boolean scoreVisible = true;
@@ -210,10 +218,34 @@ public abstract class AvatarEntity extends LivingEntity implements GeyserAvatarE
     }
 
     public void setSkin(ResolvableProfile profile) {
-        SkinManager.resolveProfile(profile).thenAccept(resolved -> setSkin(resolved, null));
+        SkinManager.resolveProfile(profile).thenAccept(resolved -> {
+            // MINEZ：皮肤的主人换了时，即使两边都没有材质属性也要重新取皮肤。
+            UUID owner = resolved.getId();
+            if (owner != null && owner.getMostSignificantBits() == 0 && owner.getLeastSignificantBits() == 0) {
+                owner = null;
+            }
+            boolean ownerChanged = !Objects.equals(owner, skinOwner);
+            skinOwner = owner;
+            setSkin(resolved, null, ownerChanged);
+        });
+    }
+
+    /**
+     * MINEZ：找皮肤所用的 UUID：档案中的玩家（假人），没有时为实体自己的 UUID。
+     */
+    public UUID skinUuid() {
+        UUID owner = skinOwner;
+        return owner == null ? uuid : owner;
     }
 
     public void setSkin(GameProfile profile, @Nullable Runnable after) {
+        setSkin(profile, after, false);
+    }
+
+    /**
+     * @param force MINEZ：材质与之前相同时也重新取皮肤（皮肤的主人换了）。
+     */
+    private void setSkin(GameProfile profile, @Nullable Runnable after, boolean force) {
         Map<TextureType, Texture> textures;
         try {
             textures = profile.getTextures(false);
@@ -221,11 +253,15 @@ public abstract class AvatarEntity extends LivingEntity implements GeyserAvatarE
             GeyserImpl.getInstance().getLogger().debug("Error loading textures for profile (%s)! Got: %s", profile, e);
             textures = null;
         }
-        setSkin(textures, after);
+        setSkin(textures, after, force);
     }
 
     public void setSkin(@Nullable Map<TextureType, Texture> textures, @Nullable Runnable after) {
-        if (Objects.equals(textures, this.textures)) {
+        setSkin(textures, after, false);
+    }
+
+    private void setSkin(@Nullable Map<TextureType, Texture> textures, @Nullable Runnable after, boolean force) {
+        if (!force && Objects.equals(textures, this.textures)) {
             return;
         }
 
@@ -371,7 +407,7 @@ public abstract class AvatarEntity extends LivingEntity implements GeyserAvatarE
             }
         }
 
-        SkinData fallback = SkinProvider.determineFallbackSkinData(this.uuid);
+        SkinData fallback = SkinProvider.determineFallbackSkinData(skinUuid());
         return fallback.skin().textureUrl();
     }
 

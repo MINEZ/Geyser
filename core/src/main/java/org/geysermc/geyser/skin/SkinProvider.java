@@ -283,7 +283,8 @@ public class SkinProvider {
         SkinManager.GameProfileData data = SkinManager.GameProfileData.from(entity);
         if (data == null) {
             // This player likely does not have a textures property
-            return CompletableFuture.completedFuture(determineFallbackSkinData(entity.uuid()));
+            // MINEZ：按皮肤的主人找（假人的实体 UUID 是随机的），见 AvatarEntity#skinUuid。
+            return CompletableFuture.completedFuture(determineFallbackSkinData(entity.skinUuid()));
         }
 
         return requestSkinAndCape(entity.uuid(), data.skinUrl(), data.capeUrl())

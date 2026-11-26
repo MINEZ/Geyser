@@ -133,7 +133,7 @@ public class SkinManager {
             entity.uuid(),
             entity.getUsername(),
             entity.geyserId(),
-            getSkin(session, skin.textureUrl(), skin, cape, geometry, engineVersionFor(entity.uuid(), geometry))
+            getSkin(session, skin.textureUrl(), skin, cape, geometry, engineVersionFor(entity.skinUuid(), geometry))
         );
 
         // Slight delay ensures skins are actually shown

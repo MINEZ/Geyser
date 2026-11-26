@@ -77,6 +77,8 @@ import org.geysermc.geyser.command.CommandRegistry;
 import org.geysermc.geyser.configuration.GeyserConfig;
 import org.geysermc.geyser.configuration.GeyserPluginConfig;
 import org.geysermc.geyser.erosion.UnixSocketClientListener;
+import org.geysermc.geyser.entity.type.Entity;
+import org.geysermc.geyser.entity.type.player.MannequinEntity;
 import org.geysermc.geyser.entity.type.player.PlayerEntity;
 import org.geysermc.geyser.event.GeyserEventBus;
 import org.geysermc.geyser.event.type.SessionDisconnectEventImpl;
@@ -724,11 +726,17 @@ public class GeyserImpl implements GeyserApi, EventRegistrar {
             return;
         }
         // 已经看到这名玩家的基岩版玩家随即更新：重新取皮肤，档案中没有材质属性时用的正是刚提供的皮肤。
+        // 这名玩家的离线假人（mannequin，档案中是这名玩家）同样更新，见 AvatarEntity#skinUuid。
         for (GeyserSession session : sessionManager.getAllSessions()) {
             session.ensureInEventLoop(() -> {
                 PlayerEntity entity = session.getEntityCache().getPlayerEntity(uuid);
                 if (entity != null && entity.getTextures() == null) {
                     SkinManager.requestAndHandleSkinAndCape(entity, session, null);
+                }
+                for (Entity other : session.getEntityCache().getEntitiesUnsafe().values()) {
+                    if (other instanceof MannequinEntity mannequin && mannequin.getTextures() == null && uuid.equals(mannequin.skinUuid())) {
+                        SkinManager.requestAndHandleSkinAndCape(mannequin, session, null);
+                    }
                 }
             });
         }
