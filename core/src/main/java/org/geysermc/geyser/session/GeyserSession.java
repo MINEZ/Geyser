@@ -2671,7 +2671,9 @@ public class GeyserSession implements GeyserConnection, GeyserCommandSource, Jav
     private int getRenderDistance() {
         if (clientRenderDistance != -1) {
             // The client has sent a render distance
-            return clientRenderDistance;
+            // MINEZ：基岩版请求的区块半径可达 128 及以上，而 Java 版客户端设置包中的视距是一个字节，128 会溢出成 -128，
+            // 服务器以 invalid view distance 断开连接（2026-11-26 一名基岩版新玩家因此进不了服）。Java 版的视距最大为 32，限制在 2~32。
+            return Math.max(2, Math.min(clientRenderDistance, 32));
         } else if (serverRenderDistance != -1) {
             // only known once ClientboundLoginPacket is received
             return serverRenderDistance;
