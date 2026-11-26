@@ -76,7 +76,16 @@ public class PreferencesCache {
      */
     public void updateShowCoordinates() {
         allowShowCoordinates = !session.isReducedDebugInfo() && session.getGeyser().config().gameplay().showCoordinates();
-        session.sendGameRule("showcoordinates", allowShowCoordinates && prefersShowCoordinates);
+        session.sendGameRule("showcoordinates", isShowingCoordinates());
+        // MINEZ：模组接管聊天栏时原版的坐标一并被隐藏，由模组画出，同样告知它。
+        session.getMinezClientUi().coordinatesChanged();
+    }
+
+    /**
+     * MINEZ：发给客户端的游戏规则 showcoordinates 的值，即客户端是否显示坐标。
+     */
+    public boolean isShowingCoordinates() {
+        return allowShowCoordinates && prefersShowCoordinates;
     }
 
     /**

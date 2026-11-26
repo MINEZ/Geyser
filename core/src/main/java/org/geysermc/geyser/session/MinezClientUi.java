@@ -153,6 +153,16 @@ public final class MinezClientUi {
      */
     public static final String RAIN_EVENT = "Rain";
     /**
+     * 是否显示左上角的坐标：{"show": 1 或 0}，与发给客户端的游戏规则 showcoordinates 相同（服务器设置中的“显示坐标”，且没有被
+     * reduced debug info 或配置禁止，见 {@link org.geysermc.geyser.session.cache.PreferencesCache#updateShowCoordinates}），有变化或模组就绪时发出
+     * （模组 {@link #COORDINATES_MOD_VERSION} 起）。模组接管聊天栏时把原版左上角的 chat_stack 整个隐藏，坐标在其中，一并被藏，由模组照原版画出。
+     */
+    public static final String COORDINATES_EVENT = "Coordinates";
+    /**
+     * 自己画左上角坐标的模组的最低版本，见 {@link #COORDINATES_EVENT}。
+     */
+    public static final MinezClientMod.Version COORDINATES_MOD_VERSION = new MinezClientMod.Version(1, 22, 13);
+    /**
      * 画血雨、血色水下雾的模组的最低版本，见 {@link #bloodMoonState}。
      */
     public static final MinezClientMod.Version BLOOD_RAIN_MOD_VERSION = new MinezClientMod.Version(1, 22, 0);
@@ -267,6 +277,7 @@ public final class MinezClientUi {
         }
         sendBloodMoon();
         rainChanged();
+        coordinatesChanged();
         session.getGeyser().getLogger().debug("Sent the client config to MINEZ's client mod of " + session.bedrockUsername()
             + " with " + SpriteGlyphs.animated().size() + " animated sprites");
     }
@@ -459,6 +470,16 @@ public final class MinezClientUi {
         MinezClientMod.Version loaded = version;
         if (ready && loaded != null && loaded.compareTo(BLOOD_RAIN_MOD_VERSION) >= 0) {
             send(RAIN_EVENT, Map.of("strength", session.getRainStrength()));
+        }
+    }
+
+    /**
+     * 是否显示坐标有变化时（{@link org.geysermc.geyser.session.cache.PreferencesCache#updateShowCoordinates}）与模组就绪时调用：告知模组，见 {@link #COORDINATES_EVENT}。
+     */
+    public void coordinatesChanged() {
+        MinezClientMod.Version loaded = version;
+        if (ready && loaded != null && loaded.compareTo(COORDINATES_MOD_VERSION) >= 0) {
+            send(COORDINATES_EVENT, Map.of("show", session.getPreferencesCache().isShowingCoordinates() ? 1 : 0));
         }
     }
 
