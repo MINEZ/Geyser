@@ -83,6 +83,10 @@ public class HappyGhastVehicleComponent extends VehicleComponent<HappyGhastEntit
         if (!vehicle.shouldSimulateMovement()) {
             return;
         }
+        // MINEZ：载具所在的区块还没收到时不模拟，见 isInLoadedChunk。
+        if (!isInLoadedChunk()) {
+            return;
+        }
 
         VehicleContext ctx = new VehicleContext();
         ctx.loadSurroundingBlocks();

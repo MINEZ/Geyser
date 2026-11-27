@@ -64,6 +64,10 @@ public class BoatVehicleComponent extends VehicleComponent<BoatEntity> {
         if (!vehicle.shouldSimulateMovement()) {
             return;
         }
+        // MINEZ：载具所在的区块还没收到时不模拟，见 isInLoadedChunk。
+        if (!isInLoadedChunk()) {
+            return;
+        }
 
         final VehicleContext context = new VehicleContext();
         context.loadSurroundingBlocks();

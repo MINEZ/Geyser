@@ -170,10 +170,25 @@ public class VehicleComponent<T extends Entity & ClientVehicle> {
     }
 
     /**
+     * MINEZ：载具所在的区块是否已在区块缓存中。区块还没收到时（例如船跑得比区块的发送快，或后端没有接受载具的移动，
+     * 两边的位置分开），缓存中的方块都是空气，模拟会让载具按“在空中”受重力一直下坠：基岩版玩家看到连人带船掉进虚空，
+     * 下船或后端纠正时又被拉回服务器上的位置。Java 版客户端在未加载的区块中同样不移动。
+     */
+    protected boolean isInLoadedChunk() {
+        int blockX = (int) Math.floor(boundingBox.getMiddleX());
+        int blockZ = (int) Math.floor(boundingBox.getMiddleZ());
+        return vehicle.getSession().getChunkCache().hasChunk(blockX >> 4, blockZ >> 4);
+    }
+
+    /**
      * Called every session tick while the player is mounted on the vehicle.
      */
     public void tickVehicle() {
         if (!vehicle.shouldSimulateMovement()) {
+            return;
+        }
+        // MINEZ：载具所在的区块还没收到时不模拟，见 isInLoadedChunk。
+        if (!isInLoadedChunk()) {
             return;
         }
 
